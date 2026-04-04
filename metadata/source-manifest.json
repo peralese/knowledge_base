@@ -1,0 +1,19 @@
+{
+  "manifest_version": "0.1.0",
+  "last_updated": "2026-04-03",
+  "description": "Minimal source manifest for tracking raw source notes and preserving lineage.",
+  "sources": [
+    {
+      "source_id": "src-aws-patch-manager-basics",
+      "title": "AWS Patch Manager Basics",
+      "path": "raw/articles/aws-patch-manager-basics.md",
+      "status": "reviewed"
+    },
+    {
+      "source_id": "src-aws-inspector-overview",
+      "title": "AWS Inspector Overview",
+      "path": "raw/articles/aws-inspector-overview.md",
+      "status": "reviewed"
+    }
+  ]
+}
