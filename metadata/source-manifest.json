@@ -26,6 +26,66 @@
       "canonical_url": "https://docs.aws.amazon.com/inspector/latest/user/what-is-inspector.html",
       "input_path": "",
       "status": "reviewed"
+    },
+    {
+      "source_id": "SRC-20260403-0001",
+      "title": "Patch Manager Smoke Test",
+      "filename": "patch-manager-smoke-test.md",
+      "path": "raw/notes/patch-manager-smoke-test.md",
+      "source_type": "note",
+      "origin": "manual-entry",
+      "date_ingested": "2026-04-03",
+      "canonical_url": "",
+      "input_path": "",
+      "status": "raw"
+    },
+    {
+      "source_id": "SRC-20260403-0002",
+      "title": "AWS Inspector Smoke Test",
+      "filename": "aws-inspector-smoke-test.md",
+      "path": "raw/articles/aws-inspector-smoke-test.md",
+      "source_type": "article",
+      "origin": "local-file",
+      "date_ingested": "2026-04-03",
+      "canonical_url": "",
+      "input_path": "tmp/sample-article.txt",
+      "status": "raw"
+    },
+    {
+      "source_id": "SRC-20260403-0003",
+      "title": "Existing Markdown Smoke Test",
+      "filename": "existing-markdown-smoke-test.md",
+      "path": "raw/notes/existing-markdown-smoke-test.md",
+      "source_type": "note",
+      "origin": "local-markdown",
+      "date_ingested": "2026-04-03",
+      "canonical_url": "",
+      "input_path": "tmp/sample-note.md",
+      "status": "raw"
+    },
+    {
+      "source_id": "SRC-20260403-0004",
+      "title": "Web Article Smoke Test",
+      "filename": "web-article-smoke-test.md",
+      "path": "raw/articles/web-article-smoke-test.md",
+      "source_type": "article",
+      "origin": "web",
+      "date_ingested": "2026-04-03",
+      "canonical_url": "https://example.com/aws-security-article",
+      "input_path": "",
+      "status": "raw"
+    },
+    {
+      "source_id": "SRC-20260403-0005",
+      "title": "PDF Placeholder Smoke Test",
+      "filename": "pdf-placeholder-smoke-test.md",
+      "path": "raw/pdfs/pdf-placeholder-smoke-test.md",
+      "source_type": "pdf",
+      "origin": "local-file",
+      "date_ingested": "2026-04-03",
+      "canonical_url": "",
+      "input_path": "tmp/example.pdf",
+      "status": "raw"
     }
   ]
 }
