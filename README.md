@@ -139,6 +139,188 @@ git commit -m "Initialize local-first knowledge base MVP"
 
 If you are on a shell that does not use `source`, activate the virtual environment using the equivalent command for your shell.
 
+## Phase 2 Ingestion Workflow
+
+Phase 2 adds the first ingestion script: `scripts/ingest.py`. Its job is to take a source input, normalize it into a standardized raw markdown note, place that note in the correct `raw/` subfolder, and update `metadata/source-manifest.json`.
+
+This phase is intentionally narrow. It is only about ingestion and provenance capture. It does not compile notes, answer queries, generate reports, summarize with an LLM, scrape websites, or parse PDFs beyond creating a placeholder note.
+
+### What the ingestion script does
+
+The ingestion script:
+
+- accepts source input from a file or direct CLI text
+- normalizes the content into a raw markdown note
+- adds the standard raw-note YAML frontmatter
+- chooses the destination folder based on `source_type`
+- generates a safe slug-based filename from the title
+- creates or updates a manifest entry in `metadata/source-manifest.json`
+- refuses to overwrite an existing note unless `--force` is explicitly passed
+
+### Supported input modes
+
+The script supports these modes in Phase 2:
+
+1. Plain text file input
+2. Existing markdown file input
+3. Direct text passed on the command line
+4. Copied web article content plus URL metadata
+5. PDF placeholder ingestion without PDF parsing
+
+### Destination behavior
+
+The destination folder is selected from `source_type`:
+
+- `article` -> `raw/articles/`
+- `note` -> `raw/notes/`
+- `pdf` -> `raw/pdfs/`
+- anything else -> `raw/inbox/`
+
+### Example commands
+
+Ingest a plain text file:
+
+```bash
+python3 scripts/ingest.py \
+  --input-file ./inbox/example.txt \
+  --title "Example Note" \
+  --source-type note \
+  --origin local-file
+```
+
+Ingest an existing markdown file:
+
+```bash
+python3 scripts/ingest.py \
+  --input-file ./inbox/example.md \
+  --title "Existing Markdown Note" \
+  --source-type article \
+  --origin local-markdown
+```
+
+Ingest direct text from the CLI:
+
+```bash
+python3 scripts/ingest.py \
+  --text "AWS Patch Manager automates patching..." \
+  --title "Patch Manager Snippet" \
+  --source-type note \
+  --origin manual-entry
+```
+
+Ingest copied web article content with URL metadata:
+
+```bash
+python3 scripts/ingest.py \
+  --input-file ./inbox/article.txt \
+  --title "Interesting Article" \
+  --source-type article \
+  --origin web \
+  --canonical-url "https://example.com/article"
+```
+
+Create a PDF placeholder note:
+
+```bash
+python3 scripts/ingest.py \
+  --input-file ./inbox/reference.pdf \
+  --title "Reference PDF" \
+  --source-type pdf \
+  --origin local-file
+```
+
+Overwrite an existing ingested note only when explicit replacement is intended:
+
+```bash
+python3 scripts/ingest.py \
+  --input-file ./inbox/example.txt \
+  --title "Example Note" \
+  --source-type note \
+  --origin local-file \
+  --force
+```
+
+### What gets created
+
+For each ingestion run, the script creates or updates:
+
+- one raw markdown note in the correct `raw/` subfolder
+- one manifest entry in `metadata/source-manifest.json`
+
+Each raw note includes:
+
+- standard YAML frontmatter
+- normalized source content
+- a simple lineage section
+- a generated `source_id`
+
+Each manifest entry includes at least:
+
+- `source_id`
+- `title`
+- `filename`
+- `path`
+- `source_type`
+- `origin`
+- `date_ingested`
+- `canonical_url`
+- `input_path`
+- `status`
+
+### Note format created by ingestion
+
+The ingested raw note body uses this structure:
+
+```md
+# Overview
+
+Brief description of what this source is and why it matters.
+
+# Source Content
+
+[normalized ingested content]
+
+# Key Points
+
+- 
+
+# Notes
+
+# Lineage
+
+- Ingested via: scripts/ingest.py
+- Manifest entry:
+- Source path:
+- Canonical URL:
+```
+
+### Manifest and source IDs
+
+The ingestion script updates `metadata/source-manifest.json` in place and avoids duplicate entries for the same output path. For newly ingested notes, it generates source IDs in a simple sequential format such as:
+
+```text
+SRC-20260403-0001
+```
+
+If a note already has a manifest entry for the same output path, the script reuses that `source_id` instead of creating a duplicate.
+
+### What is out of scope in Phase 2
+
+This phase does not include:
+
+- note compilation
+- querying
+- report or answer generation
+- browser automation
+- website scraping frameworks
+- PDF parsing or OCR
+- LLM summarization
+- automatic tagging
+- concept extraction
+- raw-note mutation beyond explicit `--force` replacement during ingestion
+
+The purpose of Phase 2 is to make ingestion reliable, inspectable, and safe to re-run without introducing hidden automation.
+
 ## Included MVP Files
 
 The repository includes:
