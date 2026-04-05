@@ -468,6 +468,157 @@ This phase does not include:
 
 The purpose of Phase 3 is to create a practical bridge between raw notes and later synthesis workflows while keeping compilation deterministic, readable, and easy to inspect.
 
+## Phase 4 Controlled Synthesis Workflow
+
+Phase 4 adds the first controlled synthesis script: `scripts/apply_synthesis.py`. In this project, controlled synthesis means taking a prompt-pack created in Phase 3, supplying synthesized markdown yourself, and saving the result as a durable repository artifact without requiring direct model execution inside the repo.
+
+This keeps synthesis explicit and user-invoked:
+
+- Phase 3 creates scaffold notes and/or prompt-packs
+- Phase 4 applies synthesized model output into durable repository artifacts
+- the user decides when synthesis happens and what content gets written
+
+This phase is intentionally safe. It does not require a live LLM API, does not autonomously call remote services, and does not rewrite raw notes.
+
+### What the synthesis application script does
+
+The script:
+
+- reads a Phase 3 prompt-pack from `metadata/prompts/`
+- extracts simple metadata such as the requested title, note category, and source note names
+- accepts synthesized markdown from a file or direct CLI text
+- writes the result to `compiled/` or `outputs/`
+- injects or repairs required frontmatter fields when they are missing
+- preserves the synthesized markdown body as much as possible
+- refuses to overwrite an existing artifact unless `--force` is explicitly passed
+
+### Supported input modes
+
+Phase 4 supports these user-controlled input modes:
+
+1. Synthesized markdown from an input file
+
+```bash
+python3 scripts/apply_synthesis.py \
+  --prompt-pack metadata/prompts/compile-aws-patching-and-vulnerability-management-overview.md \
+  --synthesized-file ./tmp/synthesized-note.md
+```
+
+2. Synthesized markdown passed directly on the command line
+
+```bash
+python3 scripts/apply_synthesis.py \
+  --prompt-pack metadata/prompts/compile-aws-patching-and-vulnerability-management-overview.md \
+  --text "# Summary\n\nAWS patching and vulnerability management work together..."
+```
+
+3. Reserved placeholder adapter flag
+
+The script includes an optional `--adapter` flag as a future-friendly placeholder, but Phase 4 does not implement direct model execution yet. If the flag is used, the script fails clearly instead of attempting hidden automation.
+
+### Output routing
+
+The default output type is `compiled`.
+
+If `--output-type compiled` is used:
+
+- the script saves to the appropriate `compiled/` subfolder when the prompt-pack category is clear
+- if the category is unclear, it defaults to `compiled/topics/`
+
+If `--output-type answer` is used:
+
+- the script saves to `outputs/answers/`
+
+If `--output-type report` is used:
+
+- the script saves to `outputs/reports/`
+
+### Example commands
+
+Apply synthesized markdown from a file into a compiled note:
+
+```bash
+python3 scripts/apply_synthesis.py \
+  --prompt-pack metadata/prompts/compile-aws-patching-strategy.md \
+  --synthesized-file ./tmp/synthesized-note.md
+```
+
+Apply synthesized markdown from direct CLI text into an answer artifact:
+
+```bash
+python3 scripts/apply_synthesis.py \
+  --prompt-pack metadata/prompts/compile-aws-patching-strategy.md \
+  --output-type answer \
+  --text "# Prompt\n\nWhat is the relationship between Patch Manager and Inspector?\n\n# Answer\n\nPatch Manager executes remediation while Inspector helps identify and prioritize it."
+```
+
+Override the title when saving:
+
+```bash
+python3 scripts/apply_synthesis.py \
+  --prompt-pack metadata/prompts/compile-aws-patching-strategy.md \
+  --title "AWS Patching Strategy Executive Summary" \
+  --output-type report \
+  --synthesized-file ./tmp/report.md
+```
+
+Overwrite an existing artifact only when explicit replacement is intended:
+
+```bash
+python3 scripts/apply_synthesis.py \
+  --prompt-pack metadata/prompts/compile-aws-patching-strategy.md \
+  --synthesized-file ./tmp/synthesized-note.md \
+  --force
+```
+
+### What gets created
+
+Depending on `--output-type`, the script creates one of the following:
+
+- a compiled note under `compiled/source_summaries/`, `compiled/concepts/`, or `compiled/topics/`
+- an answer artifact under `outputs/answers/`
+- a report artifact under `outputs/reports/`
+
+The output filename is derived from the resolved title using a lowercase hyphenated slug.
+
+For compiled outputs, the script ensures frontmatter includes at least:
+
+- `title`
+- `note_type`
+- `compiled_from`
+- `date_compiled`
+- `topics`
+- `tags`
+- `confidence`
+- `generation_method`
+
+For answer or report outputs, the script ensures frontmatter includes at least:
+
+- `title`
+- `output_type`
+- `generated_from_query`
+- `generated_on`
+- `sources_used`
+- `compiled_notes_used`
+- `generation_method`
+
+In this phase, `generation_method` defaults to `manual_paste` for file-based or CLI-text synthesis input.
+
+### What remains out of scope in Phase 4
+
+This phase does not include:
+
+- direct live model invocation as the default workflow
+- repo-wide autonomous synthesis
+- querying workflows
+- linting or automated repo-wide rewrites
+- embeddings or vector search
+- graph databases
+- web frameworks or cloud services
+- autonomous multi-step orchestration
+
+The purpose of Phase 4 is to create a practical bridge between prompt-packs and durable markdown artifacts while keeping synthesis explicit, user-controlled, and easy to inspect.
+
 ## Included MVP Files
 
 The repository includes:
