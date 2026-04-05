@@ -1,1 +1,10 @@
-{}
+{
+  "userIgnoreFilters": [
+    "raw/archive/",
+    "tmp/",
+    "templates/",
+    "tests/",
+    "scripts/",
+    "readme.md"
+  ]
+}

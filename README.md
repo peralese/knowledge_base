@@ -487,10 +487,25 @@ The script:
 - reads a Phase 3 prompt-pack from `metadata/prompts/`
 - extracts simple metadata such as the requested title, note category, and source note names
 - accepts synthesized markdown from a file or direct CLI text
+- sanitizes synthesized markdown before writing it to disk
 - writes the result to `compiled/` or `outputs/`
 - injects or repairs required frontmatter fields when they are missing
 - preserves the synthesized markdown body as much as possible
 - refuses to overwrite an existing artifact unless `--force` is explicitly passed
+
+### Sanitization behavior
+
+Before Phase 4 writes synthesized output, it applies a conservative sanitization pass intended to keep the repository and Obsidian graph clean.
+
+The sanitization layer:
+
+- removes malformed citation placeholders such as `[oaicite:...]` and `:contentReference[...]`
+- filters suspicious shell fragments such as `$(...)` when they appear as stray prose
+- filters suspicious path-like fragments such as `github/repo/blob/main/...`
+- drops symbol-heavy junk lines that look like regex or script debris rather than knowledge content
+- preserves valid intended wikilinks such as `[[real-source-note]]`
+
+The goal is not to rewrite valid technical content. It is to prevent malformed synthesized output from creating accidental graph noise, junk note names, or meaningless path-like nodes in durable artifacts.
 
 ### Supported input modes
 

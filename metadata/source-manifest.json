@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.2.0",
-  "last_updated": "2026-04-04",
+  "last_updated": "2026-04-05",
   "description": "Source manifest for tracking ingested raw notes and preserving lineage.",
   "sources": [
     {
@@ -97,6 +97,42 @@
       "date_ingested": "2026-04-04",
       "canonical_url": "",
       "input_path": "raw/inbox/Google-Just-Released-Gemma-4.md",
+      "status": "raw"
+    },
+    {
+      "source_id": "SRC-20260405-0001",
+      "title": "Auto Research",
+      "filename": "auto-research.md",
+      "path": "raw/articles/auto-research.md",
+      "source_type": "article",
+      "origin": "web",
+      "date_ingested": "2026-04-05",
+      "canonical_url": "",
+      "input_path": "raw/inbox/auto_research.md",
+      "status": "raw"
+    },
+    {
+      "source_id": "SRC-20260405-0002",
+      "title": "Open Claw Security",
+      "filename": "open-claw-security.md",
+      "path": "raw/articles/open-claw-security.md",
+      "source_type": "article",
+      "origin": "web",
+      "date_ingested": "2026-04-05",
+      "canonical_url": "",
+      "input_path": "raw/inbox/open_claw_security.md",
+      "status": "raw"
+    },
+    {
+      "source_id": "SRC-20260405-0003",
+      "title": "Openclaw Security Hardening Guide",
+      "filename": "openclaw-security-hardening-guide.md",
+      "path": "raw/articles/openclaw-security-hardening-guide.md",
+      "source_type": "article",
+      "origin": "web",
+      "date_ingested": "2026-04-05",
+      "canonical_url": "",
+      "input_path": "raw/inbox/openclaw_security_hardening_guide.md",
       "status": "raw"
     }
   ]

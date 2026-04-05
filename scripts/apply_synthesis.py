@@ -22,6 +22,30 @@ OUTPUT_DESTINATIONS = {
     "report": Path("outputs/reports"),
 }
 
+CITATION_ARTIFACT_PATTERN = re.compile(r":contentReference\[[^\]]*\]|\[oaicite:[^\]]*\]")
+COMMAND_SUBSTITUTION_PATTERN = re.compile(r"`?\$\([^)\n]*\)`?")
+GITHUB_BLOB_PATTERN = re.compile(r"\b[\w.-]+/[\w.-]+/blob/[\w./-]+\b")
+WIKILINK_PATTERN = re.compile(r"\[\[([^\]]+)\]\]")
+SUSPICIOUS_FILE_EXTENSIONS = {
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".svg",
+    ".webp",
+    ".pdf",
+    ".js",
+    ".ts",
+    ".sh",
+    ".bash",
+    ".zsh",
+    ".json",
+    ".yaml",
+    ".yml",
+    ".toml",
+    ".mdx",
+}
+
 
 @dataclass
 class PromptPackMetadata:
@@ -51,10 +75,14 @@ def slugify_title(title: str) -> str:
     return slug or "untitled-note"
 
 
-def normalize_text(content: str) -> str:
+def normalize_line_endings(content: str) -> str:
     """Normalize line endings while preserving the supplied markdown body."""
-    normalized = content.replace("\r\n", "\n").replace("\r", "\n")
-    return normalized.strip()
+    return content.replace("\r\n", "\n").replace("\r", "\n")
+
+
+def normalize_text(content: str) -> str:
+    """Normalize text and trim outer blank space."""
+    return normalize_line_endings(content).strip()
 
 
 def escape_yaml_string(value: str) -> str:
@@ -170,6 +198,146 @@ def dedupe_preserve_order(values: list[str]) -> list[str]:
     return ordered
 
 
+def is_valid_wikilink_target(target: str) -> bool:
+    """Allow only note-like wikilink targets that will not create garbage graph nodes."""
+    cleaned = target.strip()
+    if not cleaned:
+        return False
+    if len(cleaned) > 120:
+        return False
+    if any(fragment in cleaned.lower() for fragment in ("blob/", "$(", "://", ":contentreference", "[oaicite:")):
+        return False
+    if re.search(r"[<>{}|]", cleaned):
+        return False
+    if cleaned.startswith((".", "/", "~")):
+        return False
+    suffix = Path(cleaned).suffix.lower()
+    if suffix in SUSPICIOUS_FILE_EXTENSIONS:
+        return False
+    return bool(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 _./-]*[A-Za-z0-9]", cleaned))
+
+
+def extract_valid_wikilinks(text: str) -> list[str]:
+    """Extract valid wikilink targets from text while ignoring code fences."""
+    valid_links: list[str] = []
+    in_code_block = False
+
+    for line in normalize_line_endings(text).splitlines():
+        if line.strip().startswith("```"):
+            in_code_block = not in_code_block
+            continue
+        if in_code_block:
+            continue
+
+        for match in WIKILINK_PATTERN.findall(line):
+            if is_valid_wikilink_target(match):
+                valid_links.append(match.strip())
+
+    return dedupe_preserve_order(valid_links)
+
+
+def strip_citation_artifacts(text: str) -> str:
+    """Remove obvious model citation placeholders that should not persist in notes."""
+    stripped_lines = []
+
+    for line in normalize_line_endings(text).splitlines():
+        cleaned = CITATION_ARTIFACT_PATTERN.sub("", line).rstrip()
+        stripped_lines.append(cleaned)
+
+    return "\n".join(stripped_lines)
+
+
+def neutralize_wikilinks_in_line(line: str) -> str:
+    """Remove malformed or suspicious wikilinks while preserving valid note wikilinks."""
+    def replace(match: re.Match[str]) -> str:
+        target = match.group(1).strip()
+        if is_valid_wikilink_target(target):
+            return f"[[{target}]]"
+        return target
+
+    return WIKILINK_PATTERN.sub(replace, line)
+
+
+def is_symbol_heavy_line(line: str) -> bool:
+    """Detect lines that are mostly punctuation and likely to be shell or regex noise."""
+    stripped = line.strip()
+    if not stripped:
+        return False
+    if len(stripped) < 4:
+        return False
+
+    alnum_count = sum(character.isalnum() for character in stripped)
+    symbol_count = sum(not character.isalnum() and not character.isspace() for character in stripped)
+    return symbol_count > alnum_count and symbol_count >= 4
+
+
+def is_suspicious_line(line: str) -> bool:
+    """Detect lines that should not become durable knowledge artifacts."""
+    stripped = line.strip()
+    if not stripped:
+        return False
+    if COMMAND_SUBSTITUTION_PATTERN.search(stripped):
+        return True
+    if GITHUB_BLOB_PATTERN.search(stripped):
+        return True
+    if re.search(r'!\s*"\$[A-Za-z_][A-Za-z0-9_]*"\s*=~\s*\^', stripped):
+        return True
+    if stripped.startswith(("$/", "./", "../")):
+        return True
+    if stripped.startswith(("chmod ", "curl ", "wget ", "node ", "npm ", "bash ", "sh ")):
+        return True
+    if is_symbol_heavy_line(stripped):
+        return True
+    return False
+
+
+def sanitize_suspicious_lines(text: str) -> str:
+    """Drop or neutralize suspicious non-prose lines outside fenced code blocks."""
+    sanitized_lines: list[str] = []
+    in_code_block = False
+
+    for raw_line in normalize_line_endings(text).splitlines():
+        line = raw_line.rstrip()
+        stripped = line.strip()
+
+        if stripped.startswith("```"):
+            in_code_block = not in_code_block
+            sanitized_lines.append(line)
+            continue
+
+        if in_code_block:
+            sanitized_lines.append(line)
+            continue
+
+        line = neutralize_wikilinks_in_line(line)
+        line = COMMAND_SUBSTITUTION_PATTERN.sub("", line)
+        line = GITHUB_BLOB_PATTERN.sub("", line).rstrip()
+
+        if is_suspicious_line(line):
+            continue
+
+        if re.search(r"\[\[[^\]]+\]\]", line):
+            valid_links = extract_valid_wikilinks(line)
+            if not valid_links:
+                line = WIKILINK_PATTERN.sub("", line).strip()
+
+        if line.strip():
+            sanitized_lines.append(line.rstrip())
+        else:
+            sanitized_lines.append("")
+
+    sanitized_text = "\n".join(sanitized_lines)
+    sanitized_text = re.sub(r"\n{3,}", "\n\n", sanitized_text)
+    return sanitized_text.strip()
+
+
+def sanitize_markdown_body(body: str) -> str:
+    """Apply conservative sanitization to synthesized markdown before writing it to disk."""
+    sanitized = strip_citation_artifacts(body)
+    sanitized = sanitize_suspicious_lines(sanitized)
+    return sanitized.strip()
+
+
 def extract_prompt_pack_metadata(prompt_pack_path: Path) -> PromptPackMetadata:
     """Extract the requested title, category, and source notes from a prompt-pack."""
     if not prompt_pack_path.exists():
@@ -177,7 +345,7 @@ def extract_prompt_pack_metadata(prompt_pack_path: Path) -> PromptPackMetadata:
     if not prompt_pack_path.is_file():
         raise ValueError(f"Prompt-pack path is not a file: {prompt_pack_path}")
 
-    text = prompt_pack_path.read_text(encoding="utf-8").replace("\r\n", "\n").replace("\r", "\n")
+    text = normalize_line_endings(prompt_pack_path.read_text(encoding="utf-8"))
 
     title_match = re.search(r"^- Requested title:\s*(.+)$", text, re.MULTILINE)
     if not title_match:
@@ -188,7 +356,7 @@ def extract_prompt_pack_metadata(prompt_pack_path: Path) -> PromptPackMetadata:
     if note_category not in CATEGORY_DESTINATIONS:
         note_category = "topic"
 
-    source_notes = dedupe_preserve_order(re.findall(r"\[\[([^\]]+)\]\]", text))
+    source_notes = extract_valid_wikilinks(text)
 
     return PromptPackMetadata(
         prompt_pack_path=prompt_pack_path,
@@ -272,7 +440,7 @@ def build_compiled_frontmatter(
     resolved_tags = list(existing_tags) if isinstance(existing_tags, list) and existing_tags else tags
 
     confidence = str(existing_metadata.get("confidence", "")).strip() or "medium"
-    generation = str(existing_metadata.get("generation_method", "")).strip() or generation_method
+    generation = generation_method
     date_compiled = str(existing_metadata.get("date_compiled", "")).strip() or today
 
     return (
@@ -304,7 +472,7 @@ def build_output_frontmatter(
     resolved_output_type = str(existing_metadata.get("output_type", "")).strip() or output_type
     resolved_query = str(existing_metadata.get("generated_from_query", "")).strip() or generated_from_query
     resolved_generated_on = str(existing_metadata.get("generated_on", "")).strip() or today
-    resolved_generation = str(existing_metadata.get("generation_method", "")).strip() or generation_method
+    resolved_generation = generation_method
 
     existing_sources = existing_metadata.get("sources_used", [])
     resolved_sources = list(existing_sources) if isinstance(existing_sources, list) and existing_sources else sources_used
@@ -337,7 +505,7 @@ def assemble_output_text(
     today: str,
 ) -> str:
     """Build the saved markdown text with required frontmatter and preserved body."""
-    normalized_body = body.strip()
+    normalized_body = sanitize_markdown_body(body)
     source_notes = prompt_pack_metadata.source_notes
 
     if output_type == "compiled":
@@ -363,7 +531,7 @@ def assemble_output_text(
             output_type=output_type,
             generated_from_query=extract_generated_query(normalized_body) or prompt_pack_metadata.requested_title,
             sources_used=source_notes,
-            compiled_notes_used=[slugify_title(prompt_pack_metadata.requested_title)],
+            compiled_notes_used=[slugify_title(title)],
             generation_method="manual_paste",
             today=today,
             existing_metadata=metadata,
@@ -392,6 +560,8 @@ def apply_synthesis(request: ApplySynthesisRequest) -> Path:
     )
 
     resolved_title = request.title_override.strip() or prompt_pack_metadata.requested_title
+    resolved_title = re.sub(r"[\[\]{}()<>:$`|]+", " ", resolved_title)
+    resolved_title = " ".join(resolved_title.split())
     destination = resolve_destination(
         root=request.root,
         title=resolved_title,

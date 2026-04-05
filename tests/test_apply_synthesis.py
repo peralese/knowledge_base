@@ -7,6 +7,7 @@ from pathlib import Path
 from scripts.apply_synthesis import ApplySynthesisRequest
 from scripts.apply_synthesis import apply_synthesis
 from scripts.apply_synthesis import extract_prompt_pack_metadata
+from scripts.apply_synthesis import sanitize_markdown_body
 from scripts.apply_synthesis import slugify_title
 
 
@@ -118,6 +119,81 @@ class ApplySynthesisTests(unittest.TestCase):
         self.assertTrue(saved.startswith("---\n"))
         self.assertIn('output_type: "report"', saved)
         self.assertIn("Plain synthesized markdown without frontmatter.", saved)
+
+    def test_citation_junk_is_removed(self) -> None:
+        sanitized = sanitize_markdown_body(
+            "# Summary\n\nUseful synthesis text. [oaicite:12] :contentReference[oaicite:3]{index=3}\n"
+        )
+
+        self.assertIn("Useful synthesis text.", sanitized)
+        self.assertNotIn("[oaicite:", sanitized)
+        self.assertNotIn(":contentReference[", sanitized)
+
+    def test_shell_snippet_junk_is_removed_or_neutralized(self) -> None:
+        sanitized = sanitize_markdown_body(
+            "# Summary\n\n$(node --version)\n`$(pwd)`\nThis overview remains.\n"
+        )
+
+        self.assertIn("This overview remains.", sanitized)
+        self.assertNotIn("$(node --version)", sanitized)
+        self.assertNotIn("$(pwd)", sanitized)
+
+    def test_github_blob_path_junk_is_removed_or_neutralized(self) -> None:
+        sanitized = sanitize_markdown_body(
+            "# Summary\n\nkarpathy/autoresearch/blob/master/progress.png\nClean note text stays.\n"
+        )
+
+        self.assertIn("Clean note text stays.", sanitized)
+        self.assertNotIn("blob/master", sanitized)
+        self.assertNotIn("progress.png", sanitized)
+
+    def test_valid_wikilinks_are_preserved(self) -> None:
+        sanitized = sanitize_markdown_body(
+            "# Source Notes\n\n- [[aws-patch-manager-basics]]\n- [[aws-inspector-overview]]\n"
+        )
+
+        self.assertIn("[[aws-patch-manager-basics]]", sanitized)
+        self.assertIn("[[aws-inspector-overview]]", sanitized)
+
+    def test_malformed_suspicious_lines_do_not_become_graph_noise(self) -> None:
+        output_path = apply_synthesis(
+            ApplySynthesisRequest(
+                prompt_pack=Path("metadata/prompts/compile-aws-patching-strategy.md"),
+                text=(
+                    "# Summary\n\n"
+                    '!"$domain" =~ ^\n'
+                    "[[progress.png]]\n"
+                    "github/repo/blob/main/file.sh\n"
+                    "Useful security guidance remains.\n"
+                ),
+                root=self.root,
+            )
+        )
+
+        saved = output_path.read_text(encoding="utf-8")
+        self.assertIn("Useful security guidance remains.", saved)
+        self.assertNotIn('!"$domain" =~ ^', saved)
+        self.assertNotIn("[[progress.png]]", saved)
+        self.assertNotIn("github/repo/blob/main/file.sh", saved)
+
+    def test_generation_method_becomes_manual_paste(self) -> None:
+        output_path = apply_synthesis(
+            ApplySynthesisRequest(
+                prompt_pack=Path("metadata/prompts/compile-aws-patching-strategy.md"),
+                text=(
+                    "---\n"
+                    'title: "Existing Draft"\n'
+                    'generation_method: "prompt_pack"\n'
+                    "---\n\n"
+                    "# Summary\n\nApplied synthesis.\n"
+                ),
+                root=self.root,
+            )
+        )
+
+        saved = output_path.read_text(encoding="utf-8")
+        self.assertIn('generation_method: "manual_paste"', saved)
+        self.assertNotIn('generation_method: "prompt_pack"', saved)
 
     def test_no_overwrite_by_default(self) -> None:
         request = ApplySynthesisRequest(
