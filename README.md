@@ -321,6 +321,153 @@ This phase does not include:
 
 The purpose of Phase 2 is to make ingestion reliable, inspectable, and safe to re-run without introducing hidden automation.
 
+## Phase 3 Compilation Workflow
+
+Phase 3 adds the first compilation script: `scripts/compile_notes.py`. In this project, compilation means taking one or more selected raw notes and turning them into a reusable synthesized markdown note in `compiled/` without changing the raw sources.
+
+This keeps the workflow layered:
+
+- ingestion creates normalized raw notes in `raw/`
+- compilation turns selected raw notes into reusable synthesized notes in `compiled/`
+- later phases can use compiled notes to support outputs, answers, or optional LLM-assisted workflows
+
+Compilation is intentionally inspectable and safe in this phase. Raw notes remain source truth, compiled notes must point back to raw notes, and the script does not require a live LLM API.
+
+### What the compilation script does
+
+The script:
+
+- reads one or more selected raw markdown notes
+- parses YAML frontmatter when present
+- extracts source metadata and body content
+- generates a compiled markdown scaffold and/or a prompt-pack
+- preserves lineage with `compiled_from` metadata and Obsidian wikilinks
+- refuses to overwrite existing outputs unless `--force` is explicitly passed
+
+### Supported compilation categories
+
+The compiled destination folder depends on the selected category:
+
+- `source_summary` -> `compiled/source_summaries/`
+- `concept` -> `compiled/concepts/`
+- `topic` -> `compiled/topics/`
+
+If no category flag is passed, the script defaults to `topic`.
+
+### Supported modes
+
+Phase 3 supports two primary modes and one combined mode:
+
+1. `scaffold`
+
+This is the default mode. It creates a compiled note shell with:
+
+- YAML frontmatter
+- placeholder summary and insight sections
+- source wikilinks
+- short source metadata callouts
+- short source excerpts
+- explicit lineage back to the raw notes
+
+2. `prompt-pack`
+
+This mode creates a markdown prompt file under `metadata/prompts/` that can later be pasted into Codex, OpenAI, Ollama, or another local workflow. The prompt-pack includes:
+
+- the requested compiled note title
+- the note category
+- the desired output template
+- the selected source note metadata
+- the selected source note bodies
+- instructions to preserve lineage
+- instructions not to invent unsupported claims
+
+3. `both`
+
+This mode creates both the compiled scaffold note and the prompt-pack in one run.
+
+### Example commands
+
+Create a compiled topic scaffold from two raw article notes:
+
+```bash
+python3 scripts/compile_notes.py \
+  --sources raw/articles/aws-patch-manager-basics.md raw/articles/aws-inspector-overview.md \
+  --title "AWS Patching and Vulnerability Management Overview" \
+  --topic
+```
+
+Create only a prompt-pack:
+
+```bash
+python3 scripts/compile_notes.py \
+  --sources raw/articles/aws-patch-manager-basics.md raw/articles/aws-inspector-overview.md \
+  --title "AWS Patching and Vulnerability Management Overview" \
+  --topic \
+  --mode prompt-pack
+```
+
+Create both outputs:
+
+```bash
+python3 scripts/compile_notes.py \
+  --sources raw/articles/aws-patch-manager-basics.md raw/articles/aws-inspector-overview.md \
+  --title "AWS Patching and Vulnerability Management Overview" \
+  --topic \
+  --mode both
+```
+
+Overwrite an existing compiled note or prompt-pack only when explicit replacement is intended:
+
+```bash
+python3 scripts/compile_notes.py \
+  --sources raw/articles/aws-patch-manager-basics.md \
+  --title "AWS Patch Manager Summary" \
+  --source-summary \
+  --force
+```
+
+### What gets created
+
+Depending on the selected mode, the script creates:
+
+- one compiled markdown note under the appropriate `compiled/` subfolder
+- one prompt-pack markdown file under `metadata/prompts/`
+
+Compiled note filenames are generated from the title using a lowercase hyphenated slug. For example:
+
+```text
+AWS Patching and Vulnerability Management Overview
+-> aws-patching-and-vulnerability-management-overview.md
+```
+
+Each compiled scaffold note includes frontmatter with:
+
+- `title`
+- `note_type`
+- `compiled_from`
+- `date_compiled`
+- `topics`
+- `tags`
+- `confidence`
+- `generation_method`
+
+In scaffold mode, `generation_method` is `manual_scaffold`. In prompt-pack mode, the generated prompt instructs the later synthesis step to use `prompt_pack`.
+
+### What remains out of scope in Phase 3
+
+This phase does not include:
+
+- live API-dependent LLM synthesis as a required step
+- querying or retrieval workflows
+- automated answer generation in `outputs/`
+- linting or repo-wide note rewriting
+- embeddings or vector search
+- graph databases
+- web frameworks or cloud services
+- hidden automation that mutates raw notes in place
+
+The purpose of Phase 3 is to create a practical bridge between raw notes and later synthesis workflows while keeping compilation deterministic, readable, and easy to inspect.
+
 ## Included MVP Files
 
 The repository includes:
