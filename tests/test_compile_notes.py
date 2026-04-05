@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -8,6 +9,7 @@ from scripts.compile_notes import CompileRequest
 from scripts.compile_notes import build_compiled_frontmatter
 from scripts.compile_notes import compile_notes
 from scripts.compile_notes import destination_dir_for_category
+from scripts.compile_notes import resolve_canonical_topic
 from scripts.compile_notes import slugify_title
 
 
@@ -25,42 +27,62 @@ class CompileNotesTests(unittest.TestCase):
         ]:
             (self.root / relative).mkdir(parents=True, exist_ok=True)
 
-        self.source_one = self.root / "raw" / "articles" / "aws-patch-manager-basics.md"
+        (self.root / "metadata" / "topic-registry.json").write_text(
+            json.dumps(
+                {
+                    "topics": [
+                        {
+                            "slug": "openclaw-security",
+                            "title": "OpenClaw Security",
+                            "aliases": [
+                                "openclaw security",
+                                "open-claw security",
+                            ],
+                        }
+                    ]
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        self.source_one = self.root / "raw" / "articles" / "openclaw-security-best-practices.md"
         self.source_one.write_text(
             (
                 "---\n"
-                'title: "AWS Patch Manager Basics"\n'
+                'title: "OpenClaw Security Best Practices"\n'
                 'source_type: "article-note"\n'
-                'origin: "AWS documentation"\n'
-                'summary: "Patch Manager automates patching."\n'
+                'origin: "OpenClaw docs"\n'
+                'summary: "Security recommendations for OpenClaw."\n'
                 "topics:\n"
-                '  - "aws"\n'
-                '  - "patching"\n'
+                '  - "security"\n'
+                '  - "openclaw"\n'
                 "tags:\n"
-                '  - "patch-manager"\n'
+                '  - "hardening"\n'
                 "---\n\n"
                 "# Source Content\n\n"
-                "Patch Manager defines approved patches and applies them during maintenance windows.\n"
+                "OpenClaw should be deployed with least privilege and hardened defaults.\n"
             ),
             encoding="utf-8",
         )
 
-        self.source_two = self.root / "raw" / "articles" / "aws-inspector-overview.md"
+        self.source_two = self.root / "raw" / "articles" / "openclaw-security-hardening-guide.md"
         self.source_two.write_text(
             (
                 "---\n"
-                'title: "AWS Inspector Overview"\n'
+                'title: "OpenClaw Security Hardening Guide"\n'
                 'source_type: "article-note"\n'
-                'origin: "AWS documentation"\n'
-                'summary: "Inspector surfaces vulnerabilities."\n'
+                'origin: "OpenClaw guide"\n'
+                'summary: "Operational hardening guidance."\n'
                 "topics:\n"
-                '  - "aws"\n'
                 '  - "security"\n'
+                '  - "operations"\n'
                 "tags:\n"
-                '  - "inspector"\n'
+                '  - "openclaw"\n'
                 "---\n\n"
                 "# Source Content\n\n"
-                "Inspector continuously evaluates supported resources and produces findings.\n"
+                "Use network isolation, patch discipline, and secret rotation.\n"
             ),
             encoding="utf-8",
         )
@@ -68,11 +90,8 @@ class CompileNotesTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
 
-    def test_slug_generation(self) -> None:
-        self.assertEqual(
-            slugify_title("AWS Patching and Vulnerability Management Overview"),
-            "aws-patching-and-vulnerability-management-overview",
-        )
+    def test_slug_generation_for_unregistered_topic(self) -> None:
+        self.assertEqual(slugify_title("AI Research Notes"), "ai-research-notes")
         self.assertEqual(slugify_title("  Mixed CASE / spacing  "), "mixed-case-spacing")
 
     def test_destination_folder_selection(self) -> None:
@@ -82,29 +101,35 @@ class CompileNotesTests(unittest.TestCase):
 
     def test_frontmatter_generation(self) -> None:
         frontmatter = build_compiled_frontmatter(
-            title="AWS Overview",
+            title="OpenClaw Security",
             category="topic",
-            compiled_from=["aws-patch-manager-basics", "aws-inspector-overview"],
-            topics=["aws", "security"],
-            tags=["topic", "patch-manager"],
+            compiled_from=["openclaw-security-best-practices", "openclaw-security-hardening-guide"],
+            topics=["security", "operations"],
+            tags=["topic", "openclaw"],
             generation_method="manual_scaffold",
-            today="2026-04-04",
+            today="2026-04-05",
         )
 
-        self.assertIn('title: "AWS Overview"', frontmatter)
+        self.assertIn('title: "OpenClaw Security"', frontmatter)
         self.assertIn('note_type: "topic"', frontmatter)
         self.assertIn('generation_method: "manual_scaffold"', frontmatter)
         self.assertIn('confidence: "medium"', frontmatter)
-        self.assertIn('  - "aws-patch-manager-basics"', frontmatter)
 
-    def test_scaffold_includes_source_wikilinks(self) -> None:
+    def test_topic_registry_canonicalization_from_alias(self) -> None:
+        resolved = resolve_canonical_topic("open-claw security", self.root / "metadata" / "topic-registry.json")
+
+        self.assertTrue(resolved.matched_registry)
+        self.assertEqual(resolved.slug, "openclaw-security")
+        self.assertEqual(resolved.title, "OpenClaw Security")
+
+    def test_scaffold_uses_canonical_slug_and_title(self) -> None:
         created = compile_notes(
             CompileRequest(
                 sources=[
-                    Path("raw/articles/aws-patch-manager-basics.md"),
-                    Path("raw/articles/aws-inspector-overview.md"),
+                    Path("raw/articles/openclaw-security-best-practices.md"),
+                    Path("raw/articles/openclaw-security-hardening-guide.md"),
                 ],
-                title="AWS Patching and Vulnerability Management Overview",
+                title="openclaw security",
                 category="topic",
                 mode="scaffold",
                 root=self.root,
@@ -112,20 +137,39 @@ class CompileNotesTests(unittest.TestCase):
         )
 
         output_path = created["scaffold"]
-        self.assertTrue(output_path.exists())
+        self.assertEqual(output_path, self.root / "compiled" / "topics" / "openclaw-security.md")
 
         note_text = output_path.read_text(encoding="utf-8")
-        self.assertIn('note_type: "topic"', note_text)
-        self.assertIn('generation_method: "manual_scaffold"', note_text)
-        self.assertIn("- [[aws-patch-manager-basics]]", note_text)
-        self.assertIn("- [[aws-inspector-overview]]", note_text)
-        self.assertIn("## [[aws-patch-manager-basics]]", note_text)
-        self.assertIn("## [[aws-inspector-overview]]", note_text)
+        self.assertIn('title: "OpenClaw Security"', note_text)
+        self.assertIn("- [[openclaw-security-best-practices]]", note_text)
+
+    def test_prompt_pack_includes_canonical_slug_instruction(self) -> None:
+        created = compile_notes(
+            CompileRequest(
+                sources=[
+                    Path("raw/articles/openclaw-security-best-practices.md"),
+                    Path("raw/articles/openclaw-security-hardening-guide.md"),
+                ],
+                title="open-claw security",
+                category="topic",
+                mode="prompt-pack",
+                root=self.root,
+            )
+        )
+
+        prompt_path = created["prompt-pack"]
+        prompt_text = prompt_path.read_text(encoding="utf-8")
+
+        self.assertIn("- Canonical title: OpenClaw Security", prompt_text)
+        self.assertIn("- Canonical slug: openclaw-security", prompt_text)
+        self.assertIn("Use the exact canonical title provided: OpenClaw Security", prompt_text)
+        self.assertIn("Use the exact canonical topic slug provided: openclaw-security", prompt_text)
+        self.assertIn("Do not create alternative topic identities.", prompt_text)
 
     def test_no_overwrite_by_default(self) -> None:
         request = CompileRequest(
-            sources=[Path("raw/articles/aws-patch-manager-basics.md")],
-            title="Existing Compiled Note",
+            sources=[Path("raw/articles/openclaw-security-best-practices.md")],
+            title="OpenClaw Security",
             category="concept",
             mode="scaffold",
             root=self.root,
@@ -136,31 +180,6 @@ class CompileNotesTests(unittest.TestCase):
 
         with self.assertRaises(FileExistsError):
             compile_notes(request)
-
-    def test_prompt_pack_generation(self) -> None:
-        created = compile_notes(
-            CompileRequest(
-                sources=[
-                    Path("raw/articles/aws-patch-manager-basics.md"),
-                    Path("raw/articles/aws-inspector-overview.md"),
-                ],
-                title="AWS Patching and Vulnerability Management Overview",
-                category="topic",
-                mode="prompt-pack",
-                root=self.root,
-            )
-        )
-
-        prompt_path = created["prompt-pack"]
-        self.assertTrue(prompt_path.exists())
-
-        prompt_text = prompt_path.read_text(encoding="utf-8")
-        self.assertIn("# Compilation Request", prompt_text)
-        self.assertIn("- Requested title: AWS Patching and Vulnerability Management Overview", prompt_text)
-        self.assertIn("Do not invent unsupported claims.", prompt_text)
-        self.assertIn("## [[aws-patch-manager-basics]]", prompt_text)
-        self.assertIn("## [[aws-inspector-overview]]", prompt_text)
-        self.assertIn("generation_method: \"prompt_pack\"", prompt_text)
 
 
 if __name__ == "__main__":

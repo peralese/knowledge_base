@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from dataclasses import dataclass
@@ -9,6 +10,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+TOPIC_REGISTRY_PATH = ROOT / "metadata" / "topic-registry.json"
 
 CATEGORY_DESTINATIONS = {
     "source_summary": Path("compiled/source_summaries"),
@@ -46,6 +48,20 @@ class CompileRequest:
     mode: str = "scaffold"
     force: bool = False
     root: Path = ROOT
+
+
+@dataclass
+class CanonicalTopic:
+    slug: str
+    title: str
+    aliases: list[str]
+
+
+@dataclass
+class CanonicalTopicResolution:
+    slug: str
+    title: str
+    matched_registry: bool = False
 
 
 def slugify_title(title: str) -> str:
@@ -140,6 +156,54 @@ def parse_frontmatter(frontmatter_text: str) -> dict[str, object]:
         current_list_key = None
 
     return metadata
+
+
+def load_topic_registry(registry_path: Path = TOPIC_REGISTRY_PATH) -> list[CanonicalTopic]:
+    """Load the optional topic registry."""
+    if not registry_path.exists():
+        return []
+
+    with registry_path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+
+    topics = []
+    for item in payload.get("topics", []):
+        slug = str(item.get("slug", "")).strip()
+        title = str(item.get("title", "")).strip()
+        aliases = item.get("aliases", [])
+        if not slug or not title:
+            continue
+        topics.append(
+            CanonicalTopic(
+                slug=slugify_title(slug),
+                title=title,
+                aliases=[str(alias).strip() for alias in aliases if str(alias).strip()],
+            )
+        )
+
+    return topics
+
+
+def resolve_canonical_topic(title: str, registry_path: Path = TOPIC_REGISTRY_PATH) -> CanonicalTopicResolution:
+    """Resolve a canonical title and slug from the optional topic registry."""
+    requested_title = " ".join(title.split()).strip()
+    requested_slug = slugify_title(requested_title)
+    registry = load_topic_registry(registry_path)
+
+    for topic in registry:
+        candidates = [topic.slug, slugify_title(topic.title)] + [slugify_title(alias) for alias in topic.aliases]
+        if requested_slug in candidates:
+            return CanonicalTopicResolution(
+                slug=topic.slug,
+                title=topic.title,
+                matched_registry=True,
+            )
+
+    return CanonicalTopicResolution(
+        slug=requested_slug,
+        title=requested_title,
+        matched_registry=False,
+    )
 
 
 def read_source_note(path: Path) -> SourceNote:
@@ -295,16 +359,29 @@ def build_output_template(title: str, category: str, source_names: list[str]) ->
     )
 
 
-def build_prompt_pack(title: str, category: str, sources: list[SourceNote]) -> str:
+def build_prompt_pack(
+    canonical: CanonicalTopicResolution,
+    category: str,
+    sources: list[SourceNote],
+) -> str:
     """Create a markdown prompt-pack for later manual or local LLM use."""
     source_names = [source.stem for source in sources]
     sections = [
         "# Compilation Request",
         "",
-        f"- Requested title: {title}",
+        f"- Requested title: {canonical.title}",
+        f"- Canonical title: {canonical.title}",
+        f"- Canonical slug: {canonical.slug}",
         f"- Note category: {category}",
         "- Repository phase: Phase 3 compilation workflow",
         "- Required generation method value: prompt_pack",
+        "",
+        "# Canonical Identity Rules",
+        "",
+        f"- Use the exact canonical title provided: {canonical.title}",
+        f"- Use the exact canonical topic slug provided: {canonical.slug}",
+        "- Do not invent, modify, pluralize, misspell, or rename the topic.",
+        "- Do not create alternative topic identities.",
         "",
         "# Instructions",
         "",
@@ -317,7 +394,7 @@ def build_prompt_pack(title: str, category: str, sources: list[SourceNote]) -> s
         "# Desired Output Template",
         "",
         "```markdown",
-        build_output_template(title, category, source_names),
+        build_output_template(canonical.title, category, source_names),
         "```",
         "",
         "# Source Notes",
@@ -367,15 +444,14 @@ def build_scaffold_note(title: str, category: str, sources: list[SourceNote], to
     return f"{frontmatter}\n\n{body}\n"
 
 
-def resolve_output_paths(request: CompileRequest) -> dict[str, Path]:
+def resolve_output_paths(request: CompileRequest, canonical: CanonicalTopicResolution) -> dict[str, Path]:
     """Compute destination files for the selected mode."""
-    slug = slugify_title(request.title)
     outputs: dict[str, Path] = {}
 
     if request.mode in {"scaffold", "both"}:
-        outputs["scaffold"] = request.root / destination_dir_for_category(request.category) / f"{slug}.md"
+        outputs["scaffold"] = request.root / destination_dir_for_category(request.category) / f"{canonical.slug}.md"
     if request.mode in {"prompt-pack", "both"}:
-        outputs["prompt-pack"] = request.root / "metadata" / "prompts" / f"compile-{slug}.md"
+        outputs["prompt-pack"] = request.root / "metadata" / "prompts" / f"compile-{canonical.slug}.md"
 
     return outputs
 
@@ -409,14 +485,18 @@ def compile_notes(request: CompileRequest) -> dict[str, Path]:
 
     source_paths = [request.root / source if not source.is_absolute() else source for source in request.sources]
     sources = [read_source_note(path) for path in source_paths]
-    output_paths = resolve_output_paths(CompileRequest(
-        sources=request.sources,
-        title=title,
-        category=category,
-        mode=mode,
-        force=request.force,
-        root=request.root,
-    ))
+    canonical = resolve_canonical_topic(title, request.root / "metadata" / "topic-registry.json")
+    output_paths = resolve_output_paths(
+        CompileRequest(
+            sources=request.sources,
+            title=canonical.title,
+            category=category,
+            mode=mode,
+            force=request.force,
+            root=request.root,
+        ),
+        canonical,
+    )
     ensure_writable_outputs(output_paths, request.force)
 
     today = date.today().isoformat()
@@ -425,13 +505,13 @@ def compile_notes(request: CompileRequest) -> dict[str, Path]:
     if "scaffold" in output_paths:
         scaffold_path = output_paths["scaffold"]
         scaffold_path.parent.mkdir(parents=True, exist_ok=True)
-        scaffold_path.write_text(build_scaffold_note(title, category, sources, today), encoding="utf-8")
+        scaffold_path.write_text(build_scaffold_note(canonical.title, category, sources, today), encoding="utf-8")
         created["scaffold"] = scaffold_path
 
     if "prompt-pack" in output_paths:
         prompt_path = output_paths["prompt-pack"]
         prompt_path.parent.mkdir(parents=True, exist_ok=True)
-        prompt_path.write_text(build_prompt_pack(title, category, sources), encoding="utf-8")
+        prompt_path.write_text(build_prompt_pack(canonical, category, sources), encoding="utf-8")
         created["prompt-pack"] = prompt_path
 
     return created
@@ -480,7 +560,7 @@ def main(argv: list[str] | None = None) -> int:
                 force=args.force,
             )
         )
-    except (FileExistsError, FileNotFoundError, ValueError) as exc:
+    except (FileExistsError, FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 

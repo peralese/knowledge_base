@@ -5,6 +5,8 @@
     "templates/",
     "tests/",
     "scripts/",
-    "readme.md"
-  ]
+    "readme.md",
+    "metadata/"
+  ],
+  "alwaysUpdateLinks": true
 }

@@ -94,7 +94,7 @@
       "path": "raw/articles/google-just-released-gemma-4.md",
       "source_type": "article",
       "origin": "web",
-      "date_ingested": "2026-04-04",
+      "date_ingested": "2026-04-05",
       "canonical_url": "",
       "input_path": "raw/inbox/Google-Just-Released-Gemma-4.md",
       "status": "raw"
@@ -133,6 +133,30 @@
       "date_ingested": "2026-04-05",
       "canonical_url": "",
       "input_path": "raw/inbox/openclaw_security_hardening_guide.md",
+      "status": "raw"
+    },
+    {
+      "source_id": "SRC-20260405-0004",
+      "title": "Openclaw Security Best Practice Guide",
+      "filename": "openclaw-security-best-practice-guide.md",
+      "path": "raw/articles/openclaw-security-best-practice-guide.md",
+      "source_type": "article",
+      "origin": "web",
+      "date_ingested": "2026-04-05",
+      "canonical_url": "",
+      "input_path": "raw/inbox/openclaw_security_best_practice_guide.md",
+      "status": "raw"
+    },
+    {
+      "source_id": "SRC-20260405-0005",
+      "title": "Openclaw Security Best Practices",
+      "filename": "openclaw-security-best-practices.md",
+      "path": "raw/articles/openclaw-security-best-practices.md",
+      "source_type": "article",
+      "origin": "web",
+      "date_ingested": "2026-04-05",
+      "canonical_url": "",
+      "input_path": "raw/inbox/openclaw-security-best-practices.md",
       "status": "raw"
     }
   ]

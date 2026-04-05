@@ -1,6 +1,6 @@
 # Compilation Request
 
-- Requested title: Google Just Release Gemma 4
+- Requested title: Google Just Released Gemma 4
 - Note category: source_summary
 - Repository phase: Phase 3 compilation workflow
 - Required generation method value: prompt_pack
@@ -17,7 +17,7 @@ Do not rewrite or mutate raw notes.
 
 ```markdown
 ---
-title: "Google Just Release Gemma 4"
+title: "Google Just Released Gemma 4"
 note_type: "source_summary"
 compiled_from: 
   - "google-just-released-gemma-4"

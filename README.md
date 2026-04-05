@@ -634,6 +634,28 @@ This phase does not include:
 
 The purpose of Phase 4 is to create a practical bridge between prompt-packs and durable markdown artifacts while keeping synthesis explicit, user-controlled, and easy to inspect.
 
+## Phase 4.5 Hardening
+
+Phase 4.5 hardens the synthesis workflow so canonical topic identity is controlled by the repository, not by LLM output drift.
+
+This phase adds a lightweight `metadata/topic-registry.json` file that can define canonical topic titles, slugs, and aliases. When present:
+
+- `scripts/compile_notes.py` resolves the requested topic against the registry
+- prompt-packs carry the canonical title and canonical slug explicitly
+- prompt-packs instruct the LLM to use that canonical identity exactly
+- `scripts/apply_synthesis.py` enforces the canonical compiled destination and patches drifted titles back to the canonical title
+
+This prevents duplicate topics caused by typos or model drift such as `openclaw secruity` vs. `openclaw-security`.
+
+Phase 4.5 also strengthens sanitization during synthesis application:
+
+- wrapping ````markdown` fences around whole notes are removed
+- duplicated inner frontmatter echoed from prompt templates is stripped
+- citation junk, malformed shell fragments, and suspicious path-like text are filtered out
+- valid lineage wikilinks are preserved
+
+The goal is to keep compiled topics canonical, preserve graph integrity in Obsidian, and prevent silent creation of duplicate topic identities.
+
 ## Included MVP Files
 
 The repository includes:

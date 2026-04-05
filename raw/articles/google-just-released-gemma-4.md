@@ -2,17 +2,17 @@
 title: "Google Just Released Gemma 4"
 source_type: "article"
 origin: "web"
-date_ingested: "2026-04-04"
+date_ingested: "2026-04-05"
 status: "raw"
 topics: []
 tags: []
 author: ""
-date_created: "04/04/2026"
+date_created: ""
 date_published: ""
 language: "en"
 summary: ""
 source_id: "SRC-20260404-0001"
-canonical_url: "https://www.geeky-gadgets.com/gemma-4-function-calling/?utm_source=flipboard&utm_content=GeekyGadgets%2Fmagazine%2FGeeky+Gadgets"
+canonical_url: ""
 related_sources: []
 confidence: ""
 license: ""

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from dataclasses import dataclass
@@ -9,6 +10,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+TOPIC_REGISTRY_PATH = ROOT / "metadata" / "topic-registry.json"
 
 CATEGORY_DESTINATIONS = {
     "source_summary": Path("compiled/source_summaries"),
@@ -22,10 +24,11 @@ OUTPUT_DESTINATIONS = {
     "report": Path("outputs/reports"),
 }
 
-CITATION_ARTIFACT_PATTERN = re.compile(r":contentReference\[[^\]]*\]|\[oaicite:[^\]]*\]")
+CITATION_ARTIFACT_PATTERN = re.compile(r":contentReference\[[^\]]*\]|\[oaicite:[^\]]*\]|\{index=\d+\}")
 COMMAND_SUBSTITUTION_PATTERN = re.compile(r"`?\$\([^)\n]*\)`?")
 GITHUB_BLOB_PATTERN = re.compile(r"\b[\w.-]+/[\w.-]+/blob/[\w./-]+\b")
 WIKILINK_PATTERN = re.compile(r"\[\[([^\]]+)\]\]")
+FRONTMATTER_BLOCK_PATTERN = re.compile(r"^---\n.*?\n---\n?", re.DOTALL)
 SUSPICIOUS_FILE_EXTENSIONS = {
     ".png",
     ".jpg",
@@ -51,6 +54,8 @@ SUSPICIOUS_FILE_EXTENSIONS = {
 class PromptPackMetadata:
     prompt_pack_path: Path
     requested_title: str
+    canonical_title: str
+    canonical_slug: str
     note_category: str
     source_notes: list[str]
 
@@ -65,6 +70,14 @@ class ApplySynthesisRequest:
     adapter: str = ""
     force: bool = False
     root: Path = ROOT
+
+
+@dataclass
+class SanitizationResult:
+    text: str
+    removed_wrapping_fence: bool = False
+    removed_duplicate_frontmatter: bool = False
+    removed_citation_artifacts: bool = False
 
 
 def slugify_title(title: str) -> str:
@@ -100,7 +113,7 @@ def format_yaml_list(values: list[str]) -> str:
 
 def split_frontmatter(text: str) -> tuple[str, str]:
     """Split markdown text into frontmatter and body."""
-    normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+    normalized = normalize_line_endings(text)
     if not normalized.startswith("---\n"):
         return "", normalized.strip()
 
@@ -198,6 +211,29 @@ def dedupe_preserve_order(values: list[str]) -> list[str]:
     return ordered
 
 
+def load_topic_registry(registry_path: Path = TOPIC_REGISTRY_PATH) -> dict[str, dict[str, object]]:
+    """Load the optional topic registry as a slug-indexed dictionary."""
+    if not registry_path.exists():
+        return {}
+
+    with registry_path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+
+    indexed: dict[str, dict[str, object]] = {}
+    for item in payload.get("topics", []):
+        slug = slugify_title(str(item.get("slug", "")).strip())
+        if slug:
+            indexed[slug] = item
+    return indexed
+
+
+def sanitize_title_value(title: str) -> str:
+    """Remove suspicious title characters before using the title in frontmatter."""
+    sanitized = re.sub(r"[\[\]{}()<>:$`|]+", " ", title)
+    sanitized = " ".join(sanitized.split())
+    return sanitized.strip() or "Untitled Note"
+
+
 def is_valid_wikilink_target(target: str) -> bool:
     """Allow only note-like wikilink targets that will not create garbage graph nodes."""
     cleaned = target.strip()
@@ -218,7 +254,7 @@ def is_valid_wikilink_target(target: str) -> bool:
 
 
 def extract_valid_wikilinks(text: str) -> list[str]:
-    """Extract valid wikilink targets from text while ignoring code fences."""
+    """Extract valid wikilink targets from text while ignoring fenced code blocks."""
     valid_links: list[str] = []
     in_code_block = False
 
@@ -236,15 +272,43 @@ def extract_valid_wikilinks(text: str) -> list[str]:
     return dedupe_preserve_order(valid_links)
 
 
-def strip_citation_artifacts(text: str) -> str:
+def strip_wrapping_markdown_fence(text: str) -> tuple[str, bool]:
+    """Remove a whole-document ```markdown fence when the model wraps the entire note."""
+    normalized = normalize_text(text)
+    lines = normalized.splitlines()
+    if len(lines) >= 2 and re.fullmatch(r"```(?:markdown|md)?", lines[0].strip(), re.IGNORECASE):
+        if lines[-1].strip() == "```":
+            return "\n".join(lines[1:-1]).strip(), True
+    return normalized, False
+
+
+def strip_duplicate_inner_frontmatter(text: str) -> tuple[str, bool]:
+    """Remove echoed template frontmatter blocks that appear after the main content starts."""
+    normalized = normalize_line_endings(text)
+    if normalized.startswith("---\n"):
+        return normalized.strip(), False
+
+    match = re.search(r"\n---\n.*?\n---\n?", normalized, re.DOTALL)
+    if match:
+        cleaned = (normalized[: match.start()] + "\n" + normalized[match.end():]).strip()
+        cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+        return cleaned, True
+
+    return normalized.strip(), False
+
+
+def strip_citation_artifacts(text: str) -> tuple[str, bool]:
     """Remove obvious model citation placeholders that should not persist in notes."""
+    removed = False
     stripped_lines = []
 
     for line in normalize_line_endings(text).splitlines():
         cleaned = CITATION_ARTIFACT_PATTERN.sub("", line).rstrip()
+        if cleaned != line.rstrip():
+            removed = True
         stripped_lines.append(cleaned)
 
-    return "\n".join(stripped_lines)
+    return "\n".join(stripped_lines), removed
 
 
 def neutralize_wikilinks_in_line(line: str) -> str:
@@ -331,15 +395,23 @@ def sanitize_suspicious_lines(text: str) -> str:
     return sanitized_text.strip()
 
 
-def sanitize_markdown_body(body: str) -> str:
+def sanitize_markdown_body(body: str) -> SanitizationResult:
     """Apply conservative sanitization to synthesized markdown before writing it to disk."""
-    sanitized = strip_citation_artifacts(body)
-    sanitized = sanitize_suspicious_lines(sanitized)
-    return sanitized.strip()
+    working = normalize_text(body)
+    working, removed_wrapping_fence = strip_wrapping_markdown_fence(working)
+    working, removed_duplicate_frontmatter = strip_duplicate_inner_frontmatter(working)
+    working, removed_citations = strip_citation_artifacts(working)
+    working = sanitize_suspicious_lines(working)
+    return SanitizationResult(
+        text=working.strip(),
+        removed_wrapping_fence=removed_wrapping_fence,
+        removed_duplicate_frontmatter=removed_duplicate_frontmatter,
+        removed_citation_artifacts=removed_citations,
+    )
 
 
 def extract_prompt_pack_metadata(prompt_pack_path: Path) -> PromptPackMetadata:
-    """Extract the requested title, category, and source notes from a prompt-pack."""
+    """Extract canonical metadata and source notes from a prompt-pack."""
     if not prompt_pack_path.exists():
         raise FileNotFoundError(f"Prompt-pack not found: {prompt_pack_path}")
     if not prompt_pack_path.is_file():
@@ -351,7 +423,13 @@ def extract_prompt_pack_metadata(prompt_pack_path: Path) -> PromptPackMetadata:
     if not title_match:
         raise ValueError(f"Could not extract requested title from prompt-pack: {prompt_pack_path}")
 
+    canonical_title_match = re.search(r"^- Canonical title:\s*(.+)$", text, re.MULTILINE)
+    canonical_slug_match = re.search(r"^- Canonical slug:\s*(.+)$", text, re.MULTILINE)
     category_match = re.search(r"^- Note category:\s*(.+)$", text, re.MULTILINE)
+
+    requested_title = sanitize_title_value(title_match.group(1).strip())
+    canonical_title = sanitize_title_value(canonical_title_match.group(1).strip()) if canonical_title_match else requested_title
+    canonical_slug = slugify_title(canonical_slug_match.group(1).strip()) if canonical_slug_match else slugify_title(canonical_title)
     note_category = category_match.group(1).strip() if category_match else "topic"
     if note_category not in CATEGORY_DESTINATIONS:
         note_category = "topic"
@@ -360,7 +438,9 @@ def extract_prompt_pack_metadata(prompt_pack_path: Path) -> PromptPackMetadata:
 
     return PromptPackMetadata(
         prompt_pack_path=prompt_pack_path,
-        requested_title=title_match.group(1).strip(),
+        requested_title=requested_title,
+        canonical_title=canonical_title,
+        canonical_slug=canonical_slug,
         note_category=note_category,
         source_notes=source_notes,
     )
@@ -373,17 +453,17 @@ def destination_dir_for_category(category: str) -> Path:
 
 def resolve_destination(
     root: Path,
-    title: str,
+    canonical_slug: str,
     output_type: str,
     note_category: str,
 ) -> Path:
     """Resolve the final output path for the applied synthesis."""
-    slug = slugify_title(title)
+    safe_slug = slugify_title(canonical_slug)
 
     if output_type == "compiled":
-        return root / destination_dir_for_category(note_category) / f"{slug}.md"
+        return root / destination_dir_for_category(note_category) / f"{safe_slug}.md"
 
-    return root / OUTPUT_DESTINATIONS[output_type] / f"{slug}.md"
+    return root / OUTPUT_DESTINATIONS[output_type] / f"{safe_slug}.md"
 
 
 def extract_topics_from_body(body: str) -> list[str]:
@@ -429,8 +509,8 @@ def build_compiled_frontmatter(
     existing_metadata: dict[str, object],
 ) -> str:
     """Build frontmatter for a compiled note while preserving existing values where reasonable."""
-    resolved_title = str(existing_metadata.get("title", "")).strip() or title
-    resolved_note_type = str(existing_metadata.get("note_type", "")).strip() or note_type
+    resolved_title = title
+    resolved_note_type = note_type
     resolved_compiled_from = compiled_from
 
     existing_topics = existing_metadata.get("topics", [])
@@ -468,8 +548,8 @@ def build_output_frontmatter(
     existing_metadata: dict[str, object],
 ) -> str:
     """Build frontmatter for answer/report outputs while preserving existing values where reasonable."""
-    resolved_title = str(existing_metadata.get("title", "")).strip() or title
-    resolved_output_type = str(existing_metadata.get("output_type", "")).strip() or output_type
+    resolved_title = title
+    resolved_output_type = output_type
     resolved_query = str(existing_metadata.get("generated_from_query", "")).strip() or generated_from_query
     resolved_generated_on = str(existing_metadata.get("generated_on", "")).strip() or today
     resolved_generation = generation_method
@@ -503,9 +583,10 @@ def assemble_output_text(
     output_type: str,
     title: str,
     today: str,
-) -> str:
+) -> tuple[str, SanitizationResult]:
     """Build the saved markdown text with required frontmatter and preserved body."""
-    normalized_body = sanitize_markdown_body(body)
+    sanitization = sanitize_markdown_body(body)
+    normalized_body = sanitization.text
     source_notes = prompt_pack_metadata.source_notes
 
     if output_type == "compiled":
@@ -531,14 +612,14 @@ def assemble_output_text(
             output_type=output_type,
             generated_from_query=extract_generated_query(normalized_body) or prompt_pack_metadata.requested_title,
             sources_used=source_notes,
-            compiled_notes_used=[slugify_title(title)],
+            compiled_notes_used=[prompt_pack_metadata.canonical_slug],
             generation_method="manual_paste",
             today=today,
             existing_metadata=metadata,
         )
 
     body_text = normalized_body or "[no synthesized body provided]"
-    return f"{frontmatter}\n\n{body_text}\n"
+    return f"{frontmatter}\n\n{body_text}\n", sanitization
 
 
 def apply_synthesis(request: ApplySynthesisRequest) -> Path:
@@ -559,12 +640,19 @@ def apply_synthesis(request: ApplySynthesisRequest) -> Path:
         request.text or None,
     )
 
-    resolved_title = request.title_override.strip() or prompt_pack_metadata.requested_title
-    resolved_title = re.sub(r"[\[\]{}()<>:$`|]+", " ", resolved_title)
-    resolved_title = " ".join(resolved_title.split())
+    requested_title = sanitize_title_value(request.title_override.strip()) if request.title_override.strip() else prompt_pack_metadata.canonical_title
+    canonical_title = prompt_pack_metadata.canonical_title
+    canonical_slug = prompt_pack_metadata.canonical_slug
+
+    registry = load_topic_registry(request.root / "metadata" / "topic-registry.json")
+    if canonical_slug in registry:
+        registry_entry = registry[canonical_slug]
+        canonical_title = sanitize_title_value(str(registry_entry.get("title", canonical_title)))
+        canonical_slug = slugify_title(str(registry_entry.get("slug", canonical_slug)))
+
     destination = resolve_destination(
         root=request.root,
-        title=resolved_title,
+        canonical_slug=canonical_slug,
         output_type=output_type,
         note_category=prompt_pack_metadata.note_category,
     )
@@ -574,17 +662,36 @@ def apply_synthesis(request: ApplySynthesisRequest) -> Path:
 
     existing_frontmatter, body = split_frontmatter(synthesized_text)
     metadata = parse_frontmatter(existing_frontmatter)
-    output_text = assemble_output_text(
+    original_title = str(metadata.get("title", "")).strip()
+    output_text, sanitization = assemble_output_text(
         body=body if existing_frontmatter else synthesized_text,
         metadata=metadata,
-        prompt_pack_metadata=prompt_pack_metadata,
+        prompt_pack_metadata=PromptPackMetadata(
+            prompt_pack_path=prompt_pack_metadata.prompt_pack_path,
+            requested_title=prompt_pack_metadata.requested_title,
+            canonical_title=canonical_title,
+            canonical_slug=canonical_slug,
+            note_category=prompt_pack_metadata.note_category,
+            source_notes=prompt_pack_metadata.source_notes,
+        ),
         output_type=output_type,
-        title=resolved_title,
+        title=canonical_title if output_type == "compiled" else requested_title,
         today=date.today().isoformat(),
     )
 
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(output_text, encoding="utf-8")
+
+    if original_title and sanitize_title_value(original_title) != canonical_title and output_type == "compiled":
+        print(f"Patched title to canonical topic title: {canonical_title}")
+    print(f"Enforced canonical slug: {canonical_slug}")
+    if sanitization.removed_wrapping_fence:
+        print("Removed wrapping markdown fence")
+    if sanitization.removed_duplicate_frontmatter:
+        print("Removed duplicate inner frontmatter")
+    if sanitization.removed_citation_artifacts:
+        print("Removed citation artifacts")
+
     return destination
 
 
@@ -625,7 +732,7 @@ def main(argv: list[str] | None = None) -> int:
                 force=args.force,
             )
         )
-    except (FileExistsError, FileNotFoundError, ValueError) as exc:
+    except (FileExistsError, FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 
