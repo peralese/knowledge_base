@@ -39,6 +39,7 @@ class ApplySynthesisTests(unittest.TestCase):
                             "aliases": [
                                 "openclaw security",
                                 "open-claw security",
+                                "open claw security",
                             ],
                         }
                     ]
@@ -70,6 +71,14 @@ class ApplySynthesisTests(unittest.TestCase):
             ),
             encoding="utf-8",
         )
+
+        for relative in [
+            "raw/articles/openclaw-security-best-practices.md",
+            "raw/articles/openclaw-security-hardening-guide.md",
+        ]:
+            path = self.root / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("# Source\n", encoding="utf-8")
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
@@ -183,6 +192,29 @@ class ApplySynthesisTests(unittest.TestCase):
 
         self.assertIn("[[open-claw-security]]", sanitized.text)
         self.assertIn("[[openclaw-security-best-practices]]", sanitized.text)
+
+    def test_unresolved_invalid_wikilinks_cause_clear_failure(self) -> None:
+        with self.assertRaisesRegex(ValueError, r"Validation failed: unresolved wikilinks"):
+            apply_synthesis(
+                ApplySynthesisRequest(
+                    prompt_pack=Path("metadata/prompts/compile-openclaw-security.md"),
+                    text="# Summary\n\nSee [[totally-missing-note]].\n",
+                    root=self.root,
+                )
+            )
+
+    def test_source_wikilinks_from_prompt_pack_are_recognized_correctly(self) -> None:
+        output_path = apply_synthesis(
+            ApplySynthesisRequest(
+                prompt_pack=Path("metadata/prompts/compile-openclaw-security.md"),
+                text="# Source Notes\n\n- [[openclaw security best practices]]\n- [[openclaw-security-hardening-guide]]\n",
+                root=self.root,
+            )
+        )
+
+        saved = output_path.read_text(encoding="utf-8")
+        self.assertIn("[[openclaw-security-best-practices]]", saved)
+        self.assertIn("[[openclaw-security-hardening-guide]]", saved)
 
     def test_generation_method_becomes_manual_paste(self) -> None:
         output_path = apply_synthesis(

@@ -272,6 +272,34 @@ def extract_valid_wikilinks(text: str) -> list[str]:
     return dedupe_preserve_order(valid_links)
 
 
+def extract_wikilinks(text: str) -> list[str]:
+    """Extract all wikilink targets from text while ignoring fenced code blocks."""
+    links: list[str] = []
+    in_code_block = False
+
+    for line in normalize_line_endings(text).splitlines():
+        if line.strip().startswith("```"):
+            in_code_block = not in_code_block
+            continue
+        if in_code_block:
+            continue
+
+        links.extend(match.strip() for match in WIKILINK_PATTERN.findall(line))
+
+    return dedupe_preserve_order(links)
+
+
+def resolve_registry_topic_target(target: str, registry: dict[str, dict[str, object]]) -> str | None:
+    """Resolve a wikilink target to a canonical registry slug when possible."""
+    target_slug = slugify_title(target)
+    for slug, item in registry.items():
+        candidates = [slug, slugify_title(str(item.get("title", "")))]
+        candidates.extend(slugify_title(str(alias)) for alias in item.get("aliases", []))
+        if target_slug in candidates:
+            return slug
+    return None
+
+
 def strip_wrapping_markdown_fence(text: str) -> tuple[str, bool]:
     """Remove a whole-document ```markdown fence when the model wraps the entire note."""
     normalized = normalize_text(text)
@@ -408,6 +436,97 @@ def sanitize_markdown_body(body: str) -> SanitizationResult:
         removed_duplicate_frontmatter=removed_duplicate_frontmatter,
         removed_citation_artifacts=removed_citations,
     )
+
+
+def build_wikilink_index(root: Path) -> dict[str, list[str]]:
+    """Build a slug-indexed map of valid wikilink targets in the vault, excluding archives."""
+    search_dirs = [
+        root / "raw" / "articles",
+        root / "raw" / "notes",
+        root / "raw" / "pdfs",
+        root / "compiled" / "source_summaries",
+        root / "compiled" / "concepts",
+        root / "compiled" / "topics",
+    ]
+    index: dict[str, list[str]] = {}
+
+    for directory in search_dirs:
+        if not directory.exists():
+            continue
+        for path in directory.glob("*.md"):
+            stem = path.stem
+            index.setdefault(slugify_title(stem), [])
+            if stem not in index[slugify_title(stem)]:
+                index[slugify_title(stem)].append(stem)
+
+    return index
+
+
+def patch_source_wikilinks(text: str, source_notes: list[str], registry: dict[str, dict[str, object]]) -> str:
+    """Patch wikilinks that drift from prompt-pack source note names or canonical topics."""
+    source_map = {slugify_title(source_name): source_name for source_name in source_notes}
+    sanitized_lines: list[str] = []
+    in_code_block = False
+
+    for raw_line in normalize_line_endings(text).splitlines():
+        line = raw_line
+        if line.strip().startswith("```"):
+            in_code_block = not in_code_block
+            sanitized_lines.append(line)
+            continue
+        if in_code_block:
+            sanitized_lines.append(line)
+            continue
+
+        def replace(match: re.Match[str]) -> str:
+            target = match.group(1).strip()
+            source_target = source_map.get(slugify_title(target))
+            if source_target:
+                return f"[[{source_target}]]"
+
+            canonical_target = resolve_registry_topic_target(target, registry)
+            if canonical_target:
+                return f"[[{canonical_target}]]"
+
+            return f"[[{target}]]"
+
+        sanitized_lines.append(WIKILINK_PATTERN.sub(replace, line))
+
+    return "\n".join(sanitized_lines).strip()
+
+
+def validate_wikilinks(
+    text: str,
+    root: Path,
+    source_notes: list[str],
+    registry: dict[str, dict[str, object]],
+    current_output_stem: str,
+) -> None:
+    """Validate wikilinks in a compiled note body and fail on unresolved or ambiguous targets."""
+    index = build_wikilink_index(root)
+    if current_output_stem:
+        index.setdefault(slugify_title(current_output_stem), [])
+        if current_output_stem not in index[slugify_title(current_output_stem)]:
+            index[slugify_title(current_output_stem)].append(current_output_stem)
+
+    unresolved: list[str] = []
+
+    for target in extract_wikilinks(text):
+        patched_target = target
+        source_match = next((source for source in source_notes if slugify_title(source) == slugify_title(target)), None)
+        if source_match:
+            patched_target = source_match
+        else:
+            registry_target = resolve_registry_topic_target(target, registry)
+            if registry_target:
+                patched_target = registry_target
+
+        matches = index.get(slugify_title(patched_target), [])
+        if len(matches) != 1:
+            unresolved.append(target)
+
+    if unresolved:
+        raise ValueError(f"Validation failed: unresolved wikilinks: {sorted(dedupe_preserve_order(unresolved))}")
 
 
 def extract_prompt_pack_metadata(prompt_pack_path: Path) -> PromptPackMetadata:
@@ -583,13 +702,23 @@ def assemble_output_text(
     output_type: str,
     title: str,
     today: str,
+    root: Path,
 ) -> tuple[str, SanitizationResult]:
     """Build the saved markdown text with required frontmatter and preserved body."""
     sanitization = sanitize_markdown_body(body)
     normalized_body = sanitization.text
     source_notes = prompt_pack_metadata.source_notes
+    registry = load_topic_registry(root / "metadata" / "topic-registry.json")
 
     if output_type == "compiled":
+        normalized_body = patch_source_wikilinks(normalized_body, source_notes, registry)
+        validate_wikilinks(
+            normalized_body,
+            root,
+            source_notes,
+            registry,
+            current_output_stem=prompt_pack_metadata.canonical_slug,
+        )
         topics = extract_topics_from_body(normalized_body)
         tags = dedupe_preserve_order(
             [prompt_pack_metadata.note_category]
@@ -677,6 +806,7 @@ def apply_synthesis(request: ApplySynthesisRequest) -> Path:
         output_type=output_type,
         title=canonical_title if output_type == "compiled" else requested_title,
         today=date.today().isoformat(),
+        root=request.root,
     )
 
     destination.parent.mkdir(parents=True, exist_ok=True)

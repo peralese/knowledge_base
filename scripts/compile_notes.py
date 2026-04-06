@@ -382,6 +382,7 @@ def build_prompt_pack(
         f"- Use the exact canonical topic slug provided: {canonical.slug}",
         "- Do not invent, modify, pluralize, misspell, or rename the topic.",
         "- Do not create alternative topic identities.",
+        "- Do not create additional topic files or variants.",
         "",
         "# Instructions",
         "",

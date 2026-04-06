@@ -37,6 +37,7 @@ class CompileNotesTests(unittest.TestCase):
                             "aliases": [
                                 "openclaw security",
                                 "open-claw security",
+                                "open claw security",
                             ],
                         }
                     ]
@@ -122,6 +123,13 @@ class CompileNotesTests(unittest.TestCase):
         self.assertEqual(resolved.slug, "openclaw-security")
         self.assertEqual(resolved.title, "OpenClaw Security")
 
+    def test_topic_registry_canonicalization_from_title(self) -> None:
+        resolved = resolve_canonical_topic("OpenClaw Security", self.root / "metadata" / "topic-registry.json")
+
+        self.assertTrue(resolved.matched_registry)
+        self.assertEqual(resolved.slug, "openclaw-security")
+        self.assertEqual(resolved.title, "OpenClaw Security")
+
     def test_scaffold_uses_canonical_slug_and_title(self) -> None:
         created = compile_notes(
             CompileRequest(
@@ -165,6 +173,7 @@ class CompileNotesTests(unittest.TestCase):
         self.assertIn("Use the exact canonical title provided: OpenClaw Security", prompt_text)
         self.assertIn("Use the exact canonical topic slug provided: openclaw-security", prompt_text)
         self.assertIn("Do not create alternative topic identities.", prompt_text)
+        self.assertIn("Do not create additional topic files or variants.", prompt_text)
 
     def test_no_overwrite_by_default(self) -> None:
         request = CompileRequest(

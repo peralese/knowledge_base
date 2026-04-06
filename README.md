@@ -667,6 +667,7 @@ Phase 4.5 also strengthens sanitization during synthesis application:
 - duplicated inner frontmatter echoed from prompt templates is stripped
 - citation junk, malformed shell fragments, and suspicious path-like text are filtered out
 - valid lineage wikilinks are preserved
+- compiled-note wikilinks are validated before the note is written, and unresolved links fail clearly
 
 The goal is to keep compiled topics canonical, preserve graph integrity in Obsidian, and prevent silent creation of duplicate topic identities.
 
