@@ -155,6 +155,7 @@ The ingestion script:
 - chooses the destination folder based on `source_type`
 - generates a safe slug-based filename from the title
 - creates or updates a manifest entry in `metadata/source-manifest.json`
+- automatically archives successfully ingested files from `raw/inbox/`
 - refuses to overwrite an existing note unless `--force` is explicitly passed
 
 ### Supported input modes
@@ -175,6 +176,19 @@ The destination folder is selected from `source_type`:
 - `note` -> `raw/notes/`
 - `pdf` -> `raw/pdfs/`
 - anything else -> `raw/inbox/`
+
+### Inbox and archive behavior
+
+`raw/inbox/` is a temporary staging area for incoming files. After a file from `raw/inbox/` is successfully ingested into a normalized raw markdown note, the original file is automatically moved to `raw/archive/`.
+
+Archived originals are renamed with an archive suffix and timestamp, for example:
+
+```text
+sample-article.txt
+-> raw/archive/sample-article--archived-20260405-213045.txt
+```
+
+This preserves the original input for auditability while preventing Obsidian filename ambiguity caused by archived files sharing the same base filename as active notes elsewhere in the vault.
 
 ### Example commands
 

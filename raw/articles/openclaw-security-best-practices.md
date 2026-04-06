@@ -1,134 +1,23 @@
-# Compilation Request
-
-- Requested title: OpenClaw Security
-- Canonical title: OpenClaw Security
-- Canonical slug: openclaw-security
-- Note category: topic
-- Repository phase: Phase 3 compilation workflow
-- Required generation method value: prompt_pack
-
-# Canonical Identity Rules
-
-- Use the exact canonical title provided: OpenClaw Security
-- Use the exact canonical topic slug provided: openclaw-security
-- Do not invent, modify, pluralize, misspell, or rename the topic.
-- Do not create alternative topic identities.
-
-# Instructions
-
-Use the provided source notes to synthesize one compiled markdown note in the exact repository format shown below.
-Preserve lineage explicitly by listing every source note in `compiled_from`, `# Source Notes`, and `# Lineage`.
-Do not invent unsupported claims. If the sources do not support a statement, omit it or mark it as uncertain in the note.
-Keep the result inspectable and grounded in the provided source material.
-Do not rewrite or mutate raw notes.
-
-# Desired Output Template
-
-```markdown
 ---
-title: "OpenClaw Security"
-note_type: "topic"
-compiled_from: 
-  - "openclaw-security-checklist"
-  - "openclaw-security-best-practices"
-date_compiled: "YYYY-MM-DD"
+title: "Openclaw Security Best Practices"
+source_type: "article"
+origin: "web"
+date_ingested: "2026-04-05"
+status: "raw"
 topics: []
 tags: []
-confidence: "medium"
-generation_method: "prompt_pack"
+author: ""
+date_created: ""
+date_published: ""
+language: "en"
+summary: ""
+source_id: "SRC-20260405-0005"
+canonical_url: ""
+related_sources: []
+confidence: ""
+license: ""
 ---
 
-# Summary
-
-[write a concise synthesis grounded in the sources]
-
-# Key Insights
-
-- [insight]
-- [insight]
-
-# Related Concepts
-
-- 
-
-# Source Notes
-
-- [[openclaw-security-checklist]]
-- [[openclaw-security-best-practices]]
-
-# Source Highlights
-
-## [[openclaw-security-checklist]]
-- Title:
-- Source Type:
-- Origin:
-- Summary:
-- Key excerpt:
-
-## [[openclaw-security-best-practices]]
-- Title:
-- Source Type:
-- Origin:
-- Summary:
-- Key excerpt:
-
-# Lineage
-
-This note was derived from:
-- [[openclaw-security-checklist]]
-- [[openclaw-security-best-practices]]
-```
-
-# Source Notes
-
-## [[openclaw-security-checklist]]
-
-- Path: /home/peralese/Projects/Knowledge_Base/raw/articles/openclaw-security-checklist.md
-- Title: Openclaw Security Checklist
-- Source Type: article
-- Origin: web
-- Summary: [none provided]
-- Topics: [none]
-- Tags: [none]
-
-### Body
-
-```markdown
-# Overview
-
-Brief description of what this source is and why it matters.
-
-# Source Content
-
-[no content provided]
-
-# Key Points
-
-- 
-
-# Notes
-
-# Lineage
-
-- Ingested via: scripts/ingest.py
-- Manifest entry: metadata/source-manifest.json::SRC-20260405-0006
-- Source path: raw/inbox/openclaw-checklist.md
-- Canonical URL:
-```
-
-## [[openclaw-security-best-practices]]
-
-- Path: /home/peralese/Projects/Knowledge_Base/raw/articles/openclaw-security-best-practices.md
-- Title: Openclaw Security Best Practices
-- Source Type: article
-- Origin: web
-- Summary: [none provided]
-- Topics: [none]
-- Tags: [none]
-
-### Body
-
-```markdown
 # Overview
 
 Brief description of what this source is and why it matters.
@@ -404,5 +293,5 @@ Security isn't a one-time task. Review your setup monthly. Rotate keys quarterly
 - Ingested via: scripts/ingest.py
 - Manifest entry: metadata/source-manifest.json::SRC-20260405-0005
 - Source path: raw/inbox/openclaw-security-best-practices.md
-- Canonical URL:
-```
+- Canonical URL: 
+

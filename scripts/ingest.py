@@ -6,11 +6,13 @@ import re
 import sys
 from dataclasses import dataclass
 from datetime import date
+from datetime import datetime
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_PATH = ROOT / "metadata" / "source-manifest.json"
+ARCHIVE_DIR = Path("raw/archive")
 DEFAULT_STATUS = "raw"
 DEFAULT_LANGUAGE = "en"
 
@@ -219,9 +221,10 @@ def build_manifest_entry(
     source_id: str,
     output_path: Path,
     date_ingested: str,
+    archive_path: Path | None = None,
 ) -> dict:
     """Create a manifest entry for the ingested note."""
-    return {
+    entry = {
         "source_id": source_id,
         "title": request.title,
         "filename": output_path.name,
@@ -233,6 +236,46 @@ def build_manifest_entry(
         "input_path": request.input_path,
         "status": request.status,
     }
+    if archive_path is not None:
+        entry["archive_path"] = str(archive_path.relative_to(request.root))
+    return entry
+
+
+def is_inbox_input(input_path: Path, root: Path) -> bool:
+    """Return True when the input file came from raw/inbox/ inside the repository."""
+    try:
+        relative_path = input_path.resolve().relative_to((root / "raw" / "inbox").resolve())
+    except ValueError:
+        return False
+    return not str(relative_path).startswith("..")
+
+
+def build_archive_filename(input_path: Path, archived_at: datetime | None = None) -> str:
+    """Build a timestamped archive filename that avoids note-name collisions in the vault."""
+    archived_at = archived_at or datetime.now()
+    timestamp = archived_at.strftime("%Y%m%d-%H%M%S")
+    return f"{input_path.stem}--archived-{timestamp}{input_path.suffix}"
+
+
+def archive_input_file(input_path: Path, root: Path, archived_at: datetime | None = None) -> Path:
+    """Move an inbox file into raw/archive/ with a timestamped, collision-safe filename."""
+    archive_dir = root / ARCHIVE_DIR
+    archive_dir.mkdir(parents=True, exist_ok=True)
+
+    archived_at = archived_at or datetime.now()
+    archive_name = build_archive_filename(input_path, archived_at)
+    archive_path = archive_dir / archive_name
+    suffix_counter = 2
+
+    while archive_path.exists():
+        archive_name = (
+            f"{input_path.stem}--archived-{archived_at.strftime('%Y%m%d-%H%M%S')}-{suffix_counter}"
+            f"{input_path.suffix}"
+        )
+        archive_path = archive_dir / archive_name
+        suffix_counter += 1
+
+    return input_path.replace(archive_path)
 
 
 def upsert_manifest_entry(manifest: dict, entry: dict) -> tuple[dict, bool]:
@@ -257,12 +300,14 @@ def ingest_source(request: IngestRequest) -> Path:
     if not title:
         raise ValueError("--title is required.")
 
+    input_file = Path(request.input_path) if request.input_path else None
     content, detected_input_path = read_input_content(
-        Path(request.input_path) if request.input_path else None,
+        input_file,
         request.text or None,
     )
     if detected_input_path:
         request.input_path = detected_input_path
+        input_file = Path(detected_input_path)
 
     destination_dir = request.root / destination_dir_for_source_type(request.source_type)
     destination_dir.mkdir(parents=True, exist_ok=True)
@@ -289,7 +334,11 @@ def ingest_source(request: IngestRequest) -> Path:
 
     output_path.write_text(note_text + "\n", encoding="utf-8")
 
-    entry = build_manifest_entry(request, source_id, output_path, today)
+    archive_path: Path | None = None
+    if input_file and is_inbox_input(input_file, request.root):
+        archive_path = archive_input_file(input_file, request.root)
+
+    entry = build_manifest_entry(request, source_id, output_path, today, archive_path=archive_path)
     manifest, _ = upsert_manifest_entry(manifest, entry)
     manifest["last_updated"] = today
     manifest["manifest_version"] = "0.2.0"

@@ -158,6 +158,18 @@
       "canonical_url": "",
       "input_path": "raw/inbox/openclaw-security-best-practices.md",
       "status": "raw"
+    },
+    {
+      "source_id": "SRC-20260405-0006",
+      "title": "Openclaw Security Checklist",
+      "filename": "openclaw-security-checklist.md",
+      "path": "raw/articles/openclaw-security-checklist.md",
+      "source_type": "article",
+      "origin": "web",
+      "date_ingested": "2026-04-05",
+      "canonical_url": "",
+      "input_path": "raw/inbox/openclaw-checklist.md",
+      "status": "raw"
     }
   ]
 }
