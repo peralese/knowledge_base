@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.2.0",
-  "last_updated": "2026-04-05",
+  "last_updated": "2026-04-08",
   "description": "Source manifest for tracking ingested raw notes and preserving lineage.",
   "sources": [
     {
@@ -183,6 +183,32 @@
       "input_path": "raw/inbox/Five-openclaw-settings.md",
       "status": "raw",
       "archive_path": "raw/archive/Five-openclaw-settings--archived-20260405-211534.md"
+    },
+    {
+      "source_id": "SRC-20260408-0001",
+      "title": "How to Set Up Gemma 4 with OpenClaw Using Ollama (2026 Guide)",
+      "filename": "how-to-set-up-gemma-4-with-openclaw-using-ollama-2026-guide.md",
+      "path": "raw/articles/how-to-set-up-gemma-4-with-openclaw-using-ollama-2026-guide.md",
+      "source_type": "article",
+      "origin": "web",
+      "date_ingested": "2026-04-08",
+      "canonical_url": "",
+      "input_path": "raw/inbox/Openclaw_ollama_gemma4.md",
+      "status": "raw",
+      "archive_path": "raw/archive/Openclaw_ollama_gemma4--archived-20260408-204027.md"
+    },
+    {
+      "source_id": "SRC-20260408-0002",
+      "title": "Openclaw Ollama Gemma4",
+      "filename": "openclaw-ollama-gemma4.md",
+      "path": "raw/articles/openclaw-ollama-gemma4.md",
+      "source_type": "article",
+      "origin": "web",
+      "date_ingested": "2026-04-08",
+      "canonical_url": "",
+      "input_path": "raw/inbox/openclaw_ollama_gemma4.md",
+      "status": "raw",
+      "archive_path": "raw/archive/openclaw_ollama_gemma4--archived-20260408-210946.md"
     }
   ]
 }

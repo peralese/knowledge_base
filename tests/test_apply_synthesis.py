@@ -147,6 +147,28 @@ class ApplySynthesisTests(unittest.TestCase):
         self.assertNotIn("\n```\n", saved)
         self.assertIn("OpenClaw hardening guidance.", saved)
 
+    def test_wrapping_fence_with_trailing_llm_junk_is_removed(self) -> None:
+        """LLM sometimes appends instructions after the closing fence — strip the fence and the junk."""
+        output_path = apply_synthesis(
+            ApplySynthesisRequest(
+                prompt_pack=Path("metadata/prompts/compile-openclaw-security.md"),
+                text=(
+                    "```markdown\n"
+                    "# Summary\n\n"
+                    "OpenClaw hardening guidance.\n"
+                    "```\n\n"
+                    "Please adjust `date_compiled` to reflect the actual compilation date.\n"
+                ),
+                root=self.root,
+                force=True,
+            )
+        )
+
+        saved = output_path.read_text(encoding="utf-8")
+        self.assertNotIn("```markdown", saved)
+        self.assertNotIn("Please adjust", saved)
+        self.assertIn("OpenClaw hardening guidance.", saved)
+
     def test_duplicate_inner_frontmatter_is_handled_correctly(self) -> None:
         output_path = apply_synthesis(
             ApplySynthesisRequest(

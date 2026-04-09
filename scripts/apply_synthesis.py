@@ -70,6 +70,7 @@ class ApplySynthesisRequest:
     adapter: str = ""
     force: bool = False
     root: Path = ROOT
+    generation_method: str = "manual_paste"
 
 
 @dataclass
@@ -301,13 +302,32 @@ def resolve_registry_topic_target(target: str, registry: dict[str, dict[str, obj
 
 
 def strip_wrapping_markdown_fence(text: str) -> tuple[str, bool]:
-    """Remove a whole-document ```markdown fence when the model wraps the entire note."""
+    """Remove a whole-document ```markdown fence when the model wraps the entire note.
+
+    Handles cases where the model appends trailing text (instructions, comments)
+    after the closing fence — the closing fence is the last ``` line, not
+    necessarily the last line of the document.
+    """
     normalized = normalize_text(text)
     lines = normalized.splitlines()
-    if len(lines) >= 2 and re.fullmatch(r"```(?:markdown|md)?", lines[0].strip(), re.IGNORECASE):
-        if lines[-1].strip() == "```":
-            return "\n".join(lines[1:-1]).strip(), True
-    return normalized, False
+    if not lines:
+        return normalized, False
+    if not re.fullmatch(r"```(?:markdown|md)?", lines[0].strip(), re.IGNORECASE):
+        return normalized, False
+
+    # Find the last line that is exactly a closing fence.
+    closing_idx = None
+    for i in range(len(lines) - 1, 0, -1):
+        if lines[i].strip() == "```":
+            closing_idx = i
+            break
+
+    if closing_idx is None:
+        return normalized, False
+
+    # Extract content between the opening and closing fence; discard anything after.
+    inner = "\n".join(lines[1:closing_idx]).strip()
+    return inner, True
 
 
 def strip_duplicate_inner_frontmatter(text: str) -> tuple[str, bool]:
@@ -703,6 +723,7 @@ def assemble_output_text(
     title: str,
     today: str,
     root: Path,
+    generation_method: str = "manual_paste",
 ) -> tuple[str, SanitizationResult]:
     """Build the saved markdown text with required frontmatter and preserved body."""
     sanitization = sanitize_markdown_body(body)
@@ -731,7 +752,7 @@ def assemble_output_text(
             compiled_from=source_notes,
             topics=topics,
             tags=tags,
-            generation_method="manual_paste",
+            generation_method=generation_method,
             today=today,
             existing_metadata=metadata,
         )
@@ -742,7 +763,7 @@ def assemble_output_text(
             generated_from_query=extract_generated_query(normalized_body) or prompt_pack_metadata.requested_title,
             sources_used=source_notes,
             compiled_notes_used=[prompt_pack_metadata.canonical_slug],
-            generation_method="manual_paste",
+            generation_method=generation_method,
             today=today,
             existing_metadata=metadata,
         )
@@ -807,6 +828,7 @@ def apply_synthesis(request: ApplySynthesisRequest) -> Path:
         title=canonical_title if output_type == "compiled" else requested_title,
         today=date.today().isoformat(),
         root=request.root,
+        generation_method=request.generation_method,
     )
 
     destination.parent.mkdir(parents=True, exist_ok=True)

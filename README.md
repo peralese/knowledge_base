@@ -671,6 +671,115 @@ Phase 4.5 also strengthens sanitization during synthesis application:
 
 The goal is to keep compiled topics canonical, preserve graph integrity in Obsidian, and prevent silent creation of duplicate topic identities.
 
+## Phase 5 Local LLM Driver
+
+Phase 5 closes the manual gap between Phase 3 and Phase 4 by wiring a local Ollama model directly into the pipeline. Before this phase, the user had to paste the prompt-pack into an LLM manually, copy the output to a file, then invoke `apply_synthesis.py` by hand. Phase 5 replaces all three steps with a single command.
+
+The driver script `scripts/llm_driver.py`:
+
+- validates that the requested Ollama model is pulled and available before doing anything else
+- reads the prompt-pack produced by `compile_notes.py`
+- streams the model response token-by-token to the terminal so you can see progress
+- writes the raw model output to `tmp/synthesis-output.md` for inspection or retry
+- passes the output directly through `apply_synthesis` to produce a durable artifact
+- sets `generation_method` to `ollama_local` in the output frontmatter so local synthesis is distinguishable from manual-paste synthesis
+
+The driver uses the Ollama REST API over `http://localhost:11434` with no external Python dependencies. Everything is standard library.
+
+The default model is `qwen2.5:14b`. This can be overridden with `--model`.
+
+### Example commands
+
+Run a full local synthesis for a compiled topic:
+
+```bash
+python3 scripts/llm_driver.py \
+  --prompt-pack metadata/prompts/compile-openclaw-security.md \
+  --output-type compiled
+```
+
+Use a different local model:
+
+```bash
+python3 scripts/llm_driver.py \
+  --prompt-pack metadata/prompts/compile-openclaw-security.md \
+  --model qwen2.5:7b
+```
+
+Overwrite an existing compiled artifact:
+
+```bash
+python3 scripts/llm_driver.py \
+  --prompt-pack metadata/prompts/compile-openclaw-security.md \
+  --force
+```
+
+Generate an answer artifact instead of a compiled note:
+
+```bash
+python3 scripts/llm_driver.py \
+  --prompt-pack metadata/prompts/compile-openclaw-security.md \
+  --output-type answer
+```
+
+### Full workflow with Phase 5
+
+```
+1. python3 scripts/ingest.py ...          # ingest raw source material
+2. python3 scripts/compile_notes.py ...   # generate prompt-pack
+3. python3 scripts/llm_driver.py ...      # synthesize + apply in one step
+```
+
+Steps 1 and 2 remain manual because they require user judgment: which sources to include and what to title the compiled topic. Step 3 is now fully automated end-to-end.
+
+### Sanitization carried forward
+
+All Phase 4.5 sanitization applies to LLM output in Phase 5:
+
+- wrapping ` ```markdown ` fences are stripped even when the model appends trailing commentary after the closing fence
+- citation artifacts, shell fragments, and junk lines are removed
+- wikilinks are validated against the vault before writing
+- canonical topic identity is enforced from the topic registry
+
+### What remains out of scope in Phase 5
+
+This phase does not include:
+
+- autonomous multi-step orchestration without user-initiated commands
+- querying the knowledge base with natural language questions
+- automatic ingestion triggered by file system events
+- index maintenance or repo-wide summarization
+- linting or health-check workflows
+- search tooling
+
+---
+
+## Planned Phases
+
+The following phases are planned but not yet implemented. They are listed here to document the intended direction.
+
+### Phase 6 — Inbox Watcher
+
+A file system watcher that monitors `raw/inbox/` and automatically runs `ingest.py` when a new file is detected. This enables the Obsidian Web Clipper → drop file → auto-ingest workflow with no manual CLI step. Implemented as a simple polling loop or `inotifywait`-backed script that can be started as a background process.
+
+### Phase 7 — Q&A Workflow
+
+A `scripts/query.py` script that accepts a natural language question, assembles a context bundle from relevant compiled notes, sends the bundle and question to the local Ollama model, and files the answer into `outputs/answers/`. This is the core interactive layer described in the original vision: ask complex questions against the wiki and receive filed, versioned answers.
+
+### Phase 8 — Index Maintenance
+
+Auto-generated index files that the LLM keeps up to date as the wiki grows. Each topic gets a short `index.md` with one-line summaries of all related compiled notes and raw sources. A global index across the entire `compiled/` layer provides a lightweight alternative to RAG for directing model attention to the right documents at query time.
+
+### Phase 9 — Linting and Health Checks
+
+A `scripts/lint.py` script that runs LLM-assisted health checks over the wiki. Checks include: finding inconsistent claims across compiled notes, identifying missing data that could be imputed from web search, suggesting new article candidates based on gaps in coverage, and flagging dangling wikilinks or orphaned raw notes with no compiled coverage. Results are filed as reports in `outputs/reports/`.
+
+### Phase 10 — Search Engine
+
+A lightweight keyword or BM25 search index over the compiled notes layer. Usable directly from the CLI for human browsing, and exposable as a tool the LLM can invoke during Q&A and linting workflows to narrow its reading to relevant documents before assembling a context bundle.
+
+---
+
 ## Included MVP Files
 
 The repository includes:
