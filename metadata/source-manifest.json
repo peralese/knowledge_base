@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.2.0",
-  "last_updated": "2026-04-08",
+  "last_updated": "2026-04-10",
   "description": "Source manifest for tracking ingested raw notes and preserving lineage.",
   "sources": [
     {
@@ -209,6 +209,19 @@
       "input_path": "raw/inbox/openclaw_ollama_gemma4.md",
       "status": "raw",
       "archive_path": "raw/archive/openclaw_ollama_gemma4--archived-20260408-210946.md"
+    },
+    {
+      "source_id": "SRC-20260410-0001",
+      "title": "AWS Containers 2025 Guide: EKS vs. ECS vs. Fargate Explained",
+      "filename": "aws-containers-2025-guide-eks-vs-ecs-vs-fargate-explained.md",
+      "path": "raw/articles/aws-containers-2025-guide-eks-vs-ecs-vs-fargate-explained.md",
+      "source_type": "article",
+      "origin": "local-markdown",
+      "date_ingested": "2026-04-10",
+      "canonical_url": "",
+      "input_path": "/home/peralese/Projects/Knowledge_Base/raw/inbox/AWS_Containers_2025_Guide.md",
+      "status": "raw",
+      "archive_path": "raw/archive/AWS_Containers_2025_Guide--archived-20260410-211420.md"
     }
   ]
 }

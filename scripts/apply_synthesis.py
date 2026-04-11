@@ -254,6 +254,45 @@ def is_valid_wikilink_target(target: str) -> bool:
     return bool(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 _./-]*[A-Za-z0-9]", cleaned))
 
 
+def ensure_source_notes_section(body: str, source_notes: list[str]) -> tuple[str, bool]:
+    """Guarantee a # Source Notes section with wikilinks for every source note exists in the body.
+
+    If the section is missing it is appended. If it exists but is missing wikilinks for
+    one or more source notes, those wikilinks are appended to the section. Returns the
+    updated body and a flag indicating whether any changes were made.
+    """
+    if not source_notes:
+        return body, False
+
+    normalized = normalize_line_endings(body)
+    required_links = {note: f"[[{note}]]" for note in source_notes}
+
+    # Check which source notes already appear as wikilinks anywhere in the body.
+    existing = set(extract_wikilinks(normalized))
+    missing = [note for note in source_notes if note not in existing]
+    if not missing:
+        return body, False
+
+    missing_links = "\n".join(f"- [[{note}]]" for note in missing)
+
+    # If a # Source Notes section exists, append the missing links there.
+    section_match = re.search(r"^# Source Notes\s*$", normalized, re.MULTILINE)
+    if section_match:
+        insert_pos = section_match.end()
+        # Find where this section ends (next # heading or EOF).
+        next_section = re.search(r"^# ", normalized[insert_pos:], re.MULTILINE)
+        if next_section:
+            insert_pos = insert_pos + next_section.start()
+            updated = normalized[:insert_pos] + missing_links + "\n\n" + normalized[insert_pos:]
+        else:
+            updated = normalized.rstrip() + "\n" + missing_links + "\n"
+        return updated, True
+
+    # No section found — append one at the end.
+    updated = normalized.rstrip() + "\n\n# Source Notes\n\n" + missing_links + "\n"
+    return updated, True
+
+
 def extract_valid_wikilinks(text: str) -> list[str]:
     """Extract valid wikilink targets from text while ignoring fenced code blocks."""
     valid_links: list[str] = []
@@ -733,6 +772,9 @@ def assemble_output_text(
 
     if output_type == "compiled":
         normalized_body = patch_source_wikilinks(normalized_body, source_notes, registry)
+        normalized_body, injected = ensure_source_notes_section(normalized_body, source_notes)
+        if injected:
+            print("Injected missing source wikilinks into # Source Notes section")
         validate_wikilinks(
             normalized_body,
             root,

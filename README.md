@@ -754,13 +754,88 @@ This phase does not include:
 
 ---
 
+## Phase 6 Inbox Watcher
+
+Phase 6 automates the ingestion step by watching `raw/inbox/` for new files and running `ingest.py` automatically when they appear. Before this phase, dropping a file into the inbox required a manual CLI invocation. Now the watcher handles it with no intervention.
+
+The watcher script `scripts/inbox_watcher.py`:
+
+- polls `raw/inbox/` on a configurable interval (default 5 seconds)
+- detects new `.md`, `.txt`, and `.pdf` files
+- derives title, source type, and origin automatically from each file without requiring CLI flags
+- calls `ingest.py` directly for each new file and routes it to the correct `raw/` subfolder
+- tracks processed files in `metadata/.watcher-state.json` so restarts never re-ingest the same file
+- ignores unsupported file types silently
+- uses only the Python standard library with no external dependencies
+
+### Title derivation
+
+The watcher derives the best available title from each file in priority order:
+
+1. YAML frontmatter `title:` field — Obsidian Web Clipper sets this automatically
+2. First heading or non-empty line of the file
+3. Filename stem converted to title case as a fallback
+
+### Example commands
+
+Start the watcher in the foreground (Ctrl-C to stop):
+
+```bash
+python3 scripts/inbox_watcher.py
+```
+
+Process whatever is in inbox right now then exit:
+
+```bash
+python3 scripts/inbox_watcher.py --once
+```
+
+Use a custom poll interval and default source type:
+
+```bash
+python3 scripts/inbox_watcher.py --interval 10 --source-type note
+```
+
+Run in the background with a log file:
+
+```bash
+python3 scripts/inbox_watcher.py > logs/inbox-watcher.log 2>&1 &
+```
+
+### Full workflow with Phase 6
+
+```
+Drop file into raw/inbox/               # from Obsidian Web Clipper or manually
+       ↓ (automatic, within 5 seconds)
+Phase 6: inbox_watcher.py              # detects file, derives metadata, calls ingest
+       ↓
+raw/articles/your-note.md              # normalized raw note with frontmatter
+metadata/source-manifest.json          # updated with new source entry
+raw/archive/original--archived-*.md   # original preserved
+
+       ↓ (still manual — requires judgment)
+
+Phase 3: compile_notes.py              # select sources, generate prompt-pack
+Phase 5: llm_driver.py                 # synthesize + apply in one step
+```
+
+Steps 3 and 5 remain manual because they require deciding which raw notes belong together and what to title the compiled topic.
+
+### What remains out of scope in Phase 6
+
+This phase does not include:
+
+- automatic compilation or synthesis triggered by ingestion
+- querying the knowledge base
+- index maintenance
+- linting or health checks
+- search tooling
+
+---
+
 ## Planned Phases
 
 The following phases are planned but not yet implemented. They are listed here to document the intended direction.
-
-### Phase 6 — Inbox Watcher
-
-A file system watcher that monitors `raw/inbox/` and automatically runs `ingest.py` when a new file is detected. This enables the Obsidian Web Clipper → drop file → auto-ingest workflow with no manual CLI step. Implemented as a simple polling loop or `inotifywait`-backed script that can be started as a background process.
 
 ### Phase 7 — Q&A Workflow
 

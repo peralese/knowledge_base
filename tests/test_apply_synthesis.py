@@ -7,6 +7,7 @@ from pathlib import Path
 
 from scripts.apply_synthesis import ApplySynthesisRequest
 from scripts.apply_synthesis import apply_synthesis
+from scripts.apply_synthesis import ensure_source_notes_section
 from scripts.apply_synthesis import extract_prompt_pack_metadata
 from scripts.apply_synthesis import sanitize_markdown_body
 from scripts.apply_synthesis import slugify_title
@@ -256,6 +257,75 @@ class ApplySynthesisTests(unittest.TestCase):
         saved = output_path.read_text(encoding="utf-8")
         self.assertIn('generation_method: "manual_paste"', saved)
         self.assertNotIn('generation_method: "prompt_pack"', saved)
+
+    def test_missing_source_notes_section_is_injected(self) -> None:
+        """LLM output with no # Source Notes section gets one injected with wikilinks.
+
+        The test prompt pack (built in setUp) has two source notes:
+        openclaw-security-best-practices and openclaw-security-hardening-guide.
+        """
+        output_path = apply_synthesis(
+            ApplySynthesisRequest(
+                prompt_pack=Path("metadata/prompts/compile-openclaw-security.md"),
+                text="# Summary\n\nContent with no source notes section at all.\n",
+                root=self.root,
+            )
+        )
+        saved = output_path.read_text(encoding="utf-8")
+        self.assertIn("# Source Notes", saved)
+        self.assertIn("[[openclaw-security-best-practices]]", saved)
+        self.assertIn("[[openclaw-security-hardening-guide]]", saved)
+
+    def test_partial_source_notes_section_gets_missing_links_appended(self) -> None:
+        """If LLM included some but not all source wikilinks, missing ones are injected."""
+        output_path = apply_synthesis(
+            ApplySynthesisRequest(
+                prompt_pack=Path("metadata/prompts/compile-openclaw-security.md"),
+                text=(
+                    "# Summary\n\nGood content.\n\n"
+                    "# Source Notes\n\n"
+                    "- [[openclaw-security-best-practices]]\n"
+                ),
+                root=self.root,
+            )
+        )
+        saved = output_path.read_text(encoding="utf-8")
+        self.assertIn("[[openclaw-security-best-practices]]", saved)
+        self.assertIn("[[openclaw-security-hardening-guide]]", saved)
+
+    def test_complete_source_notes_section_is_not_duplicated(self) -> None:
+        """If all source wikilinks are present, nothing extra is injected."""
+        output_path = apply_synthesis(
+            ApplySynthesisRequest(
+                prompt_pack=Path("metadata/prompts/compile-openclaw-security.md"),
+                text=(
+                    "# Summary\n\nGood content.\n\n"
+                    "# Source Notes\n\n"
+                    "- [[openclaw-security-best-practices]]\n"
+                    "- [[openclaw-security-hardening-guide]]\n"
+                ),
+                root=self.root,
+            )
+        )
+        saved = output_path.read_text(encoding="utf-8")
+        # Each wikilink should appear exactly once
+        self.assertEqual(saved.count("[[openclaw-security-best-practices]]"), 1)
+        self.assertEqual(saved.count("[[openclaw-security-hardening-guide]]"), 1)
+
+    def test_ensure_source_notes_section_unit(self) -> None:
+        """Direct unit test of ensure_source_notes_section."""
+        body = "# Summary\n\nSome content.\n"
+        updated, changed = ensure_source_notes_section(body, ["note-a", "note-b"])
+        self.assertTrue(changed)
+        self.assertIn("[[note-a]]", updated)
+        self.assertIn("[[note-b]]", updated)
+        self.assertIn("# Source Notes", updated)
+
+    def test_ensure_source_notes_no_change_when_links_present(self) -> None:
+        body = "# Summary\n\nContent.\n\n# Source Notes\n\n- [[note-a]]\n- [[note-b]]\n"
+        updated, changed = ensure_source_notes_section(body, ["note-a", "note-b"])
+        self.assertFalse(changed)
+        self.assertEqual(updated, body)
 
     def test_no_overwrite_by_default(self) -> None:
         request = ApplySynthesisRequest(
