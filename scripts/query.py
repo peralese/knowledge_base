@@ -120,11 +120,19 @@ def load_compiled_notes(root: Path) -> list[CompiledNote]:
 # Prompt construction
 # ---------------------------------------------------------------------------
 
-def build_query_prompt(question: str, notes: list[CompiledNote]) -> tuple[str, list[CompiledNote]]:
+def build_query_prompt(
+    question: str,
+    notes: list[CompiledNote],
+    index_text: str = "",
+) -> tuple[str, list[CompiledNote]]:
     """Build the prompt from the question and compiled notes.
 
     Includes as many notes as fit within MAX_CONTEXT_CHARS. Returns the
     prompt and the list of notes actually included.
+
+    When index_text is provided it is inserted as a ## Wiki Map section
+    between the instructions and the compiled notes, giving the model a
+    map of the full wiki even when --top-n limits which notes are loaded.
     """
     instructions = (
         "You are a knowledge base assistant. Answer the question below using only "
@@ -138,7 +146,12 @@ def build_query_prompt(question: str, notes: list[CompiledNote]) -> tuple[str, l
     )
 
     question_block = f"## Question\n\n{question.strip()}\n\n"
-    header = instructions + question_block + "## Compiled Knowledge Base\n\n"
+
+    wiki_map_block = ""
+    if index_text.strip():
+        wiki_map_block = f"## Wiki Map\n\n{index_text.strip()}\n\n"
+
+    header = instructions + question_block + wiki_map_block + "## Compiled Knowledge Base\n\n"
 
     budget = MAX_CONTEXT_CHARS - len(header)
     included: list[CompiledNote] = []
@@ -334,10 +347,17 @@ def run(
         notes = all_notes
         retrieval_label = f"full context ({len(notes)} notes)"
 
-    prompt, included = build_query_prompt(question, notes)
+    index_path = root / "compiled" / "index.md"
+    index_text = ""
+    if index_path.exists():
+        raw_index = index_path.read_text(encoding="utf-8", errors="replace")
+        index_text = _strip_frontmatter(raw_index)
+
+    prompt, included = build_query_prompt(question, notes, index_text=index_text)
 
     print(f"Model         : {model}")
     print(f"Retrieval     : {retrieval_label}")
+    print(f"Index map     : {'yes' if index_text else 'no'}")
     print(f"Notes in ctx  : {len(included)}")
     print(f"Prompt size   : {len(prompt):,} chars")
     print(f"Question      : {question.strip()}")

@@ -17,6 +17,11 @@ from scripts.query import (
     slugify,
 )
 
+INDEX_CONTENT = (
+    '---\nnote_type: "index"\ngenerated_on: "2026-04-11"\n---\n\n'
+    "## Topics\n\n- [[aws-containers]] — EKS vs ECS vs Fargate\n"
+)
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -370,6 +375,94 @@ class RunTests(unittest.TestCase):
                 top_n=0,
             )
         self.assertEqual(rc, 0)
+
+
+# ---------------------------------------------------------------------------
+# build_query_prompt with index_text (Phase 8)
+# ---------------------------------------------------------------------------
+
+class BuildQueryPromptWithIndexTests(unittest.TestCase):
+    def _note(self, stem: str, title: str, body: str) -> CompiledNote:
+        return CompiledNote(path=Path(f"{stem}.md"), title=title, body=body)
+
+    def test_wiki_map_present_when_index_text_provided(self) -> None:
+        notes = [self._note("note-a", "Note A", "Body A.")]
+        prompt, _ = build_query_prompt("What is X?", notes, index_text="- [[note-a]] — Summary A")
+        self.assertIn("## Wiki Map", prompt)
+
+    def test_wiki_map_absent_when_index_text_empty(self) -> None:
+        notes = [self._note("note-a", "Note A", "Body A.")]
+        prompt, _ = build_query_prompt("What is X?", notes, index_text="")
+        self.assertNotIn("## Wiki Map", prompt)
+
+    def test_wiki_map_content_in_prompt(self) -> None:
+        notes = [self._note("note-a", "Note A", "Body A.")]
+        prompt, _ = build_query_prompt("Q?", notes, index_text="- [[note-a]] — A summary")
+        self.assertIn("- [[note-a]] — A summary", prompt)
+
+    def test_wiki_map_appears_before_compiled_knowledge_base(self) -> None:
+        notes = [self._note("note-a", "Note A", "Body A.")]
+        prompt, _ = build_query_prompt("Q?", notes, index_text="INDEX CONTENT")
+        self.assertLess(prompt.index("## Wiki Map"), prompt.index("## Compiled Knowledge Base"))
+
+    def test_whitespace_only_index_text_treated_as_empty(self) -> None:
+        notes = [self._note("note-a", "Note A", "Body A.")]
+        prompt, _ = build_query_prompt("Q?", notes, index_text="   \n  ")
+        self.assertNotIn("## Wiki Map", prompt)
+
+    def test_included_notes_unchanged_by_index_text(self) -> None:
+        notes = [self._note("a", "A", "Body A."), self._note("b", "B", "Body B.")]
+        _, with_index = build_query_prompt("Q?", notes, index_text="INDEX")
+        _, without_index = build_query_prompt("Q?", notes, index_text="")
+        self.assertEqual(len(with_index), len(without_index))
+
+
+# ---------------------------------------------------------------------------
+# run() with index file present (Phase 8)
+# ---------------------------------------------------------------------------
+
+class RunWithIndexTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        (self.root / "outputs" / "answers").mkdir(parents=True, exist_ok=True)
+        _make_note(self.root, "topics", "aws-containers", "AWS Containers", "EKS body.")
+        # Write a pre-built index
+        index_path = self.root / "compiled" / "index.md"
+        index_path.write_text(INDEX_CONTENT, encoding="utf-8")
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def _capture_prompts(self, question: str, title: str) -> list[str]:
+        captured: list[str] = []
+
+        def fake_urlopen(req, timeout=None):
+            if hasattr(req, "data") and req.data:
+                payload = json.loads(req.data)
+                captured.append(payload.get("prompt", ""))
+                return _make_stream_response(["Answer."])
+            return _make_tags_response(["qwen2.5:14b"])
+
+        with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+            run(
+                question=question, title=title, model="qwen2.5:14b",
+                force=False, dry_run=False, root=self.root,
+            )
+        return captured
+
+    def test_prompt_includes_wiki_map_when_index_exists(self) -> None:
+        prompts = self._capture_prompts("What is EKS?", "test-with-index")
+        self.assertTrue(any("## Wiki Map" in p for p in prompts))
+
+    def test_prompt_excludes_wiki_map_when_no_index(self) -> None:
+        (self.root / "compiled" / "index.md").unlink()
+        prompts = self._capture_prompts("What is EKS?", "test-no-index")
+        self.assertFalse(any("## Wiki Map" in p for p in prompts))
+
+    def test_index_content_appears_in_prompt(self) -> None:
+        prompts = self._capture_prompts("What is EKS?", "test-index-content")
+        self.assertTrue(any("[[aws-containers]]" in p for p in prompts))
 
 
 if __name__ == "__main__":

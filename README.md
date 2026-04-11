@@ -980,13 +980,65 @@ Without `--top-n` the full-context behavior from Phase 7 is preserved (all notes
 
 ---
 
+## Phase 8 Index Maintenance
+
+Phase 8 generates and maintains `compiled/index.md` — a single markdown file with one-line summaries of every compiled note, grouped by category. It serves two purposes:
+
+1. **Human browsability**: quickly see what's in the wiki without opening individual files.
+2. **LLM context primer**: `query.py` automatically prepends the index as a `## Wiki Map` section in every prompt, so the model knows the full wiki structure even when `--top-n` limits which full notes are loaded.
+
+The index script `scripts/index_notes.py`:
+
+- reads all compiled notes from `compiled/topics/`, `compiled/concepts/`, and `compiled/source_summaries/`
+- extracts a one-line summary per note: frontmatter `summary:` field → first prose sentence → empty
+- groups entries by category with `[[wikilinks]]` to each note
+- writes `compiled/index.md` with frontmatter (`note_type: "index"`, `note_count:`, `generated_on:`)
+- skips `index.md` itself to prevent circular indexing
+- handles duplicate frontmatter blocks in LLM-generated notes (skips embedded YAML)
+- supports `--dry-run` to preview without writing, and `--json` for programmatic use
+
+### Index CLI
+
+Regenerate the index after adding or synthesizing new notes:
+
+```bash
+python3 scripts/index_notes.py
+```
+
+Preview to stdout without writing:
+
+```bash
+python3 scripts/index_notes.py --dry-run
+```
+
+Structured JSON output:
+
+```bash
+python3 scripts/index_notes.py --json
+```
+
+### Wiki Map in Q&A prompts
+
+When `compiled/index.md` exists, `query.py` automatically includes it as a `## Wiki Map` block at the top of every prompt. This gives the model awareness of all notes in the wiki — including ones not selected by `--top-n` — so it can reason about what it is not seeing.
+
+### Full workflow with Phase 8
+
+```
+1. python3 scripts/inbox_watcher.py       # running in background, auto-ingesting drops
+2. python3 scripts/compile_notes.py       # compile raw notes into topics (manual)
+3. python3 scripts/llm_driver.py          # synthesize compiled topic (manual)
+4. python3 scripts/index_notes.py         # refresh the wiki index (run after synthesis)
+5. python3 scripts/search.py "..."        # browse the wiki by keyword
+6. python3 scripts/query.py \
+     --question "..." \
+     --top-n 5                            # targeted Q&A with wiki map + BM25 retrieval
+```
+
+---
+
 ## Planned Phases
 
-The following phases are planned but not yet implemented. They are listed here to document the intended direction.
-
-### Phase 8 — Index Maintenance
-
-Auto-generated index files that the LLM keeps up to date as the wiki grows. Each topic gets a short `index.md` with one-line summaries of all related compiled notes and raw sources. A global index across the entire `compiled/` layer provides a lightweight alternative to RAG for directing model attention to the right documents at query time.
+The following phases are planned but not yet implemented.
 
 ### Phase 9 — Linting and Health Checks
 
