@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.2.0",
-  "last_updated": "2026-04-10",
+  "last_updated": "2026-04-11",
   "description": "Source manifest for tracking ingested raw notes and preserving lineage.",
   "sources": [
     {
@@ -222,6 +222,32 @@
       "input_path": "/home/peralese/Projects/Knowledge_Base/raw/inbox/AWS_Containers_2025_Guide.md",
       "status": "raw",
       "archive_path": "raw/archive/AWS_Containers_2025_Guide--archived-20260410-211420.md"
+    },
+    {
+      "source_id": "SRC-20260410-0002",
+      "title": "Kubernetes Aws",
+      "filename": "kubernetes-aws.md",
+      "path": "raw/articles/kubernetes-aws.md",
+      "source_type": "article",
+      "origin": "local-markdown",
+      "date_ingested": "2026-04-10",
+      "canonical_url": "",
+      "input_path": "/home/peralese/Projects/Knowledge_Base/raw/inbox/Kubernetes_AWS.md",
+      "status": "raw",
+      "archive_path": "raw/archive/Kubernetes_AWS--archived-20260410-225823.md"
+    },
+    {
+      "source_id": "SRC-20260411-0001",
+      "title": "Karpathy's LLM Knowledge Base: Build an AI Second Brain",
+      "filename": "karpathy-s-llm-knowledge-base-build-an-ai-second-brain.md",
+      "path": "raw/articles/karpathy-s-llm-knowledge-base-build-an-ai-second-brain.md",
+      "source_type": "article",
+      "origin": "local-markdown",
+      "date_ingested": "2026-04-11",
+      "canonical_url": "",
+      "input_path": "/home/peralese/Projects/Knowledge_Base/raw/inbox/LLM_Knowledge_Base.md",
+      "status": "raw",
+      "archive_path": "raw/archive/LLM_Knowledge_Base--archived-20260411-133610.md"
     }
   ]
 }

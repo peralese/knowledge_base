@@ -20,6 +20,11 @@ Usage:
     python3 scripts/query.py \\
         --question "What is OpenClaw?" \\
         --dry-run
+
+    # Use BM25 to select only the top 5 most relevant notes (Phase 10)
+    python3 scripts/query.py \\
+        --question "What are Fargate security best practices?" \\
+        --top-n 5
 """
 from __future__ import annotations
 
@@ -286,6 +291,28 @@ def file_answer(
 # Main run
 # ---------------------------------------------------------------------------
 
+def _bm25_select_notes(question: str, root: Path, top_n: int) -> list[CompiledNote]:
+    """Use BM25 to select the top_n most relevant compiled notes for the question."""
+    sys.path.insert(0, str(Path(__file__).parent))
+    from search import load_documents, build_index, search as bm25_search  # noqa: PLC0415
+
+    docs = load_documents(root, include_raw=False)
+    if not docs:
+        return []
+
+    index = build_index(docs)
+    results = bm25_search(question, index, top_n=top_n)
+
+    # Convert search Documents back to CompiledNotes
+    notes: list[CompiledNote] = []
+    for r in results:
+        text = r.document.path.read_text(encoding="utf-8", errors="replace")
+        title = _parse_frontmatter_title(text) or r.document.path.stem.replace("-", " ").title()
+        body = _strip_frontmatter(text)
+        notes.append(CompiledNote(path=r.document.path, title=title, body=body))
+    return notes
+
+
 def run(
     question: str,
     title: str,
@@ -293,16 +320,25 @@ def run(
     force: bool,
     dry_run: bool,
     root: Path,
+    top_n: int = 0,
 ) -> int:
-    notes = load_compiled_notes(root)
-    if not notes:
+    all_notes = load_compiled_notes(root)
+    if not all_notes:
         print("Error: no compiled notes found. Run compile_notes.py first.", file=sys.stderr)
         return 1
+
+    if top_n > 0:
+        notes = _bm25_select_notes(question, root, top_n)
+        retrieval_label = f"BM25 top-{top_n} of {len(all_notes)} notes → {len(notes)} selected"
+    else:
+        notes = all_notes
+        retrieval_label = f"full context ({len(notes)} notes)"
 
     prompt, included = build_query_prompt(question, notes)
 
     print(f"Model         : {model}")
-    print(f"Notes in ctx  : {len(included)} of {len(notes)} compiled notes")
+    print(f"Retrieval     : {retrieval_label}")
+    print(f"Notes in ctx  : {len(included)}")
     print(f"Prompt size   : {len(prompt):,} chars")
     print(f"Question      : {question.strip()}")
     print("-" * 60)
@@ -389,6 +425,16 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Print the prompt that would be sent without calling the model.",
     )
+    parser.add_argument(
+        "--top-n",
+        type=int,
+        default=0,
+        dest="top_n",
+        help=(
+            "Use BM25 search to select only the top N most relevant notes as context. "
+            "Default: 0 (include all notes up to the token budget)."
+        ),
+    )
     return parser
 
 
@@ -402,6 +448,7 @@ def main(argv: list[str] | None = None) -> int:
         force=args.force,
         dry_run=args.dry_run,
         root=ROOT,
+        top_n=args.top_n,
     )
 
 

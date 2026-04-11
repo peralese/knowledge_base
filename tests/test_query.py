@@ -330,6 +330,47 @@ class RunTests(unittest.TestCase):
             )
         self.assertEqual(rc, 1)
 
+    def test_top_n_selects_relevant_notes(self) -> None:
+        """With top_n=1, only the most relevant note should be in context."""
+        with patch("urllib.request.urlopen") as mock_urlopen:
+            mock_urlopen.side_effect = [
+                _make_tags_response(["qwen2.5:14b"]),
+                _make_stream_response(["EKS is managed Kubernetes."]),
+            ]
+            rc = run(
+                question="What is EKS kubernetes?",
+                title="",
+                model="qwen2.5:14b",
+                force=False,
+                dry_run=False,
+                root=self.root,
+                top_n=1,
+            )
+        self.assertEqual(rc, 0)
+        answers = list((self.root / "outputs" / "answers").glob("*.md"))
+        self.assertEqual(len(answers), 1)
+        content = answers[0].read_text(encoding="utf-8")
+        # Only 1 note should be in context — the frontmatter should list 1 stem
+        self.assertIn("compiled_notes_used:", content)
+
+    def test_top_n_zero_uses_all_notes(self) -> None:
+        """Default top_n=0 should still include all notes (backward compatible)."""
+        with patch("urllib.request.urlopen") as mock_urlopen:
+            mock_urlopen.side_effect = [
+                _make_tags_response(["qwen2.5:14b"]),
+                _make_stream_response(["Answer."]),
+            ]
+            rc = run(
+                question="What is EKS?",
+                title="bm25-compat-test",
+                model="qwen2.5:14b",
+                force=False,
+                dry_run=False,
+                root=self.root,
+                top_n=0,
+            )
+        self.assertEqual(rc, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

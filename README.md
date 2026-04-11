@@ -903,16 +903,80 @@ Each answer artifact in `outputs/answers/` includes:
 
 ### Context strategy
 
-Phase 7 uses a full-context approach: all compiled notes are included in every query. This works well at small-to-medium wiki sizes (up to ~50–100 compiled notes). When the wiki grows large enough to hit context limits, Phase 10 (search engine) will provide targeted retrieval to replace full-context loading.
+Phase 7 uses a full-context approach: all compiled notes are included in every query. This works well at small-to-medium wiki sizes (up to ~50–100 compiled notes). For targeted retrieval, use `--top-n` (Phase 10) to select only the most relevant notes by BM25 score instead of loading all notes.
 
 ### What remains out of scope in Phase 7
 
 This phase does not include:
 
-- selective retrieval or keyword search to narrow context
 - multi-turn conversation or follow-up questions
 - index maintenance or automatic wiki updates
 - linting or health checks
+
+---
+
+## Phase 10 Search Engine
+
+Phase 10 adds a BM25 keyword search engine over the compiled notes layer. It is usable directly as a CLI search tool, and is integrated into `query.py` via the `--top-n` flag to enable targeted retrieval — fixing the "graph noise" problem where full-context queries connected the answer to every note in the wiki regardless of relevance.
+
+The search script `scripts/search.py`:
+
+- indexes all compiled notes from `compiled/topics/`, `compiled/concepts/`, and `compiled/source_summaries/` using the Okapi BM25 algorithm
+- boosts title matches 3x relative to body matches so that a note whose title contains the query term ranks above a note where it only appears once in the body
+- pure Python stdlib — no external dependencies
+- supports `--include-raw` to also search raw notes in `raw/articles/`, `raw/notes/`, and `raw/pdfs/`
+- supports `--json` for programmatic use (e.g. piping results into other scripts)
+- imported by `query.py` to power `--top-n` retrieval
+
+### BM25 search CLI
+
+Search compiled notes and print ranked results:
+
+```bash
+python3 scripts/search.py "kubernetes security fargate"
+```
+
+Return only the top 3 results:
+
+```bash
+python3 scripts/search.py "kubernetes security" --top-n 3
+```
+
+Also search raw notes:
+
+```bash
+python3 scripts/search.py "kubernetes" --include-raw
+```
+
+Output as JSON (for programmatic use):
+
+```bash
+python3 scripts/search.py "kubernetes security" --json
+```
+
+### Targeted Q&A with BM25 retrieval
+
+Use `--top-n` in `query.py` to select only the most relevant notes before sending to the model. This reduces graph noise in the Obsidian graph (answer linked only to relevant notes, not every note in the wiki) and keeps the prompt compact for large wikis:
+
+```bash
+python3 scripts/query.py \
+  --question "What are the Fargate security best practices?" \
+  --top-n 5
+```
+
+Without `--top-n` the full-context behavior from Phase 7 is preserved (all notes included up to the token budget).
+
+### Full workflow with Phase 10
+
+```
+1. python3 scripts/inbox_watcher.py       # running in background, auto-ingesting drops
+2. python3 scripts/compile_notes.py       # compile raw notes into topics (manual)
+3. python3 scripts/llm_driver.py          # synthesize compiled topic (manual)
+4. python3 scripts/search.py "..."        # browse the wiki by keyword
+5. python3 scripts/query.py \
+     --question "..." \
+     --top-n 5                            # targeted Q&A with BM25 retrieval
+```
 
 ---
 
@@ -927,10 +991,6 @@ Auto-generated index files that the LLM keeps up to date as the wiki grows. Each
 ### Phase 9 — Linting and Health Checks
 
 A `scripts/lint.py` script that runs LLM-assisted health checks over the wiki. Checks include: finding inconsistent claims across compiled notes, identifying missing data that could be imputed from web search, suggesting new article candidates based on gaps in coverage, and flagging dangling wikilinks or orphaned raw notes with no compiled coverage. Results are filed as reports in `outputs/reports/`.
-
-### Phase 10 — Search Engine
-
-A lightweight keyword or BM25 search index over the compiled notes layer. Usable directly from the CLI for human browsing, and exposable as a tool the LLM can invoke during Q&A and linting workflows to narrow its reading to relevant documents before assembling a context bundle.
 
 ---
 
