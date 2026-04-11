@@ -145,8 +145,8 @@ def derive_origin(path: Path) -> str:
 # Ingest dispatch
 # ---------------------------------------------------------------------------
 
-def ingest_file(path: Path, source_type: str) -> Path | None:
-    """Call ingest_source() directly. Returns the raw note Path on success, None on failure."""
+def ingest_file(path: Path, source_type: str) -> bool:
+    """Call ingest_source() directly. Returns True on success."""
     sys.path.insert(0, str(Path(__file__).parent))
     from ingest import ingest_source, IngestRequest  # noqa: PLC0415
 
@@ -169,81 +169,21 @@ def ingest_file(path: Path, source_type: str) -> Path | None:
             )
         )
         print(f"  -> {result.relative_to(ROOT)}")
-        return result
+        return True
     except FileExistsError as exc:
         print(f"  Skipped (already exists): {exc}")
-        return None  # already ingested — do not re-synthesize
+        return True  # already ingested counts as processed
     except Exception as exc:  # noqa: BLE001
         print(f"  Error: {exc}")
-        return None
-
-
-# ---------------------------------------------------------------------------
-# Auto-synthesis pipeline (Phase 6.5)
-# ---------------------------------------------------------------------------
-
-def auto_synthesize_source_summary(raw_note: Path, title: str, model: str) -> bool:
-    """Compile and synthesize a source_summary for a freshly ingested raw note.
-
-    Calls compile_notes (prompt-pack mode) then llm_driver. Returns True if
-    both steps succeed. Skips synthesis if a source_summary already exists.
-    """
-    sys.path.insert(0, str(Path(__file__).parent))
-    from compile_notes import compile_notes, CompileRequest  # noqa: PLC0415
-    from llm_driver import run as llm_run  # noqa: PLC0415
-
-    print(f"  [pipeline] Compiling source summary for: {title}")
-    try:
-        created = compile_notes(
-            CompileRequest(
-                sources=[raw_note],
-                title=title,
-                category="source_summary",
-                mode="prompt-pack",
-                force=False,
-                root=ROOT,
-            )
-        )
-    except FileExistsError:
-        print(f"  [pipeline] Prompt-pack already exists — skipping synthesis")
-        return True
-    except Exception as exc:  # noqa: BLE001
-        print(f"  [pipeline] Compile error: {exc}")
         return False
-
-    prompt_pack = created.get("prompt-pack")
-    if not prompt_pack:
-        print(f"  [pipeline] No prompt-pack created — skipping synthesis")
-        return False
-
-    print(f"  [pipeline] Synthesizing via {model} ...")
-    rc = llm_run(
-        prompt_pack=prompt_pack,
-        model=model,
-        output_type="compiled",
-        title_override="",
-        force=False,
-    )
-    if rc != 0:
-        print(f"  [pipeline] Synthesis failed (exit {rc})")
-        return False
-
-    print(f"  [pipeline] Source summary complete")
-    return True
 
 
 # ---------------------------------------------------------------------------
 # Watcher loop
 # ---------------------------------------------------------------------------
 
-def scan_inbox(
-    inbox: Path,
-    state: dict[str, str],
-    source_type: str,
-    auto_synthesize: bool = False,
-    model: str = "qwen2.5:14b",
-) -> dict[str, str]:
-    """Check for new files in inbox, ingest them, and optionally auto-synthesize."""
+def scan_inbox(inbox: Path, state: dict[str, str], source_type: str) -> dict[str, str]:
+    """Check for new files in inbox and ingest them. Returns updated state."""
     if not inbox.exists():
         return state
 
@@ -259,37 +199,26 @@ def scan_inbox(
 
         ts = datetime.now().strftime("%H:%M:%S")
         print(f"[{ts}] New file: {path.name}")
-        title = derive_title(path)
-        raw_note = ingest_file(path, source_type)
-
-        if raw_note is not None:
+        success = ingest_file(path, source_type)
+        if success:
             updated[key] = datetime.now().isoformat()
-            if auto_synthesize:
-                auto_synthesize_source_summary(raw_note, title, model)
 
     return updated
 
 
-def watch(
-    interval: int,
-    source_type: str,
-    once: bool,
-    auto_synthesize: bool = False,
-    model: str = "qwen2.5:14b",
-) -> None:
+def watch(interval: int, source_type: str, once: bool) -> None:
     """Main watcher loop."""
     state = load_state()
-    mode_label = " + auto-synthesize" if auto_synthesize else ""
 
     if once:
-        state = scan_inbox(INBOX_DIR, state, source_type, auto_synthesize, model)
+        state = scan_inbox(INBOX_DIR, state, source_type)
         save_state(state)
         return
 
-    print(f"Watching {INBOX_DIR.relative_to(ROOT)}  (interval: {interval}s{mode_label}, Ctrl-C to stop)")
+    print(f"Watching {INBOX_DIR.relative_to(ROOT)}  (interval: {interval}s, Ctrl-C to stop)")
     try:
         while True:
-            new_state = scan_inbox(INBOX_DIR, state, source_type, auto_synthesize, model)
+            new_state = scan_inbox(INBOX_DIR, state, source_type)
             if new_state != state:
                 save_state(new_state)
                 state = new_state
@@ -304,7 +233,7 @@ def watch(
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Phase 6/6.5 Inbox Watcher: auto-ingest files dropped into raw/inbox/ and optionally synthesize source summaries."
+        description="Phase 6 Inbox Watcher: auto-ingest files dropped into raw/inbox/."
     )
     parser.add_argument(
         "--interval",
@@ -322,29 +251,13 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Process whatever is in inbox right now then exit (no loop).",
     )
-    parser.add_argument(
-        "--auto-synthesize",
-        action="store_true",
-        help="After ingestion, automatically compile and synthesize a source_summary for each new note.",
-    )
-    parser.add_argument(
-        "--model",
-        default="qwen2.5:14b",
-        help="Ollama model to use for auto-synthesis. Default: qwen2.5:14b",
-    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    watch(
-        interval=args.interval,
-        source_type=args.source_type,
-        once=args.once,
-        auto_synthesize=args.auto_synthesize,
-        model=args.model,
-    )
+    watch(interval=args.interval, source_type=args.source_type, once=args.once)
     return 0
 
 
