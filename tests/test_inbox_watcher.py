@@ -7,6 +7,7 @@ import unittest
 from pathlib import Path
 
 from scripts.inbox_watcher import (
+    auto_synthesize_source_summary,
     derive_origin,
     derive_source_type,
     derive_title,
@@ -223,6 +224,156 @@ class ScanInboxTests(unittest.TestCase):
             self._drop("article-two.txt", "Article Two\n\nContent two.\n")
             state = scan_inbox(self.root / "raw" / "inbox", {}, "article")
             self.assertEqual(len(state), 2)
+        finally:
+            mod.ROOT = original_root
+
+
+# ---------------------------------------------------------------------------
+# auto_synthesize_source_summary
+# ---------------------------------------------------------------------------
+
+class AutoSynthesisTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+
+        for d in [
+            "raw/inbox", "raw/articles", "raw/notes", "raw/pdfs",
+            "raw/archive", "metadata/prompts", "metadata",
+            "compiled/source_summaries", "compiled/topics", "compiled/concepts",
+            "outputs/answers", "outputs/reports", "tmp",
+        ]:
+            (self.root / d).mkdir(parents=True, exist_ok=True)
+
+        (self.root / "metadata" / "source-manifest.json").write_text(
+            json.dumps({"manifest_version": "0.2.0", "last_updated": "", "description": "", "sources": []}),
+            encoding="utf-8",
+        )
+        (self.root / "metadata" / "topic-registry.json").write_text(
+            json.dumps({"topics": []}), encoding="utf-8"
+        )
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def _make_raw_note(self, stem: str, title: str) -> Path:
+        path = self.root / "raw" / "articles" / f"{stem}.md"
+        path.write_text(
+            f'---\ntitle: "{title}"\nsource_type: "article"\norigin: "local-markdown"\n'
+            f'date_ingested: "2026-04-10"\nstatus: "raw"\nsource_id: "SRC-20260410-0001"\n---\n\n'
+            f'# Overview\n\nThis is about {title}.\n\n# Source Content\n\nContent here.\n',
+            encoding="utf-8",
+        )
+        return path
+
+    def _make_ollama_stream(self, tokens: list[str]):
+        import json as _json
+        lines = [_json.dumps({"response": t, "done": False}).encode() for t in tokens]
+        lines.append(_json.dumps({"response": "", "done": True}).encode())
+        mock_resp = unittest.mock.MagicMock()
+        mock_resp.__iter__ = unittest.mock.MagicMock(return_value=iter(lines))
+        mock_resp.__enter__ = unittest.mock.MagicMock(return_value=mock_resp)
+        mock_resp.__exit__ = unittest.mock.MagicMock(return_value=False)
+        return mock_resp
+
+    def _make_tags_response(self, models: list[str]):
+        import json as _json
+        body = _json.dumps({"models": [{"name": m} for m in models]}).encode()
+        mock_resp = unittest.mock.MagicMock()
+        mock_resp.read = unittest.mock.MagicMock(return_value=body)
+        mock_resp.__enter__ = unittest.mock.MagicMock(return_value=mock_resp)
+        mock_resp.__exit__ = unittest.mock.MagicMock(return_value=False)
+        return mock_resp
+
+    def test_auto_synthesize_creates_source_summary(self) -> None:
+        """auto_synthesize_source_summary runs compile → llm_driver and creates a source summary."""
+        import sys as _sys
+        import unittest.mock
+        import scripts.inbox_watcher as mod
+        import scripts.llm_driver as llm_mod
+
+        # Unify bare and package module references so patching ROOT works
+        # regardless of which import path inbox_watcher uses internally.
+        _sys.modules.setdefault("llm_driver", llm_mod)
+
+        original_root = mod.ROOT
+        original_llm_root = llm_mod.ROOT
+        original_tmp = llm_mod.TMP_OUTPUT
+        mod.ROOT = self.root
+        llm_mod.ROOT = self.root
+        llm_mod.TMP_OUTPUT = self.root / "tmp" / "synthesis-output.md"
+        try:
+            raw_note = self._make_raw_note("my-article", "My Article")
+            synthesis = (
+                '---\ntitle: "My Article"\nnote_type: "source_summary"\n'
+                'compiled_from:\n  - "my-article"\ndate_compiled: "2026-04-10"\n'
+                'topics: []\ntags: []\nconfidence: "medium"\ngeneration_method: "prompt_pack"\n---\n\n'
+                '# Summary\n\nThis is a summary.\n\n# Source Notes\n\n- [[my-article]]\n'
+            )
+            with unittest.mock.patch("urllib.request.urlopen") as mock_urlopen:
+                mock_urlopen.side_effect = [
+                    self._make_tags_response(["qwen2.5:14b"]),
+                    self._make_ollama_stream([synthesis]),
+                ]
+                result = auto_synthesize_source_summary(raw_note, "My Article", "qwen2.5:14b")
+            self.assertTrue(result)
+            summary = self.root / "compiled" / "source_summaries" / "my-article.md"
+            self.assertTrue(summary.exists(), f"Expected {summary}")
+        finally:
+            mod.ROOT = original_root
+            llm_mod.ROOT = original_llm_root
+            llm_mod.TMP_OUTPUT = original_tmp
+
+    def test_auto_synthesize_returns_false_on_llm_error(self) -> None:
+        import unittest.mock
+        import scripts.inbox_watcher as mod
+        original_root = mod.ROOT
+        mod.ROOT = self.root
+        try:
+            raw_note = self._make_raw_note("my-article", "My Article")
+            # Model not available
+            with unittest.mock.patch("urllib.request.urlopen",
+                                     return_value=self._make_tags_response(["llama3.1:8b"])):
+                result = auto_synthesize_source_summary(raw_note, "My Article", "qwen2.5:14b")
+            self.assertFalse(result)
+        finally:
+            mod.ROOT = original_root
+
+    def test_scan_inbox_calls_auto_synthesize_when_flag_set(self) -> None:
+        import unittest.mock
+        import scripts.inbox_watcher as mod
+        original_root = mod.ROOT
+        mod.ROOT = self.root
+        try:
+            p = self.root / "raw" / "inbox" / "new-article.md"
+            p.write_text("# New Article\n\nContent.\n", encoding="utf-8")
+
+            with unittest.mock.patch(
+                "scripts.inbox_watcher.auto_synthesize_source_summary"
+            ) as mock_synth:
+                mock_synth.return_value = True
+                scan_inbox(
+                    self.root / "raw" / "inbox", {}, "article",
+                    auto_synthesize=True, model="qwen2.5:14b",
+                )
+            mock_synth.assert_called_once()
+        finally:
+            mod.ROOT = original_root
+
+    def test_scan_inbox_does_not_call_auto_synthesize_when_flag_not_set(self) -> None:
+        import unittest.mock
+        import scripts.inbox_watcher as mod
+        original_root = mod.ROOT
+        mod.ROOT = self.root
+        try:
+            p = self.root / "raw" / "inbox" / "new-article.md"
+            p.write_text("# New Article\n\nContent.\n", encoding="utf-8")
+
+            with unittest.mock.patch(
+                "scripts.inbox_watcher.auto_synthesize_source_summary"
+            ) as mock_synth:
+                scan_inbox(self.root / "raw" / "inbox", {}, "article", auto_synthesize=False)
+            mock_synth.assert_not_called()
         finally:
             mod.ROOT = original_root
 
