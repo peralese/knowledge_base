@@ -1036,13 +1036,65 @@ When `compiled/index.md` exists, `query.py` automatically includes it as a `## W
 
 ---
 
-## Planned Phases
+## Phase 9 Linting and Health Checks
 
-The following phases are planned but not yet implemented.
+Phase 9 scans the wiki for structural problems and optionally files a durable lint report in `outputs/reports/`.
 
-### Phase 9 — Linting and Health Checks
+The lint script `scripts/lint.py` runs two categories of checks:
 
-A `scripts/lint.py` script that runs LLM-assisted health checks over the wiki. Checks include: finding inconsistent claims across compiled notes, identifying missing data that could be imputed from web search, suggesting new article candidates based on gaps in coverage, and flagging dangling wikilinks or orphaned raw notes with no compiled coverage. Results are filed as reports in `outputs/reports/`.
+**Pure-Python checks (always run, no Ollama required):**
+- `wikilinks` — find `[[wikilinks]]` in compiled notes that point to files that don't exist in `compiled/` or `raw/`
+- `orphans` — find raw notes in `raw/articles/`, `raw/notes/`, and `raw/pdfs/` not referenced by any compiled note's `compiled_from:` field
+
+**LLM-assisted checks (require `--llm` and a running Ollama instance):**
+- `coverage` — sends the wiki index to the model and asks it to identify topic gaps and underrepresented areas
+
+Issues are severity-tagged: `error` (dangling wikilinks), `warning` (orphaned raw notes), `info` (coverage gaps).
+
+### Lint CLI
+
+Run all pure checks, print results to terminal:
+
+```bash
+python3 scripts/lint.py
+```
+
+Also run LLM coverage check:
+
+```bash
+python3 scripts/lint.py --llm
+```
+
+File a report artifact in `outputs/reports/`:
+
+```bash
+python3 scripts/lint.py --report
+```
+
+Run only a specific check:
+
+```bash
+python3 scripts/lint.py --check wikilinks
+python3 scripts/lint.py --check orphans
+```
+
+Preview report without filing:
+
+```bash
+python3 scripts/lint.py --dry-run
+```
+
+### Full workflow with Phase 9
+
+```
+1. python3 scripts/inbox_watcher.py       # auto-ingest file drops
+2. python3 scripts/compile_notes.py       # compile raw notes (manual)
+3. python3 scripts/llm_driver.py          # synthesize (manual)
+4. python3 scripts/index_notes.py         # refresh wiki index
+5. python3 scripts/lint.py --report       # check for broken links and orphans
+6. python3 scripts/lint.py --llm --report # + LLM coverage gap analysis
+7. python3 scripts/query.py --question "..." --top-n 5
+```
 
 ---
 
