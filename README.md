@@ -833,13 +833,92 @@ This phase does not include:
 
 ---
 
+## Phase 7 Q&A Workflow
+
+Phase 7 is the first time the knowledge base actively answers questions. You ask a natural language question, the script loads all compiled notes into context, sends everything to the local Ollama model, streams the answer to the terminal, and files the result as a durable artifact in `outputs/answers/`.
+
+The query script `scripts/query.py`:
+
+- loads all compiled notes from `compiled/topics/`, `compiled/concepts/`, and `compiled/source_summaries/`
+- builds a prompt containing the question, all note bodies, and answer instructions
+- respects the model's context window — notes that would exceed the budget are excluded with a warning
+- streams the model response token-by-token to the terminal
+- files the answer with full frontmatter including which notes were used, the question, the model, and the date
+- includes `[[wikilinks]]` to every compiled note used so the answer is connected in the Obsidian graph
+- supports `--dry-run` to preview the full prompt without calling the model
+
+The default model is `qwen2.5:14b`. This can be overridden with `--model`.
+
+### Example commands
+
+Ask a question and file the answer:
+
+```bash
+python3 scripts/query.py \
+  --question "What are the security tradeoffs between EKS and Fargate?"
+```
+
+Ask a question with a custom title for the filed artifact:
+
+```bash
+python3 scripts/query.py \
+  --question "What are the security tradeoffs between EKS and Fargate?" \
+  --title "EKS vs Fargate Security Tradeoffs"
+```
+
+Preview the prompt that would be sent without calling the model:
+
+```bash
+python3 scripts/query.py \
+  --question "What is OpenClaw?" \
+  --dry-run
+```
+
+Overwrite an existing answer artifact:
+
+```bash
+python3 scripts/query.py \
+  --question "What is OpenClaw?" \
+  --force
+```
+
+### What gets filed
+
+Each answer artifact in `outputs/answers/` includes:
+
+- YAML frontmatter with `output_type`, `generated_from_query`, `generated_on`, `compiled_notes_used`, `generation_method`, and `model`
+- `# Question` section with the original question
+- `# Answer` section with the model's response
+- `# Sources Used` section with `[[wikilinks]]` to every compiled note in context
+- `# Lineage` section recording the date, model, and note count
+
+### Full workflow with Phase 7
+
+```
+1. python3 scripts/inbox_watcher.py    # running in background, auto-ingesting drops
+2. python3 scripts/compile_notes.py    # compile raw notes into topics (manual)
+3. python3 scripts/llm_driver.py       # synthesize compiled topic (manual)
+4. python3 scripts/query.py --question "..." # ask anything against the wiki
+```
+
+### Context strategy
+
+Phase 7 uses a full-context approach: all compiled notes are included in every query. This works well at small-to-medium wiki sizes (up to ~50–100 compiled notes). When the wiki grows large enough to hit context limits, Phase 10 (search engine) will provide targeted retrieval to replace full-context loading.
+
+### What remains out of scope in Phase 7
+
+This phase does not include:
+
+- selective retrieval or keyword search to narrow context
+- multi-turn conversation or follow-up questions
+- index maintenance or automatic wiki updates
+- linting or health checks
+
+---
+
 ## Planned Phases
 
 The following phases are planned but not yet implemented. They are listed here to document the intended direction.
-
-### Phase 7 — Q&A Workflow
-
-A `scripts/query.py` script that accepts a natural language question, assembles a context bundle from relevant compiled notes, sends the bundle and question to the local Ollama model, and files the answer into `outputs/answers/`. This is the core interactive layer described in the original vision: ask complex questions against the wiki and receive filed, versioned answers.
 
 ### Phase 8 — Index Maintenance
 
