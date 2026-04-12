@@ -1,16 +1,16 @@
 # Compilation Request
 
-- Requested title: Karpathy LLM Knowledge Base
-- Canonical title: Karpathy LLM Knowledge Base
-- Canonical slug: karpathy-llm-knowledge-base
+- Requested title: LLM Knowledge Base
+- Canonical title: LLM Knowledge Base
+- Canonical slug: llm-knowledge-base
 - Note category: topic
 - Repository phase: Phase 3 compilation workflow
 - Required generation method value: prompt_pack
 
 # Canonical Identity Rules
 
-- Use the exact canonical title provided: Karpathy LLM Knowledge Base
-- Use the exact canonical topic slug provided: karpathy-llm-knowledge-base
+- Use the exact canonical title provided: LLM Knowledge Base
+- Use the exact canonical topic slug provided: llm-knowledge-base
 - Do not invent, modify, pluralize, misspell, or rename the topic.
 - Do not create alternative topic identities.
 - Do not create additional topic files or variants.
@@ -27,7 +27,7 @@ Do not rewrite or mutate raw notes.
 
 ```markdown
 ---
-title: "Karpathy LLM Knowledge Base"
+title: "LLM Knowledge Base"
 note_type: "topic"
 compiled_from: 
   - "karpathy-s-llm-knowledge-base-build-an-ai-second-brain"

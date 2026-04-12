@@ -1,5 +1,15 @@
 ---
 title: "OpenClaw"
+created: "2026-04-08"
+sources: 
+  - "openclaw-ollama-gemma4.md"
+tags: 
+  - "topic"
+  - "Ollama"
+  - "Local AI Model Setup"
+  - "OpenClaw Agent Configuration"
+  - "openclaw-ollama-gemma4"
+status: "draft"
 note_type: "topic"
 compiled_from: 
   - "openclaw-ollama-gemma4"
@@ -8,26 +18,8 @@ topics:
   - "Ollama"
   - "Local AI Model Setup"
   - "OpenClaw Agent Configuration"
-tags: 
-  - "topic"
-  - "Ollama"
-  - "Local AI Model Setup"
-  - "OpenClaw Agent Configuration"
-  - "openclaw-ollama-gemma4"
 confidence: "medium"
 generation_method: "ollama_local"
----
-
----
-title: "OpenClaw"
-note_type: "topic"
-compiled_from:
-  - "openclaw-ollama-gemma4"
-date_compiled: "2023-11-07" # Replace with actual date when compiling
-topics: []
-tags: []
-confidence: "medium"
-generation_method: "prompt_pack"
 ---
 
 # Summary

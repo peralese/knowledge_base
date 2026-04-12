@@ -1,13 +1,17 @@
 ---
 title: "AWS Containers"
+created: "2026-04-10"
+sources: 
+  - "aws-containers-2025-guide-eks-vs-ecs-vs-fargate-explained.md"
+tags: 
+  - "topic"
+  - "aws-containers-2025-guide-eks-vs-ecs-vs-fargate-explained"
+status: "draft"
 note_type: "topic"
 compiled_from: 
   - "aws-containers-2025-guide-eks-vs-ecs-vs-fargate-explained"
 date_compiled: "2026-04-10"
 topics: []
-tags: 
-  - "topic"
-  - "aws-containers-2025-guide-eks-vs-ecs-vs-fargate-explained"
 confidence: "medium"
 generation_method: "ollama_local"
 ---
@@ -86,4 +90,3 @@ This guide provides a comprehensive overview of AWS container options, helping o
 # Source Notes
 
 - [[aws-containers-2025-guide-eks-vs-ecs-vs-fargate-explained]]
-

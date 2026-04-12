@@ -1,5 +1,17 @@
 ---
 title: "Google Just Released Gemma 4"
+created: "2026-04-05"
+sources: 
+  - "google-just-released-gemma-4.md"
+tags: 
+  - "source_summary"
+  - "Open-source AI models"
+  - "Multimodal AI systems"
+  - "Edge AI deployment"
+  - "Long-context language models"
+  - "Mixture-of-experts (MoE) architectures"
+  - "google-just-released-gemma-4"
+status: "draft"
 note_type: "source_summary"
 compiled_from: 
   - "google-just-released-gemma-4"
@@ -10,14 +22,6 @@ topics:
   - "Edge AI deployment"
   - "Long-context language models"
   - "Mixture-of-experts (MoE) architectures"
-tags: 
-  - "source_summary"
-  - "Open-source AI models"
-  - "Multimodal AI systems"
-  - "Edge AI deployment"
-  - "Long-context language models"
-  - "Mixture-of-experts (MoE) architectures"
-  - "google-just-released-gemma-4"
 confidence: "medium"
 generation_method: "manual_paste"
 ---
@@ -46,11 +50,11 @@ Google’s Gemma 4 is a new family of open-source AI models designed to balance 
 
 # Source Notes
 
-- [[raw/articles/google-just-released-gemma-4|google-just-released-gemma-4]]
+- [[google-just-released-gemma-4|google-just-released-gemma-4]]
 
 # Source Highlights
 
-## [[raw/articles/google-just-released-gemma-4|google-just-released-gemma-4]]
+## [[google-just-released-gemma-4|google-just-released-gemma-4]]
 - Title: Google Just Released Gemma 4
 - Source Type: article
 - Origin: web
@@ -65,5 +69,5 @@ Google’s Gemma 4 is a new family of open-source AI models designed to balance 
 # Lineage
 
 This note was derived from:
-- [[raw/articles/google-just-released-gemma-4|google-just-released-gemma-4]]
+- [[google-just-released-gemma-4|google-just-released-gemma-4]]
 ```

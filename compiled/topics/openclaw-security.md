@@ -1,5 +1,21 @@
 ---
 title: "OpenClaw Security"
+created: "2026-04-05"
+sources: 
+  - "openclaw-security-checklist.md"
+  - "openclaw-security-best-practices.md"
+  - "five-openclaw-security-settings.md"
+tags: 
+  - "topic"
+  - "Least privilege principle"
+  - "Sandbox isolation"
+  - "Prompt injection"
+  - "Supply chain security"
+  - "Human-in-the-loop systems"
+  - "openclaw-security-checklist"
+  - "openclaw-security-best-practices"
+  - "five-openclaw-security-settings"
+status: "draft"
 note_type: "topic"
 compiled_from: 
   - "openclaw-security-checklist"
@@ -12,16 +28,6 @@ topics:
   - "Prompt injection"
   - "Supply chain security"
   - "Human-in-the-loop systems"
-tags: 
-  - "topic"
-  - "Least privilege principle"
-  - "Sandbox isolation"
-  - "Prompt injection"
-  - "Supply chain security"
-  - "Human-in-the-loop systems"
-  - "openclaw-security-checklist"
-  - "openclaw-security-best-practices"
-  - "five-openclaw-security-settings"
 confidence: "medium"
 generation_method: "manual_paste"
 ---
