@@ -9,6 +9,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 DIRECTORIES = [
     "raw/inbox",
+    "raw/inbox/browser",
+    "raw/inbox/clipboard",
+    "raw/inbox/feeds",
+    "raw/inbox/pdf-drop",
     "raw/articles",
     "raw/notes",
     "raw/pdfs",

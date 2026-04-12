@@ -7,12 +7,15 @@ import unittest
 from pathlib import Path
 
 from scripts.inbox_watcher import (
+    detect_adapter,
     derive_origin,
     derive_source_type,
     derive_title,
     load_state,
+    load_review_queue,
     save_state,
     scan_inbox,
+    validate_ingested_note,
 )
 
 
@@ -98,6 +101,14 @@ class DeriveOriginTests(unittest.TestCase):
         self.assertEqual(derive_origin(self._path("note.txt")), "local-file")
 
 
+class DetectAdapterTests(unittest.TestCase):
+    def test_detects_browser_subdir(self) -> None:
+        self.assertEqual(detect_adapter(Path("/tmp/repo/raw/inbox/browser/item.md")), "browser")
+
+    def test_defaults_to_inbox(self) -> None:
+        self.assertEqual(detect_adapter(Path("/tmp/repo/raw/inbox/item.md")), "inbox")
+
+
 # ---------------------------------------------------------------------------
 # State persistence
 # ---------------------------------------------------------------------------
@@ -155,7 +166,8 @@ class ScanInboxTests(unittest.TestCase):
         # Minimal repo structure for ingest to work
         for d in [
             "raw/inbox", "raw/articles", "raw/notes", "raw/pdfs",
-            "raw/archive", "metadata",
+            "raw/archive", "metadata", "raw/inbox/browser", "raw/inbox/clipboard",
+            "raw/inbox/feeds", "raw/inbox/pdf-drop",
         ]:
             (self.root / d).mkdir(parents=True, exist_ok=True)
 
@@ -175,15 +187,25 @@ class ScanInboxTests(unittest.TestCase):
     def test_new_file_is_ingested_and_added_to_state(self) -> None:
         import scripts.inbox_watcher as mod
         original_root = mod.ROOT
+        original_review_queue = mod.REVIEW_QUEUE_PATH
+        original_review_md = mod.REVIEW_QUEUE_REPORT_PATH
         mod.ROOT = self.root
+        mod.REVIEW_QUEUE_PATH = self.root / "metadata" / "review-queue.json"
+        mod.REVIEW_QUEUE_REPORT_PATH = self.root / "metadata" / "review-queue.md"
         try:
             self._drop("my-article.md", "# My Article\n\nSome content.\n")
             state = scan_inbox(self.root / "raw" / "inbox", {}, "article")
             self.assertEqual(len(state), 1)
             output = self.root / "raw" / "articles" / "my-article.md"
             self.assertTrue(output.exists(), f"Expected {output}")
+            queue = load_review_queue()
+            self.assertEqual(len(queue), 1)
+            self.assertEqual(queue[0]["review_status"], "pending_review")
+            self.assertEqual(queue[0]["validation_status"], "validated")
         finally:
             mod.ROOT = original_root
+            mod.REVIEW_QUEUE_PATH = original_review_queue
+            mod.REVIEW_QUEUE_REPORT_PATH = original_review_md
 
     def test_already_processed_file_is_skipped(self) -> None:
         import scripts.inbox_watcher as mod
@@ -217,14 +239,83 @@ class ScanInboxTests(unittest.TestCase):
     def test_multiple_files_all_ingested(self) -> None:
         import scripts.inbox_watcher as mod
         original_root = mod.ROOT
+        original_review_queue = mod.REVIEW_QUEUE_PATH
+        original_review_md = mod.REVIEW_QUEUE_REPORT_PATH
         mod.ROOT = self.root
+        mod.REVIEW_QUEUE_PATH = self.root / "metadata" / "review-queue.json"
+        mod.REVIEW_QUEUE_REPORT_PATH = self.root / "metadata" / "review-queue.md"
         try:
             self._drop("article-one.md", "# Article One\n\nContent one.\n")
             self._drop("article-two.txt", "Article Two\n\nContent two.\n")
             state = scan_inbox(self.root / "raw" / "inbox", {}, "article")
             self.assertEqual(len(state), 2)
+            queue = load_review_queue()
+            self.assertEqual(len(queue), 2)
         finally:
             mod.ROOT = original_root
+            mod.REVIEW_QUEUE_PATH = original_review_queue
+            mod.REVIEW_QUEUE_REPORT_PATH = original_review_md
+
+    def test_adapter_subdirectories_are_scanned(self) -> None:
+        import scripts.inbox_watcher as mod
+        original_root = mod.ROOT
+        original_review_queue = mod.REVIEW_QUEUE_PATH
+        original_review_md = mod.REVIEW_QUEUE_REPORT_PATH
+        mod.ROOT = self.root
+        mod.REVIEW_QUEUE_PATH = self.root / "metadata" / "review-queue.json"
+        mod.REVIEW_QUEUE_REPORT_PATH = self.root / "metadata" / "review-queue.md"
+        try:
+            browser_path = self.root / "raw" / "inbox" / "browser" / "web-clip.md"
+            browser_path.write_text(
+                '---\ntitle: "Web Clip"\ncanonical_url: "https://example.com"\n---\n\nBody.\n',
+                encoding="utf-8",
+            )
+            state = scan_inbox(self.root / "raw" / "inbox", {}, "article")
+            self.assertEqual(len(state), 1)
+            queue = load_review_queue()
+            self.assertEqual(queue[0]["adapter"], "browser")
+            self.assertEqual(queue[0]["origin"], "web")
+        finally:
+            mod.ROOT = original_root
+            mod.REVIEW_QUEUE_PATH = original_review_queue
+            mod.REVIEW_QUEUE_REPORT_PATH = original_review_md
+
+
+class ValidateIngestedNoteTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def test_valid_note_has_no_issues(self) -> None:
+        path = self.root / "note.md"
+        path.write_text(
+            (
+                "---\n"
+                'title: "Valid"\n'
+                'source_type: "article"\n'
+                'origin: "web"\n'
+                'date_ingested: "2026-04-11"\n'
+                'status: "raw"\n'
+                "topics:\n"
+                "tags:\n"
+                'source_id: "SRC-20260411-0001"\n'
+                'canonical_url: "https://example.com"\n'
+                "---\n\n"
+                "# Overview\n\nX\n\n# Source Content\n\nY\n\n# Key Points\n\n- Z\n\n# Notes\n\nN\n\n# Lineage\n\nL\n"
+            ),
+            encoding="utf-8",
+        )
+        self.assertEqual(validate_ingested_note(path), [])
+
+    def test_missing_required_fields_are_reported(self) -> None:
+        path = self.root / "bad.md"
+        path.write_text("# Overview\n", encoding="utf-8")
+        issues = validate_ingested_note(path)
+        self.assertTrue(any("missing frontmatter field: title" == issue for issue in issues))
+        self.assertTrue(any("missing section heading: # Source Content" == issue for issue in issues))
 
 
 if __name__ == "__main__":
