@@ -370,11 +370,23 @@ def strip_wrapping_markdown_fence(text: str) -> tuple[str, bool]:
 
 
 def strip_duplicate_inner_frontmatter(text: str) -> tuple[str, bool]:
-    """Remove echoed template frontmatter blocks that appear after the main content starts."""
+    """Remove echoed frontmatter blocks from LLM body content.
+
+    By the time this is called, the real frontmatter has already been split off
+    by split_frontmatter(), so any leading or inline ---...--- block is a duplicate.
+    """
     normalized = normalize_line_endings(text)
+
+    # Case 1: body starts with a frontmatter block (model echoed it at the top)
     if normalized.startswith("---\n"):
+        match = re.match(r"^---\n.*?\n---\n?", normalized, re.DOTALL)
+        if match:
+            cleaned = normalized[match.end():].strip()
+            cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+            return cleaned, True
         return normalized.strip(), False
 
+    # Case 2: frontmatter block appears inline after some content
     match = re.search(r"\n---\n.*?\n---\n?", normalized, re.DOTALL)
     if match:
         cleaned = (normalized[: match.start()] + "\n" + normalized[match.end():]).strip()

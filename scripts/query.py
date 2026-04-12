@@ -141,8 +141,7 @@ def build_query_prompt(
         "clearly rather than inventing details.\n\n"
         "Format your answer in markdown with:\n"
         "- A brief direct answer at the top\n"
-        "- Supporting details with note citations\n"
-        "- A 'Sources Used' section at the end listing the note titles you drew from\n\n"
+        "- Supporting details with note citations\n\n"
     )
 
     question_block = f"## Question\n\n{question.strip()}\n\n"

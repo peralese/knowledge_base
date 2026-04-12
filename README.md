@@ -1121,3 +1121,37 @@ This MVP intentionally does not include:
 - automatic note rewriting
 
 Those can be added later if they are justified, but the starting point should remain a clean, inspectable markdown repository with explicit lineage.
+
+## Roadmap
+
+The core pipeline is now stable enough to support a full local-first knowledge workflow with strong lineage and inspectable artifacts. The next phases focus on moving from a manual high-integrity operating model toward a scalable semi-automated system without weakening provenance, validation, or review controls.
+
+### Phase 1 — Automate Ingestion
+
+> Goal: Eliminate manual "drop file, run script" friction while preserving lineage guarantees.
+
+- Revive the inbox watcher with a two-stage gate: ingest -> validate -> queue for review. Auto-synthesis does NOT trigger automatically - outputs are queued for human approval.
+- Add source adapters for real-world capture: browser extension save-to-inbox, clipboard capture, RSS/feed ingestion, PDF drag-drop.
+- Standardize and enforce the ingestion schema across all adapters before volume scales. Normalize output-shape inconsistencies now, not later.
+
+**Success criterion:** A new document can go from capture to validated-and-queued with zero manual script invocation.
+
+### Phase 2 — Promote Ollama to Primary Synthesis Engine
+
+> Goal: Make local LLM execution the default path for all compilation and synthesis runs.
+
+- Benchmark current Ollama models against existing prompt-packs. Designate a fast model (7B-14B) for routine synthesis and a larger model (32B+) for deep compilation runs.
+- Build a local synthesis queue: a lightweight SQLite-backed job runner that batches newly ingested notes, runs Ollama synthesis on a schedule or on-demand, and writes outputs back with full provenance metadata.
+- Wire canonicalization, topic sanitization, and wikilink validation into the Ollama output path so quality guarantees apply automatically post-synthesis.
+
+**Success criterion:** End-to-end synthesis (ingest -> compile -> validate -> output) runs fully locally with no manual script steps.
+
+### Phase 3 — Review UX & Confidence Scoring
+
+> Goal: As volume scales, shift the bottleneck from running scripts to efficiently reviewing outputs.
+
+- Build a lightweight review queue: a generated markdown index or minimal local web UI showing pending syntheses, validation warnings, and one-action approve/reject/edit.
+- Add confidence scoring to synthesis outputs via a self-critique pass through Ollama. Use scores to triage: auto-approve high-confidence outputs, surface low-confidence ones for human review.
+- Integrate review decisions back into metadata/ so approval state is tracked with the same lineage guarantees as the rest of the system.
+
+**Success criterion:** Reviewing and approving a batch of 20 synthesized outputs takes under 10 minutes with no context-switching to the terminal.
