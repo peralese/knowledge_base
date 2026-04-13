@@ -8,8 +8,9 @@
     "source_type": "article",
     "origin": "web",
     "queued_at": "2026-04-12T20:28:42.554973",
-    "review_status": "pending_review",
+    "review_status": "synthesized",
     "validation_status": "validated",
-    "validation_issues": []
+    "validation_issues": [],
+    "synthesized_at": "2026-04-12T21:29:36.057009"
   }
 ]

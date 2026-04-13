@@ -1,23 +1,90 @@
+# Compilation Request
+
+- Requested title: Mac-mini can now run larger local AI models
+- Canonical title: Mac-mini can now run larger local AI models
+- Canonical slug: mac-mini-can-now-run-larger-local-ai-models
+- Note category: source_summary
+- Repository phase: Phase 3 compilation workflow
+- Required generation method value: prompt_pack
+
+# Canonical Identity Rules
+
+- Use the exact canonical title provided: Mac-mini can now run larger local AI models
+- Use the exact canonical topic slug provided: mac-mini-can-now-run-larger-local-ai-models
+- Do not invent, modify, pluralize, misspell, or rename the topic.
+- Do not create alternative topic identities.
+- Do not create additional topic files or variants.
+
+# Instructions
+
+Use the provided source notes to synthesize one compiled markdown note in the exact repository format shown below.
+Preserve lineage explicitly by listing every source note in `compiled_from`, `# Source Notes`, and `# Lineage`.
+Do not invent unsupported claims. If the sources do not support a statement, omit it or mark it as uncertain in the note.
+Keep the result inspectable and grounded in the provided source material.
+Do not rewrite or mutate raw notes.
+
+# Desired Output Template
+
+```markdown
 ---
 title: "Mac-mini can now run larger local AI models"
-source_type: "article"
-origin: "web"
-date_ingested: "2026-04-12"
-status: "raw"
+note_type: "source_summary"
+compiled_from: 
+  - "mac-mini-can-now-run-larger-local-ai-models"
+date_compiled: "YYYY-MM-DD"
 topics: []
 tags: []
-author: ""
-date_created: ""
-date_published: ""
-language: "en"
-summary: ""
-source_id: "SRC-20260412-0001"
-canonical_url: "https://www.xda-developers.com/your-openclaw-mac-mini-can-now-run-larger-local-ai-models-thanks-to-this-officially-approved-egpu-driver/?utm_source=flipboard&utm_content=XDAOfficial%2Fmagazine%2FXDA%C2%A0+Developers"
-related_sources: []
-confidence: ""
-license: ""
+confidence: "medium"
+generation_method: "prompt_pack"
 ---
 
+# Summary
+
+[write a concise synthesis grounded in the sources]
+
+# Key Insights
+
+- [insight]
+- [insight]
+
+# Related Concepts
+
+- 
+
+# Source Notes
+
+- [[mac-mini-can-now-run-larger-local-ai-models]]
+
+# Source Highlights
+
+## [[mac-mini-can-now-run-larger-local-ai-models]]
+- Title:
+- Source Type:
+- Origin:
+- Summary:
+- Key excerpt:
+
+# Lineage
+
+This note was derived from:
+- [[mac-mini-can-now-run-larger-local-ai-models]]
+```
+
+# Source Notes
+
+## [[mac-mini-can-now-run-larger-local-ai-models]]
+
+- Path: /home/peralese/Projects/Knowledge_Base/raw/articles/mac-mini-can-now-run-larger-local-ai-models.md
+- Title: Mac-mini can now run larger local AI models
+- Source Type: article
+- Origin: web
+- Summary: [none provided]
+- Topics: [none]
+- Tags: [none]
+
+### Body
+
+```markdown
 # Overview
 
 Brief description of what this source is and why it matters.
@@ -478,4 +545,4 @@ Advertisement: 0:17
 - Manifest entry: metadata/source-manifest.json::SRC-20260412-0001
 - Source path: /home/peralese/Projects/Knowledge_Base/raw/inbox/browser/mac-mini-can-now-run-larger-local-ai-models.html
 - Canonical URL: https://www.xda-developers.com/your-openclaw-mac-mini-can-now-run-larger-local-ai-models-thanks-to-this-officially-approved-egpu-driver/?utm_source=flipboard&utm_content=XDAOfficial%2Fmagazine%2FXDA%C2%A0+Developers
-
+```
