@@ -1087,13 +1087,195 @@ python3 scripts/lint.py --dry-run
 ### Full workflow with Phase 9
 
 ```
-1. python3 scripts/inbox_watcher.py       # auto-ingest file drops
-2. python3 scripts/compile_notes.py       # compile raw notes (manual)
-3. python3 scripts/llm_driver.py          # synthesize (manual)
-4. python3 scripts/index_notes.py         # refresh wiki index
-5. python3 scripts/lint.py --report       # check for broken links and orphans
-6. python3 scripts/lint.py --llm --report # + LLM coverage gap analysis
-7. python3 scripts/query.py --question "..." --top-n 5
+# Capture
+python3 scripts/stage_to_inbox.py browser --input-file article.html --title "..."
+
+# Ingest + validate + queue
+python3 scripts/inbox_watcher.py --once
+
+# On-demand synthesis (Phase 2)
+python3 scripts/synthesize.py --list
+python3 scripts/synthesize.py SRC-YYYYMMDD-XXXX
+
+# Maintain index
+python3 scripts/index_notes.py
+
+# Health checks
+python3 scripts/lint.py --report
+python3 scripts/lint.py --llm --report
+
+# Query
+python3 scripts/query.py --question "..." --top-n 5
+```
+
+---
+
+## Phase 1 — Automated Ingestion
+
+Phase 1 eliminates the manual "drop file, run script" friction by adding source adapters and wiring the inbox watcher into a two-stage gate: ingest → validate → queue for human review. Auto-synthesis is intentionally not triggered — every ingested note lands in the review queue and waits for explicit approval.
+
+### Source adapters — `scripts/stage_to_inbox.py`
+
+Four adapters route captured content into the correct inbox subfolder before the watcher processes it.
+
+Stage text from the clipboard:
+
+```bash
+python3 scripts/stage_to_inbox.py clipboard \
+  --title "My Note" \
+  --text "Content to capture"
+```
+
+Stage a browser-saved HTML or markdown file:
+
+```bash
+python3 scripts/stage_to_inbox.py browser \
+  --input-file ~/Downloads/article.html \
+  --title "Article Title" \
+  --canonical-url "https://example.com/article"
+```
+
+Stage a feed item as a JSON payload:
+
+```bash
+python3 scripts/stage_to_inbox.py feeds \
+  --text '{"title":"Feed Item","url":"https://example.com","content":"..."}'
+```
+
+Stage a PDF for processing:
+
+```bash
+python3 scripts/stage_to_inbox.py pdf-drop \
+  --input-file ~/Downloads/paper.pdf
+```
+
+Adapter destinations:
+
+- `browser` → `raw/inbox/browser/`
+- `clipboard` → `raw/inbox/clipboard/`
+- `feeds` → `raw/inbox/feeds/`
+- `pdf-drop` → `raw/inbox/pdf-drop/`
+
+### HTML-to-text conversion
+
+When the browser adapter stages an `.html` file, `ingest.py` automatically strips all markup before writing the note body. Script tags, style blocks, SVG, and `<head>` content are discarded entirely. Block-level elements become line breaks. HTML entities are unescaped. This prevents CSS pixel values, JavaScript coordinates, and minified script tokens from polluting the note body and creating garbage nodes in the Obsidian graph.
+
+### Two-stage gate — `scripts/inbox_watcher.py`
+
+The watcher now runs a validation pass after every ingestion and writes all results to the review queue. Auto-synthesis is explicitly blocked — the queue is the handoff point to Phase 2.
+
+Start the watcher in the foreground:
+
+```bash
+python3 scripts/inbox_watcher.py
+```
+
+Process whatever is in the inbox right now then exit:
+
+```bash
+python3 scripts/inbox_watcher.py --once
+```
+
+For each new file the watcher:
+
+1. Derives title, source type, origin, and canonical URL from the file
+2. Calls `ingest.py` to build the normalized raw note and update the manifest
+3. Validates the output note against the required frontmatter and body schema
+4. Appends an entry to `metadata/review-queue.json` and `metadata/review-queue.md`
+5. Archives the original inbox file to `raw/archive/` with a timestamp
+
+### Review queue
+
+Every ingested note lands in `metadata/review-queue.json` with a `review_status` of `pending_review`. The markdown view `metadata/review-queue.md` shows a human-readable table of pending items, their validation status, and any schema issues.
+
+### Full workflow with Phase 1
+
+```
+python3 scripts/stage_to_inbox.py browser --input-file article.html --title "..."
+       ↓
+python3 scripts/inbox_watcher.py --once
+       ↓
+raw/articles/<slug>.md          # normalized raw note
+metadata/source-manifest.json  # updated
+metadata/review-queue.md        # queued for review
+raw/archive/<slug>--archived-*  # original preserved
+```
+
+---
+
+## Phase 2 — On-Demand Synthesis
+
+Phase 2 closes the gap between the review queue and compiled notes. A single command looks up a queued item by source ID, generates a prompt-pack, runs Ollama synthesis, applies the result, and updates the queue status — all in one invocation.
+
+Auto-synthesis is still intentionally blocked. Every synthesis run requires an explicit command per item.
+
+### Synthesis command — `scripts/synthesize.py`
+
+List all items pending review:
+
+```bash
+python3 scripts/synthesize.py --list
+```
+
+Synthesize one item by source ID:
+
+```bash
+python3 scripts/synthesize.py SRC-20260412-0001
+```
+
+Override the compiled note title:
+
+```bash
+python3 scripts/synthesize.py SRC-20260412-0001 --title "Mac mini eGPU"
+```
+
+Synthesize all pending items in one pass:
+
+```bash
+python3 scripts/synthesize.py --all
+```
+
+Force overwrite if a compiled note already exists:
+
+```bash
+python3 scripts/synthesize.py SRC-20260412-0001 --force
+```
+
+### What the synthesis command does
+
+For each queued item it:
+
+1. Looks up the source ID in `metadata/review-queue.json`
+2. Runs `compile_notes.py` in `prompt-pack` mode → `metadata/prompts/compile-<slug>-synthesis.md`
+3. Calls Ollama via `llm_driver.py` (streaming) → raw output in `tmp/synthesis-output.md`
+4. If Ollama is unreachable, falls back to scaffold mode (a human-fillable template)
+5. Runs `apply_synthesis.py` → compiled note in `compiled/source_summaries/<slug>-synthesis.md`
+6. Updates the queue entry: `pending_review` → `synthesized` or `synthesis_failed`
+
+### Naming convention
+
+Compiled notes are named `<slug>-synthesis.md` to distinguish them from the raw source note `<slug>.md`. Without this distinction, Obsidian cannot resolve wikilinks when two files share the same stem.
+
+### Review queue status flow
+
+```
+pending_review  →  synthesized        (pipeline succeeded)
+pending_review  →  synthesis_failed   (pipeline error or Ollama unavailable with no scaffold fallback)
+```
+
+### Full workflow with Phase 1 and Phase 2
+
+```
+python3 scripts/stage_to_inbox.py browser --input-file article.html --title "..."
+       ↓
+python3 scripts/inbox_watcher.py --once
+       ↓  (note is now in review queue as pending_review)
+python3 scripts/synthesize.py --list
+python3 scripts/synthesize.py SRC-YYYYMMDD-XXXX
+       ↓
+compiled/source_summaries/<slug>-synthesis.md   # compiled note
+       ↓
+python3 scripts/index_notes.py                  # refresh wiki index
 ```
 
 ---
@@ -1126,32 +1308,45 @@ Those can be added later if they are justified, but the starting point should re
 
 The core pipeline is now stable enough to support a full local-first knowledge workflow with strong lineage and inspectable artifacts. The next phases focus on moving from a manual high-integrity operating model toward a scalable semi-automated system without weakening provenance, validation, or review controls.
 
-### Phase 1 — Automate Ingestion
+### ✅ Phase 1 — Automate Ingestion — COMPLETE
 
 > Goal: Eliminate manual "drop file, run script" friction while preserving lineage guarantees.
 
-- Revive the inbox watcher with a two-stage gate: ingest -> validate -> queue for review. Auto-synthesis does NOT trigger automatically - outputs are queued for human approval.
-- Add source adapters for real-world capture: browser extension save-to-inbox, clipboard capture, RSS/feed ingestion, PDF drag-drop.
-- Standardize and enforce the ingestion schema across all adapters before volume scales. Normalize output-shape inconsistencies now, not later.
+- Inbox watcher extended with two-stage gate: ingest → validate → queue for review. Auto-synthesis does not trigger automatically.
+- Source adapters added for browser HTML, clipboard text, RSS/feed JSON, and PDF drag-drop via `scripts/stage_to_inbox.py`.
+- HTML-to-text stripping added to browser adapter so raw markup, CSS, and JavaScript never pollute note bodies or the Obsidian graph.
+- Ingestion schema validation enforced on every note before queueing.
 
-**Success criterion:** A new document can go from capture to validated-and-queued with zero manual script invocation.
+**Delivered:** A new document goes from capture to validated-and-queued with two explicit commands (`stage_to_inbox.py` + `inbox_watcher.py --once`).
 
-### Phase 2 — Promote Ollama to Primary Synthesis Engine
+### ✅ Phase 2 — On-Demand Synthesis — COMPLETE
 
-> Goal: Make local LLM execution the default path for all compilation and synthesis runs.
+> Goal: One command per queued item triggers the full compile → synthesize → apply pipeline without manual steps.
 
-- Benchmark current Ollama models against existing prompt-packs. Designate a fast model (7B-14B) for routine synthesis and a larger model (32B+) for deep compilation runs.
-- Build a local synthesis queue: a lightweight SQLite-backed job runner that batches newly ingested notes, runs Ollama synthesis on a schedule or on-demand, and writes outputs back with full provenance metadata.
-- Wire canonicalization, topic sanitization, and wikilink validation into the Ollama output path so quality guarantees apply automatically post-synthesis.
+- `scripts/synthesize.py` added as a single entry point for queue-driven synthesis.
+- Pipeline: `compile_notes.py` (prompt-pack mode) → `llm_driver.py` (Ollama streaming) → `apply_synthesis.py` → queue status update.
+- Graceful fallback to scaffold mode when Ollama is unavailable.
+- Compiled notes named with `-synthesis` suffix to prevent Obsidian wikilink ambiguity with source notes.
+- `--all` flag processes every pending item in one pass.
 
-**Success criterion:** End-to-end synthesis (ingest -> compile -> validate -> output) runs fully locally with no manual script steps.
+**Delivered:** `python3 scripts/synthesize.py SRC-YYYYMMDD-XXXX` runs the full pipeline end-to-end for any queued note.
 
-### Phase 3 — Review UX & Confidence Scoring
+### Phase 3 — Watcher Daemon & Feed Polling
+
+> Goal: Eliminate the remaining manual invocations so capture-to-queue requires zero terminal interaction after initial setup.
+
+- Package the inbox watcher as a systemd user service (or equivalent) so it starts on login and self-restarts.
+- Add a feed poller daemon (`scripts/feed_poller.py`) that reads subscribed feed URLs from `metadata/feeds.json`, fetches new items on a schedule, and drops them into `raw/inbox/feeds/` automatically.
+- Add a unified `scripts/run_pipeline.sh` that starts both the watcher and feed poller as supervised background processes.
+
+**Success criterion:** After a one-time `systemctl --user enable kb-watcher`, new browser saves and feed items appear in the review queue with zero terminal interaction.
+
+### Phase 4 — Review UX & Confidence Scoring
 
 > Goal: As volume scales, shift the bottleneck from running scripts to efficiently reviewing outputs.
 
-- Build a lightweight review queue: a generated markdown index or minimal local web UI showing pending syntheses, validation warnings, and one-action approve/reject/edit.
 - Add confidence scoring to synthesis outputs via a self-critique pass through Ollama. Use scores to triage: auto-approve high-confidence outputs, surface low-confidence ones for human review.
-- Integrate review decisions back into metadata/ so approval state is tracked with the same lineage guarantees as the rest of the system.
+- Extend `review-queue.md` with approve/reject actions that update queue status and trigger downstream steps.
+- Integrate review decisions back into `metadata/` so approval state is tracked with the same lineage guarantees as the rest of the system.
 
 **Success criterion:** Reviewing and approving a batch of 20 synthesized outputs takes under 10 minutes with no context-switching to the terminal.
