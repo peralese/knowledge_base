@@ -6,7 +6,8 @@
     "tests/",
     "scripts/",
     "readme.md",
-    "metadata/"
+    "metadata/",
+    "outputs/reports/"
   ],
   "alwaysUpdateLinks": true
 }

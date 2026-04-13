@@ -1,5 +1,0 @@
----
-title: "Smoke Clipboard"
----
-
-Body

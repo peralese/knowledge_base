@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import argparse
+import html as html_module
 import json
 import re
 import sys
 from dataclasses import dataclass
 from datetime import date
 from datetime import datetime
+from html.parser import HTMLParser
 from pathlib import Path
 
 
@@ -54,6 +56,60 @@ def slugify_title(title: str) -> str:
 def destination_dir_for_source_type(source_type: str) -> Path:
     """Map a source type to the correct raw/ destination."""
     return DESTINATION_FOLDERS.get(source_type.strip().lower(), Path("raw/inbox"))
+
+
+class _TextExtractor(HTMLParser):
+    """Extract readable text from HTML, discarding scripts, styles, and markup."""
+
+    _SKIP_TAGS = frozenset({"script", "style", "head", "noscript", "iframe", "svg", "template"})
+    _BLOCK_TAGS = frozenset({
+        "p", "div", "h1", "h2", "h3", "h4", "h5", "h6",
+        "li", "br", "tr", "blockquote", "article", "section",
+        "header", "footer", "nav", "main", "figure", "figcaption",
+    })
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._parts: list[str] = []
+        self._skip_depth: int = 0
+
+    def handle_starttag(self, tag: str, attrs: object) -> None:
+        if tag in self._SKIP_TAGS:
+            self._skip_depth += 1
+        elif tag in self._BLOCK_TAGS and not self._skip_depth:
+            self._parts.append("\n")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in self._SKIP_TAGS:
+            self._skip_depth = max(0, self._skip_depth - 1)
+        elif tag in self._BLOCK_TAGS and not self._skip_depth:
+            self._parts.append("\n")
+
+    def handle_data(self, data: str) -> None:
+        if not self._skip_depth:
+            self._parts.append(data)
+
+    def get_text(self) -> str:
+        raw = html_module.unescape("".join(self._parts))
+        lines = [line.rstrip() for line in raw.splitlines()]
+        result: list[str] = []
+        blank_run = 0
+        for line in lines:
+            if line.strip():
+                blank_run = 0
+                result.append(line)
+            else:
+                blank_run += 1
+                if blank_run == 1:
+                    result.append("")
+        return "\n".join(result).strip()
+
+
+def html_to_text(html_content: str) -> str:
+    """Convert HTML to plain readable text using stdlib only."""
+    extractor = _TextExtractor()
+    extractor.feed(html_content)
+    return extractor.get_text()
 
 
 def normalize_text(content: str) -> str:
@@ -122,7 +178,10 @@ def read_input_content(input_file: Path | None, text: str | None) -> tuple[str, 
             raise FileNotFoundError(f"Input file not found: {input_file}")
         if not input_file.is_file():
             raise ValueError(f"Input path is not a file: {input_file}")
-        return normalize_text(input_file.read_text(encoding="utf-8")), str(input_file)
+        raw = input_file.read_text(encoding="utf-8")
+        if input_file.suffix.lower() == ".html":
+            raw = html_to_text(raw)
+        return normalize_text(raw), str(input_file)
 
     return normalize_text(text or ""), ""
 

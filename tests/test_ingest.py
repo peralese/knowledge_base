@@ -10,6 +10,7 @@ from unittest.mock import patch
 from scripts.ingest import IngestRequest
 from scripts.ingest import build_archive_filename
 from scripts.ingest import destination_dir_for_source_type
+from scripts.ingest import html_to_text
 from scripts.ingest import ingest_source
 from scripts.ingest import slugify_title
 
@@ -221,6 +222,75 @@ class IngestTests(unittest.TestCase):
 
         with self.assertRaises(FileExistsError):
             ingest_source(request)
+
+
+class HtmlToTextTests(unittest.TestCase):
+    def test_strips_tags_and_returns_text(self) -> None:
+        result = html_to_text("<p>Hello <b>world</b></p>")
+        self.assertIn("Hello world", result)
+        self.assertNotIn("<", result)
+
+    def test_script_and_style_content_removed(self) -> None:
+        html = "<style>.foo { width: 300px; height: 250px; }</style><p>Visible text</p><script>var x = [728, 90];</script>"
+        result = html_to_text(html)
+        self.assertIn("Visible text", result)
+        self.assertNotIn("300px", result)
+        self.assertNotIn("728", result)
+
+    def test_html_entities_unescaped(self) -> None:
+        result = html_to_text("<p>AT&amp;T &mdash; &lt;example&gt;</p>")
+        self.assertIn("AT&T", result)
+        self.assertIn("—", result)
+        self.assertNotIn("&amp;", result)
+
+    def test_block_tags_become_newlines(self) -> None:
+        result = html_to_text("<h1>Title</h1><p>Para one</p><p>Para two</p>")
+        lines = [l for l in result.splitlines() if l.strip()]
+        self.assertGreaterEqual(len(lines), 2)
+        self.assertIn("Title", result)
+        self.assertIn("Para one", result)
+        self.assertIn("Para two", result)
+
+    def test_head_content_excluded(self) -> None:
+        html = "<html><head><title>Page Title</title><meta charset='utf-8'></head><body><p>Body text</p></body></html>"
+        result = html_to_text(html)
+        self.assertIn("Body text", result)
+        self.assertNotIn("Page Title", result)
+
+    def test_consecutive_blank_lines_collapsed(self) -> None:
+        html = "<p>First</p><p></p><p></p><p>Second</p>"
+        result = html_to_text(html)
+        self.assertNotIn("\n\n\n", result)
+
+    def test_html_file_ingested_as_plain_text(self) -> None:
+        """End-to-end: HTML file from inbox/browser/ is stripped before note body."""
+        temp = tempfile.TemporaryDirectory()
+        root = Path(temp.name)
+        for d in ["raw/inbox/browser", "raw/archive", "raw/articles", "raw/notes", "raw/pdfs", "metadata"]:
+            (root / d).mkdir(parents=True, exist_ok=True)
+        (root / "metadata" / "source-manifest.json").write_text(
+            '{"manifest_version":"0.2.0","last_updated":"","description":"","sources":[]}',
+            encoding="utf-8",
+        )
+        html_file = root / "raw" / "inbox" / "browser" / "article.html"
+        html_file.write_text(
+            "<html><head><style>.ad { width: 728px; height: 90px; }</style></head>"
+            "<body><h1>Real Article Title</h1><p>Actual readable content here.</p></body></html>",
+            encoding="utf-8",
+        )
+        from scripts.ingest import IngestRequest, ingest_source
+        output = ingest_source(IngestRequest(
+            title="Real Article Title",
+            source_type="article",
+            origin="web",
+            input_path=str(html_file),
+            root=root,
+        ))
+        note = output.read_text(encoding="utf-8")
+        self.assertIn("Actual readable content here.", note)
+        self.assertNotIn("728px", note)
+        self.assertNotIn("<style>", note)
+        temp.cleanup()
 
 
 if __name__ == "__main__":
