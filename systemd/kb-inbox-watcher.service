@@ -1,0 +1,17 @@
+[Unit]
+Description=Knowledge Base Inbox Watcher
+Documentation=file://%h/Projects/Knowledge_Base/scripts/inbox_watcher.py
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Projects/Knowledge_Base
+ExecStart=%h/Projects/Knowledge_Base/.venv/bin/python %h/Projects/Knowledge_Base/scripts/inbox_watcher.py
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=kb-inbox-watcher
+
+[Install]
+WantedBy=default.target

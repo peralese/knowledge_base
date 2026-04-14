@@ -181,9 +181,9 @@ class IngestTests(unittest.TestCase):
         self.assertEqual(len(archived_files), 2)
         self.assertIn("sample-article--archived-20260405-213045-2.txt", [path.name for path in archived_files])
 
-    def test_failed_ingestion_does_not_move_original_file(self) -> None:
+    def test_duplicate_title_from_inbox_creates_suffixed_file(self) -> None:
         inbox_file = self.root / "raw" / "inbox" / "existing-note.txt"
-        inbox_file.write_text("Original inbox content.", encoding="utf-8")
+        inbox_file.write_text("Second inbox content.", encoding="utf-8")
 
         first_request = IngestRequest(
             title="Existing Note",
@@ -192,23 +192,24 @@ class IngestTests(unittest.TestCase):
             text="Original content.",
             root=self.root,
         )
-        ingest_source(first_request)
+        first_output = ingest_source(first_request)
+        self.assertEqual(first_output.name, "existing-note.md")
 
-        failing_request = IngestRequest(
+        second_request = IngestRequest(
             title="Existing Note",
             source_type="article",
             origin="local-file",
             input_path=str(inbox_file),
             root=self.root,
         )
+        second_output = ingest_source(second_request)
 
-        with self.assertRaises(FileExistsError):
-            ingest_source(failing_request)
+        self.assertEqual(second_output.name, "existing-note-2.md")
+        self.assertTrue(second_output.exists())
+        # Inbox file should be archived since ingest succeeded
+        self.assertFalse(inbox_file.exists())
 
-        self.assertTrue(inbox_file.exists())
-        self.assertEqual(list((self.root / "raw" / "archive").iterdir()), [])
-
-    def test_no_overwrite_by_default(self) -> None:
+    def test_duplicate_title_creates_suffixed_file(self) -> None:
         request = IngestRequest(
             title="Existing Note",
             source_type="article",
@@ -218,10 +219,26 @@ class IngestTests(unittest.TestCase):
         )
 
         first_output = ingest_source(request)
-        self.assertTrue(first_output.exists())
+        self.assertEqual(first_output.name, "existing-note.md")
 
-        with self.assertRaises(FileExistsError):
-            ingest_source(request)
+        second_output = ingest_source(request)
+        self.assertEqual(second_output.name, "existing-note-2.md")
+        self.assertTrue(second_output.exists())
+
+    def test_triple_collision_produces_sequential_suffixes(self) -> None:
+        request = IngestRequest(
+            title="Collision Note",
+            source_type="article",
+            origin="manual-entry",
+            text="Content.",
+            root=self.root,
+        )
+        out1 = ingest_source(request)
+        out2 = ingest_source(request)
+        out3 = ingest_source(request)
+        self.assertEqual(out1.name, "collision-note.md")
+        self.assertEqual(out2.name, "collision-note-2.md")
+        self.assertEqual(out3.name, "collision-note-3.md")
 
 
 class HtmlToTextTests(unittest.TestCase):

@@ -1,0 +1,17 @@
+[Unit]
+Description=Knowledge Base Feed Poller
+Documentation=file://%h/Projects/Knowledge_Base/scripts/feed_poller.py
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Projects/Knowledge_Base
+ExecStart=%h/Projects/Knowledge_Base/.venv/bin/python %h/Projects/Knowledge_Base/scripts/feed_poller.py
+Restart=on-failure
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=kb-feed-poller
+
+[Install]
+WantedBy=default.target

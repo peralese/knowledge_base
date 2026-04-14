@@ -1,46 +1,6 @@
 {
   "manifest_version": "0.2.0",
-  "last_updated": "2026-04-12",
-  "description": "Source manifest for tracking ingested raw notes and preserving lineage.",
-  "sources": [
-    {
-      "source_id": "SRC-20260411-0001",
-      "title": "Karpathy LLM Knowledge Base Second Brain",
-      "filename": "karpathy-llm-knowledge-base-second-brain.md",
-      "path": "raw/articles/karpathy-llm-knowledge-base-second-brain.md",
-      "source_type": "article",
-      "origin": "web",
-      "date_ingested": "2026-04-11",
-      "canonical_url": "https://ghost.codersera.com/blog/karpathy-llm-knowledge-base-second-brain/",
-      "input_path": "/home/peralese/Projects/Knowledge_Base/raw/inbox/browser/llm-knowledge-base.md",
-      "status": "raw",
-      "archive_path": "raw/archive/llm-knowledge-base--archived-20260411-212817.md"
-    },
-    {
-      "source_id": "SRC-20260411-0002",
-      "title": "Smoke Clipboard",
-      "filename": "smoke-clipboard.md",
-      "path": "raw/articles/smoke-clipboard.md",
-      "source_type": "article",
-      "origin": "clipboard",
-      "date_ingested": "2026-04-11",
-      "canonical_url": "",
-      "input_path": "/home/peralese/Projects/Knowledge_Base/raw/inbox/clipboard/smoke-clipboard.md",
-      "status": "raw",
-      "archive_path": "raw/archive/smoke-clipboard--archived-20260411-212817.md"
-    },
-    {
-      "source_id": "SRC-20260412-0001",
-      "title": "Mac-mini can now run larger local AI models",
-      "filename": "mac-mini-can-now-run-larger-local-ai-models.md",
-      "path": "raw/articles/mac-mini-can-now-run-larger-local-ai-models.md",
-      "source_type": "article",
-      "origin": "web",
-      "date_ingested": "2026-04-12",
-      "canonical_url": "https://www.xda-developers.com/your-openclaw-mac-mini-can-now-run-larger-local-ai-models-thanks-to-this-officially-approved-egpu-driver/?utm_source=flipboard&utm_content=XDAOfficial%2Fmagazine%2FXDA%C2%A0+Developers",
-      "input_path": "/home/peralese/Projects/Knowledge_Base/raw/inbox/browser/mac-mini-can-now-run-larger-local-ai-models.html",
-      "status": "raw",
-      "archive_path": "raw/archive/mac-mini-can-now-run-larger-local-ai-models--archived-20260412-202842.html"
-    }
-  ]
+  "last_updated": "",
+  "description": "Source manifest for Knowledge Base",
+  "sources": []
 }

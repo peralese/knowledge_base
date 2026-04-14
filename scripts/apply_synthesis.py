@@ -362,7 +362,11 @@ def strip_wrapping_markdown_fence(text: str) -> tuple[str, bool]:
             break
 
     if closing_idx is None:
-        return normalized, False
+        # Truncated response — opening fence present but no closing fence found.
+        # Strip the opening fence and use all remaining content rather than leaving
+        # the body wrapped in a code block (which breaks Obsidian wikilinks).
+        inner = "\n".join(lines[1:]).strip()
+        return inner, True
 
     # Extract content between the opening and closing fence; discard anything after.
     inner = "\n".join(lines[1:closing_idx]).strip()

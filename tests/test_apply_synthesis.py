@@ -170,6 +170,26 @@ class ApplySynthesisTests(unittest.TestCase):
         self.assertNotIn("Please adjust", saved)
         self.assertIn("OpenClaw hardening guidance.", saved)
 
+    def test_truncated_fence_no_closing_backticks_still_stripped(self) -> None:
+        """Ollama sometimes truncates before emitting the closing fence — content must not stay in a code block."""
+        output_path = apply_synthesis(
+            ApplySynthesisRequest(
+                prompt_pack=Path("metadata/prompts/compile-openclaw-security.md"),
+                text=(
+                    "```markdown\n"
+                    "# Summary\n\n"
+                    "OpenClaw hardening guidance.\n"
+                    # deliberately no closing ```
+                ),
+                root=self.root,
+                force=True,
+            )
+        )
+
+        saved = output_path.read_text(encoding="utf-8")
+        self.assertNotIn("```markdown", saved)
+        self.assertIn("OpenClaw hardening guidance.", saved)
+
     def test_duplicate_inner_frontmatter_is_handled_correctly(self) -> None:
         output_path = apply_synthesis(
             ApplySynthesisRequest(

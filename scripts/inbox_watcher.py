@@ -33,6 +33,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import html as html_module
 import json
 import re
 import sys
@@ -204,6 +205,21 @@ def derive_title(path: Path) -> str:
                 value = str(payload.get(key, "")).strip()
                 if value:
                     return value[:120]
+
+    if path.suffix.lower() == ".html":
+        # Try <title> tag before falling back to text extraction
+        title_match = re.search(r"<title[^>]*>([^<]+)</title>", text, re.IGNORECASE)
+        if title_match:
+            html_title = html_module.unescape(title_match.group(1).strip())
+            if html_title:
+                return html_title[:120]
+        # Fall back to first meaningful line of stripped text
+        from ingest import html_to_text  # noqa: PLC0415
+        stripped = html_to_text(text)
+        first_line = _first_content_line(stripped)
+        if first_line:
+            return first_line[:120]
+        return path.stem.replace("-", " ").replace("_", " ").title()
 
     title = _parse_frontmatter_title(text)
     if title:

@@ -68,6 +68,32 @@ class DeriveTitleTests(unittest.TestCase):
         p = self._write("note.txt", "A" * 200 + "\n")
         self.assertLessEqual(len(derive_title(p)), 120)
 
+    def test_html_title_tag_used(self) -> None:
+        html = "<!DOCTYPE html><html><head><title>Real Page Title</title></head><body><p>Content</p></body></html>"
+        p = self._write("page.html", html)
+        self.assertEqual(derive_title(p), "Real Page Title")
+
+    def test_html_entities_decoded_in_title(self) -> None:
+        html = "<!DOCTYPE html><html><head><title>Features &amp; Updates</title></head><body></body></html>"
+        p = self._write("page.html", html)
+        self.assertEqual(derive_title(p), "Features & Updates")
+
+    def test_html_doctype_not_used_as_title(self) -> None:
+        html = "<!DOCTYPE html><html><head><title>Actual Title</title></head><body></body></html>"
+        p = self._write("page.html", html)
+        self.assertNotEqual(derive_title(p), "doctype-html")
+        self.assertNotIn("doctype", derive_title(p).lower())
+
+    def test_html_without_title_tag_falls_back_to_body_text(self) -> None:
+        html = "<!DOCTYPE html><html><body><h1>Body Heading</h1><p>Some text.</p></body></html>"
+        p = self._write("page.html", html)
+        result = derive_title(p)
+        self.assertIn("Body Heading", result)
+
+    def test_html_without_any_text_falls_back_to_filename(self) -> None:
+        p = self._write("my-article.html", "<!DOCTYPE html><html><body></body></html>")
+        self.assertEqual(derive_title(p), "My Article")
+
 
 # ---------------------------------------------------------------------------
 # Source type and origin derivation

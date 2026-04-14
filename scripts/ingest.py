@@ -375,9 +375,10 @@ def ingest_source(request: IngestRequest) -> Path:
     output_path = destination_dir / f"{slug}.md"
 
     if output_path.exists() and not request.force:
-        raise FileExistsError(
-            f"Destination note already exists: {output_path}. Use --force to overwrite."
-        )
+        counter = 2
+        while output_path.exists():
+            output_path = destination_dir / f"{slug}-{counter}.md"
+            counter += 1
 
     manifest_path = request.root / "metadata" / "source-manifest.json"
     manifest = load_manifest(manifest_path)
