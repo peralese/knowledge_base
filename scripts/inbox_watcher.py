@@ -407,23 +407,27 @@ def render_review_queue(entries: list[dict[str, object]]) -> str:
         "",
     ]
     if not entries:
-        lines.append("No pending review items.")
+        lines.append("No items in queue.")
         return "\n".join(lines) + "\n"
 
     lines.extend([
-        "| Title | Source Note | Adapter | Validation | Review |",
-        "|---|---|---|---|---|",
+        "| Title | Source Note | Adapter | Validation | Confidence | Review |",
+        "|---|---|---|---|---|---|",
     ])
     for entry in entries:
+        conf_score = entry.get("confidence_score")
+        conf_band = entry.get("confidence_band", "")
+        conf_str = f"{conf_band} {conf_score:.2f}" if conf_score is not None else "—"
+        action = entry.get("review_action") or entry.get("review_status", "")
         lines.append(
             f"| {entry.get('title', '')} | `{entry.get('source_note_path', '')}` | "
             f"{entry.get('adapter', '')} | {entry.get('validation_status', '')} | "
-            f"{entry.get('review_status', '')} |"
+            f"{conf_str} | {action} |"
         )
         issues = entry.get("validation_issues", [])
         if issues:
             for issue in issues:
-                lines.append(f"|  |  |  | issue: {issue} |  |")
+                lines.append(f"|  |  |  | issue: {issue} |  |  |")
     return "\n".join(lines) + "\n"
 
 

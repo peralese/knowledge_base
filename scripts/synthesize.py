@@ -64,22 +64,26 @@ def _write_queue_report(entries: list[dict[str, object]]) -> None:
         "",
     ]
     if not entries:
-        lines.append("No pending review items.")
+        lines.append("No items in queue.")
         REVIEW_QUEUE_REPORT_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
         return
 
     lines.extend([
-        "| Title | Source Note | Adapter | Validation | Review |",
-        "|---|---|---|---|---|",
+        "| Title | Source Note | Adapter | Validation | Confidence | Review |",
+        "|---|---|---|---|---|---|",
     ])
     for entry in entries:
+        conf_score = entry.get("confidence_score")
+        conf_band = entry.get("confidence_band", "")
+        conf_str = f"{conf_band} {conf_score:.2f}" if conf_score is not None else "—"
+        action = entry.get("review_action") or entry.get("review_status", "")
         lines.append(
             f"| {entry.get('title', '')} | `{entry.get('source_note_path', '')}` | "
             f"{entry.get('adapter', '')} | {entry.get('validation_status', '')} | "
-            f"{entry.get('review_status', '')} |"
+            f"{conf_str} | {action} |"
         )
         for issue in entry.get("validation_issues", []):
-            lines.append(f"|  |  |  | issue: {issue} |  |")
+            lines.append(f"|  |  |  | issue: {issue} |  |  |")
     REVIEW_QUEUE_REPORT_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -291,6 +295,41 @@ def synthesize_item(
 
 
 # ---------------------------------------------------------------------------
+# Scoring integration (non-blocking — errors never fail synthesis)
+# ---------------------------------------------------------------------------
+
+def _run_scoring(item: dict[str, object], *, model: str, root: Path) -> None:
+    """Call score_synthesis for one successfully synthesized item.
+
+    Runs after the queue has been saved with 'synthesized' status so that
+    score fields are layered on top (not overwritten by a subsequent save_queue call).
+    """
+    try:
+        from score_synthesis import (  # noqa: PLC0415
+            ScoreRequest,
+            _find_compiled_note,
+            score_synthesis,
+            update_queue_with_score,
+        )
+        compiled_path = _find_compiled_note(item, root)
+        if compiled_path is None:
+            print("  Warning: compiled note not found for scoring — skipping.")
+            return
+        source_id = str(item.get("source_id", ""))
+        result = score_synthesis(ScoreRequest(
+            source_id=source_id,
+            compiled_note_path=compiled_path,
+            model=model,
+            root=root,
+        ))
+        update_queue_with_score(result)
+        label = "auto-approved" if result.auto_approved else "needs review"
+        print(f"  Confidence  : {result.band} {result.score:.2f}  ({label})")
+    except Exception as exc:  # noqa: BLE001
+        print(f"  Warning: confidence scoring failed: {exc}")
+
+
+# ---------------------------------------------------------------------------
 # Command dispatch
 # ---------------------------------------------------------------------------
 
@@ -319,6 +358,10 @@ def cmd_synthesize(
     queue = _update_status(queue, source_id, status, {"synthesized_at": datetime.now().isoformat()})
     save_queue(queue)
     print(f"  Queue status: {status}")
+
+    if success:
+        _run_scoring(item, model=model, root=root)
+
     return 0 if success else 1
 
 
@@ -347,6 +390,15 @@ def cmd_all(*, title_override: str, model: str, force: bool, root: Path) -> int:
         print()
 
     save_queue(queue)
+
+    # Score all successfully synthesized items (failed ones are skipped)
+    failed_ids = {
+        str(e.get("source_id")) for e in queue if e.get("review_status") == "synthesis_failed"
+    }
+    for item in items:
+        if str(item.get("source_id", "")) not in failed_ids:
+            _run_scoring(item, model=model, root=root)
+
     passed = len(items) - failed
     print(f"Done: {passed}/{len(items)} synthesized successfully.")
     return 0 if failed == 0 else 1

@@ -1,6 +1,20 @@
 {
   "manifest_version": "0.2.0",
-  "last_updated": "",
+  "last_updated": "2026-04-15",
   "description": "Source manifest for Knowledge Base",
-  "sources": []
+  "sources": [
+    {
+      "source_id": "SRC-20260415-0001",
+      "title": "How to Harden OpenClaw: Security Best Practices for 2026 | OpenClaw Blog",
+      "filename": "how-to-harden-openclaw-security-best-practices-for-2026-openclaw-blog.md",
+      "path": "raw/articles/how-to-harden-openclaw-security-best-practices-for-2026-openclaw-blog.md",
+      "source_type": "article",
+      "origin": "web",
+      "date_ingested": "2026-04-15",
+      "canonical_url": "https://openclawdesktop.com/blog/hardening-openclaw-security-best-practices.html",
+      "input_path": "/home/peralese/Projects/Knowledge_Base/raw/inbox/browser/index.html",
+      "status": "raw",
+      "archive_path": "raw/archive/index--archived-20260415-214928.html"
+    }
+  ]
 }

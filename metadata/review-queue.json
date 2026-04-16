@@ -1,0 +1,23 @@
+[
+  {
+    "source_id": "SRC-20260415-0001",
+    "title": "How to Harden OpenClaw: Security Best Practices for 2026 | OpenClaw Blog",
+    "source_note_path": "raw/articles/how-to-harden-openclaw-security-best-practices-for-2026-openclaw-blog.md",
+    "input_path": "/home/peralese/Projects/Knowledge_Base/raw/inbox/browser/index.html",
+    "adapter": "browser",
+    "source_type": "article",
+    "origin": "web",
+    "queued_at": "2026-04-15T21:49:28.480634",
+    "review_status": "synthesized",
+    "validation_status": "validated",
+    "validation_issues": [],
+    "synthesized_at": "2026-04-15T21:53:50.590867",
+    "confidence_score": 0.85,
+    "confidence_band": "high",
+    "confidence_reasoning": "The synthesis captures the key points effectively, with a good level of detail and clarity. However, it slightly deviates from the source material by introducing concepts like 'SOUL.md emergency brake rule,' which are not explicitly mentioned in the original text.",
+    "scored_at": "2026-04-15T21:54:01.465700",
+    "review_action": "approved",
+    "review_method": "auto",
+    "reviewed_at": "2026-04-15T21:54:01.465700"
+  }
+]
