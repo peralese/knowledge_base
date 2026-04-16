@@ -15,6 +15,19 @@
       "input_path": "/home/peralese/Projects/Knowledge_Base/raw/inbox/browser/index.html",
       "status": "raw",
       "archive_path": "raw/archive/index--archived-20260415-214928.html"
+    },
+    {
+      "source_id": "SRC-20260415-0002",
+      "title": "OpenClaw security: Risks, best practices, and a checklist",
+      "filename": "openclaw-security-risks-best-practices-and-a-checklist.md",
+      "path": "raw/articles/openclaw-security-risks-best-practices-and-a-checklist.md",
+      "source_type": "article",
+      "origin": "web",
+      "date_ingested": "2026-04-15",
+      "canonical_url": "https://www.hostinger.com/tutorials/openclaw-security",
+      "input_path": "/home/peralese/Projects/Knowledge_Base/raw/inbox/browser/default.html",
+      "status": "raw",
+      "archive_path": "raw/archive/default--archived-20260415-221043.html"
     }
   ]
 }

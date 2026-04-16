@@ -102,6 +102,19 @@ def load_state() -> dict[str, str]:
         return {}
 
 
+def _state_key(path: Path) -> str:
+    """State key = absolute path + mtime (nanoseconds).
+
+    Including mtime means a re-dropped file with the same name but different
+    content gets a new key and is processed again, instead of being skipped.
+    """
+    try:
+        mtime = path.stat().st_mtime_ns
+    except OSError:
+        mtime = 0
+    return f"{path.resolve()}|{mtime}"
+
+
 def save_state(state: dict[str, str]) -> None:
     """Persist the processed-paths state."""
     STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -523,8 +536,9 @@ def scan_inbox(inbox: Path, state: dict[str, str], source_type: str) -> dict[str
             continue
         if path.suffix.lower() not in WATCHED_EXTENSIONS:
             continue
-        key = str(path.resolve())
-        if key in state:
+        key = _state_key(path)
+        legacy_key = str(path.resolve())
+        if key in state or legacy_key in state:
             continue
 
         ts = datetime.now().strftime("%H:%M:%S")
@@ -532,6 +546,7 @@ def scan_inbox(inbox: Path, state: dict[str, str], source_type: str) -> dict[str
         outcome = ingest_file(path, source_type)
         if outcome.processed:
             updated[key] = datetime.now().isoformat()
+            updated.pop(legacy_key, None)  # replace legacy key if present
 
     return updated
 
