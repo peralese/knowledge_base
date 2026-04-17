@@ -330,6 +330,23 @@ def _run_scoring(item: dict[str, object], *, model: str, root: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Topic aggregation integration (non-blocking — errors never fail synthesis)
+# ---------------------------------------------------------------------------
+
+def _run_topic_aggregation(item: dict[str, object], *, model: str, root: Path) -> None:
+    """Classify and aggregate a synthesized source summary into its topic note."""
+    try:
+        from score_synthesis import _find_compiled_note  # noqa: PLC0415
+        from topic_aggregator import aggregate_for_source  # noqa: PLC0415
+        compiled_path = _find_compiled_note(item, root)
+        if compiled_path is None:
+            return
+        aggregate_for_source(item, compiled_path, model=model, root=root)
+    except Exception as exc:  # noqa: BLE001
+        print(f"  Warning: topic aggregation failed: {exc}")
+
+
+# ---------------------------------------------------------------------------
 # Command dispatch
 # ---------------------------------------------------------------------------
 
@@ -361,6 +378,7 @@ def cmd_synthesize(
 
     if success:
         _run_scoring(item, model=model, root=root)
+        _run_topic_aggregation(item, model=model, root=root)
 
     return 0 if success else 1
 
@@ -391,13 +409,14 @@ def cmd_all(*, title_override: str, model: str, force: bool, root: Path) -> int:
 
     save_queue(queue)
 
-    # Score all successfully synthesized items (failed ones are skipped)
+    # Score and aggregate all successfully synthesized items (failed ones are skipped)
     failed_ids = {
         str(e.get("source_id")) for e in queue if e.get("review_status") == "synthesis_failed"
     }
     for item in items:
         if str(item.get("source_id", "")) not in failed_ids:
             _run_scoring(item, model=model, root=root)
+            _run_topic_aggregation(item, model=model, root=root)
 
     passed = len(items) - failed
     print(f"Done: {passed}/{len(items)} synthesized successfully.")
