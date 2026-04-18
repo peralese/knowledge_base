@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.2.0",
-  "last_updated": "2026-04-15",
+  "last_updated": "2026-04-16",
   "description": "Source manifest for Knowledge Base",
   "sources": [
     {
@@ -10,11 +10,11 @@
       "path": "raw/articles/how-to-harden-openclaw-security-best-practices-for-2026-openclaw-blog.md",
       "source_type": "article",
       "origin": "web",
-      "date_ingested": "2026-04-15",
+      "date_ingested": "2026-04-16",
       "canonical_url": "https://openclawdesktop.com/blog/hardening-openclaw-security-best-practices.html",
       "input_path": "/home/peralese/Projects/Knowledge_Base/raw/inbox/browser/index.html",
       "status": "raw",
-      "archive_path": "raw/archive/index--archived-20260415-214928.html"
+      "archive_path": "raw/archive/index--archived-20260416-211254.html"
     },
     {
       "source_id": "SRC-20260415-0002",
@@ -23,11 +23,11 @@
       "path": "raw/articles/openclaw-security-risks-best-practices-and-a-checklist.md",
       "source_type": "article",
       "origin": "web",
-      "date_ingested": "2026-04-15",
+      "date_ingested": "2026-04-16",
       "canonical_url": "https://www.hostinger.com/tutorials/openclaw-security",
       "input_path": "/home/peralese/Projects/Knowledge_Base/raw/inbox/browser/default.html",
       "status": "raw",
-      "archive_path": "raw/archive/default--archived-20260415-221043.html"
+      "archive_path": "raw/archive/default--archived-20260416-211254.html"
     }
   ]
 }
