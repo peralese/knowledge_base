@@ -39,7 +39,7 @@ The synthesis layer. Notes here combine, summarize, or reorganize raw material i
 
 - `compiled/topics/` — topic notes aggregating multiple source summaries (the canonical graph nodes)
 - `compiled/source_summaries/` — per-article LLM synthesis (intermediate artifacts)
-- `compiled/concepts/` — concept-centric notes (planned Phase 8)
+- `compiled/concepts/` — concept-centric notes (stubs created by `lint.py --fix`)
 - `compiled/index.md` — auto-generated wiki index with one-line summaries per note
 
 ### `outputs/`
@@ -86,7 +86,9 @@ These rules are the core of the repository:
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │  CAPTURE                                                        │
-│  python3 scripts/stage_to_inbox.py browser --input-file a.html │
+│  Dashboard: http://localhost:7842  (URL or file upload)        │
+│  CLI: python3 scripts/stage_to_inbox.py browser \              │
+│           --input-file ~/Downloads/article.html                │
 └────────────────────────────┬────────────────────────────────────┘
                              │ (systemd: kb-inbox-watcher.service)
                              ▼
@@ -94,7 +96,7 @@ These rules are the core of the repository:
 │  INGEST + VALIDATE + QUEUE                                      │
 │  inbox_watcher.py → ingest.py → review-queue.json              │
 └────────────────────────────┬────────────────────────────────────┘
-                             │
+                             │ (systemd: kb-pipeline.service)
                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │  SYNTHESIZE + SCORE + AGGREGATE                                 │
@@ -104,20 +106,24 @@ These rules are the core of the repository:
 │    → apply_synthesis.py (compiled/source_summaries/)           │
 │    → score_synthesis.py (0.0–1.0 self-critique)               │
 │    → topic_aggregator.py (compiled/topics/)                    │
+│    → index_notes.py (compiled/index.md)                       │
 └────────────────────────────┬────────────────────────────────────┘
                              │
                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │  REVIEW (for items < 0.85 confidence)                          │
-│  python3 scripts/review.py list                                │
-│  python3 scripts/review.py approve SRC-xxxx                   │
-│  python3 scripts/review.py approve --all-high-confidence       │
+│  Dashboard: http://localhost:7842  (approve/reject inline)     │
+│  CLI: python3 scripts/review.py list                           │
+│       python3 scripts/review.py approve SRC-xxxx              │
+│       python3 scripts/review.py approve --all-high-confidence  │
 └────────────────────────────┬────────────────────────────────────┘
                              │
                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  QUERY                                                          │
+│  QUERY + SEARCH + LINT                                         │
 │  python3 scripts/query.py --question "..." --top-n 5           │
+│  python3 scripts/search.py "keyword"                           │
+│  python3 scripts/lint.py [--llm] [--report]                   │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -432,20 +438,63 @@ python3 scripts/search.py "openclaw security" --json
 
 Scans the wiki for structural problems. Pure-Python checks run without Ollama; LLM-assisted checks require `--llm`.
 
-**Pure checks:**
+**Pure checks (always run):**
 - `wikilinks` — dangling `[[wikilinks]]` pointing to files that don't exist
 - `orphans` — raw notes not referenced by any compiled note's `compiled_from:` field
+- `orphan_summaries` — source summaries not linked to any topic note
+- `unapproved` — low/medium-confidence queue items never manually reviewed
 
-**LLM-assisted checks:**
+**LLM-assisted checks (`--llm`):**
 - `coverage` — topic gap analysis via Ollama
+- `contradictions` — conflicting claims across source summaries within a topic
+- `missing_concepts` — terms referenced across notes with no concept page
 
 ```bash
-python3 scripts/lint.py
-python3 scripts/lint.py --llm
-python3 scripts/lint.py --report          # file to outputs/reports/
-python3 scripts/lint.py --check wikilinks
+python3 scripts/lint.py                              # all pure checks
+python3 scripts/lint.py --llm                        # include LLM checks
+python3 scripts/lint.py --report                     # file to outputs/reports/
+python3 scripts/lint.py --check wikilinks            # one check only
+python3 scripts/lint.py --llm --check missing_concepts --fix  # auto-create concept stubs
 python3 scripts/lint.py --dry-run
 ```
+
+---
+
+### `pipeline_run.py` — Automated Pipeline Runner
+
+Chains synthesize → score → topic-aggregate → index-rebuild for one or all pending items. Used by `kb-pipeline.service` for zero-touch automation.
+
+```bash
+# Process one article by source ID
+python3 scripts/pipeline_run.py SRC-20260418-0001
+
+# Process all pending items
+python3 scripts/pipeline_run.py --all
+
+# Poll continuously (used by systemd service)
+python3 scripts/pipeline_run.py --watch --interval 30
+```
+
+---
+
+### `dashboard.py` — Local Web Dashboard
+
+FastAPI backend serving the review dashboard at `http://localhost:7842`.
+
+```bash
+python3 dashboard.py
+python3 dashboard.py --port 8080
+```
+
+**Features:**
+- **URL ingestion** — paste a URL, auto-fetches the page title, stages to inbox
+- **File upload** — upload `.html`, `.md`, or `.pdf` files directly
+- **Optional metadata** — author, date published, tags, language, license
+- **Conflict detection** — 409 error if an article with the same title already exists
+- **Review queue** — approve or reject synthesized items inline, with markdown preview
+- **Topic management** — add new topics to the registry
+
+Runs as a systemd user service: `kb-dashboard.service`
 
 ---
 
@@ -498,7 +547,11 @@ Enable the background services:
 ```bash
 systemctl --user enable --now kb-inbox-watcher.service
 systemctl --user enable --now kb-feed-poller.service
+systemctl --user enable --now kb-pipeline.service
+systemctl --user enable --now kb-dashboard.service
 ```
+
+Then open `http://localhost:7842` to start ingesting articles.
 
 ---
 
@@ -548,9 +601,9 @@ SORT date_compiled DESC
 
 ### ✅ Phase 1 — Automated Ingestion
 
-Source adapters (`stage_to_inbox.py`) for browser HTML, clipboard, RSS feeds, and PDF. Inbox watcher (`inbox_watcher.py`) runs a two-stage gate: ingest → validate → queue. HTML-to-text stripping prevents markup from polluting note bodies. Processed-file state keyed by path + mtime so renamed duplicates are never skipped.
+Source adapters (`stage_to_inbox.py`) for browser HTML, clipboard, RSS feeds, and PDF. Inbox watcher (`inbox_watcher.py`) runs a two-stage gate: ingest → validate → queue. HTML-to-text stripping prevents markup from polluting note bodies. Processed-file state keyed by path + mtime so renamed duplicates are never skipped. Optional metadata (author, date published, language, license) flows from dashboard through to raw article frontmatter.
 
-**Delivered:** A new document goes from capture to validated-and-queued with two commands.
+**Delivered:** A new document goes from capture to validated-and-queued automatically.
 
 ---
 
@@ -564,15 +617,15 @@ Source adapters (`stage_to_inbox.py`) for browser HTML, clipboard, RSS feeds, an
 
 ### ✅ Phase 3 — Feed Poller & Daemon
 
-`feed_poller.py` fetches new items from subscribed RSS/Atom feeds and drops them into the inbox automatically. Both the inbox watcher and feed poller packaged as systemd user services. Bug fixes: filename collision handling, HTML title extraction, truncated LLM fence stripping.
+`feed_poller.py` fetches new items from subscribed RSS/Atom feeds and drops them into the inbox automatically. `pipeline_run.py` chains synthesize → score → aggregate → index rebuild. Inbox watcher, feed poller, pipeline runner, and dashboard all packaged as systemd user services.
 
-**Delivered:** After a one-time `systemctl --user enable`, new browser saves and feed items appear in the review queue with zero terminal interaction.
+**Delivered:** After a one-time `systemctl --user enable`, articles flow from capture to compiled notes with zero terminal interaction.
 
 ---
 
 ### ✅ Phase 4 — Review UX & Confidence Scoring
 
-`score_synthesis.py` runs an Ollama self-critique pass assigning a 0.0–1.0 confidence score. Items scoring ≥ 0.85 are auto-approved. `review.py` CLI surfaces lower-confidence items sorted low-first with `list`, `approve`, and `reject` subcommands. Scoring triggered automatically after every successful synthesis. Queue schema extended with confidence and review fields.
+`score_synthesis.py` runs an Ollama self-critique pass assigning a 0.0–1.0 confidence score. Items scoring ≥ 0.85 are auto-approved. `review.py` CLI surfaces lower-confidence items sorted low-first with `list`, `approve`, and `reject` subcommands. Scoring triggered automatically after every successful synthesis.
 
 **Delivered:** High-confidence items require zero human action. Low-confidence items surface for quick triage.
 
@@ -580,36 +633,35 @@ Source adapters (`stage_to_inbox.py`) for browser HTML, clipboard, RSS feeds, an
 
 ### ✅ Phase 5 — Topic Aggregation
 
-`topic_aggregator.py` classifies each synthesized source summary against `metadata/topic-registry.json` using normalized alias/keyword matching, then creates or updates a canonical topic note in `compiled/topics/`. The Obsidian graph shows Index → Topic → Source Summaries → Raw Articles. New articles on the same topic expand the topic note rather than creating a new graph node. Called automatically by `synthesize.py` after scoring.
+`topic_aggregator.py` classifies each synthesized source summary against `metadata/topic-registry.json` using normalized alias/keyword matching, then creates or updates a canonical topic note in `compiled/topics/`. The Obsidian graph shows Index → Topic → Source Summaries → Raw Articles. New articles on the same topic expand the topic note rather than creating a new graph node.
 
-**Delivered:** 459 tests passing. Topic notes grow incrementally as new articles arrive.
-
----
-
-### Phase 6 — Lint Operation
-
-Extend `lint.py` with LLM-assisted checks beyond the current wikilink and orphan checks:
-
-- **Contradictions** — claims in one source summary that conflict with another on the same topic
-- **Missing concepts** — terms referenced across notes with no dedicated page
-- **Stale claims** — assertions in topic notes superseded by newer source summaries
-- **Low-confidence orphans** — items with confidence < 0.85 never manually reviewed
-
-Add `--fix` flag to auto-create stub pages for missing concepts. Wire into systemd as an optional weekly scheduled job. Output to `outputs/lint-YYYY-MM-DD.md`.
+**Delivered:** Topic notes grow incrementally as new articles arrive.
 
 ---
 
-### Phase 7 — YAML Frontmatter + Obsidian Dataview
+### ✅ Phase 6 — Lint
 
-Define a frontmatter schema for each page type (`source-summary`, `topic`, `concept`, `entity`, `comparison`) including `confidence`, `approved`, `sources`, `related`, `created`, and `updated` fields. Update `synthesize.py` and `topic_aggregator.py` to write compliant frontmatter. Backfill existing notes. Add Dataview query examples to this README.
-
-**Unlocks:** Querying the knowledge base as a database from within Obsidian.
+`lint.py` scans the wiki for structural problems. Pure checks (wikilinks, orphans, orphan_summaries, unapproved) run without Ollama. LLM-assisted checks (coverage, contradictions, missing_concepts) require `--llm`. The `--fix` flag auto-creates concept stubs for missing concepts. `--report` files results to `outputs/reports/`.
 
 ---
 
-### Phase 8 — Concept and Entity Page Types
+### ✅ Phase 7 — YAML Frontmatter + Obsidian Dataview
 
-Two new page categories: `compiled/concepts/` and `compiled/entities/`. Update `synthesize.py` to extract candidate concepts and entities from each source and create stub pages. Add `[[wikilink]]` references from topic and source notes into concept/entity pages. Add `--concepts-only` flag for extraction without re-synthesis.
+`approved`, `confidence_score`, and `date_updated` fields added to all compiled notes. `_patch_note_approved()` in `review.py` and `_patch_note_with_score()` in `score_synthesis.py` keep frontmatter in sync as items move through the pipeline. Topic notes get `approved: true` automatically. See the Dataview query examples above.
+
+**Delivered:** The knowledge base is queryable as a live database from within Obsidian.
+
+---
+
+### ✅ Phase 8 — Index Maintenance + Q&A
+
+`index_notes.py` regenerates `compiled/index.md` — a one-line-per-note index grouped by category, used by `query.py` as a wiki map in every prompt. `query.py` loads compiled notes, sends a natural-language question to Ollama, streams the answer, and files it in `outputs/answers/`. `search.py` provides BM25 keyword search; `--top-n` in `query.py` uses it to narrow LLM context to the most relevant notes.
+
+---
+
+### ✅ Phase 11 — Local Dashboard
+
+FastAPI + vanilla JS dashboard at `localhost:7842`. URL ingestion with auto-title fetch (og:title → twitter:title → `<title>` tag, suffix-stripped). File upload for `.html`, `.md`, and `.pdf`. Conflict detection prevents duplicate articles. Optional metadata (author, date published, tags, language, license) applied at ingest time. Review queue with inline approve/reject and markdown preview. Topic registry management. Packaged as `kb-dashboard.service`.
 
 ---
 
@@ -632,8 +684,6 @@ review: approved SRC-20260412-0001
 
 ---
 
-### Phase 11 — Local Dashboard
+### Concept and Entity Pages
 
-Lightweight local web UI (FastAPI + vanilla JS, `localhost:7842`) exposing the full pipeline state without terminal interaction. Sections: Queue Panel (approve/reject inline), Topic Graph Health, Pipeline Status, Ingestion Log, Search. Obsidian deep-link integration via `obsidian://open?path=...` URIs. Packaged as `kb-dashboard.service`.
-
-**Recommended build order:** Phase 6 → 7 → 9 → 10 → 8 → 11
+Two new page categories: `compiled/concepts/` and `compiled/entities/`. Update `synthesize.py` to extract candidate concepts and create stub pages. Add `[[wikilink]]` references from topic and source notes. The `--fix` flag in `lint.py --llm --check missing_concepts` already creates stubs as a precursor to this phase.
