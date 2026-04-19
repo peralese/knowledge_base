@@ -13,6 +13,8 @@ from scripts.score_synthesis import (
     _build_critique_prompt,
     _find_compiled_note,
     _parse_score_response,
+    _patch_note_with_score,
+    _set_frontmatter_field,
     _synthesized_unscored,
     _write_queue_report,
     band_from_score,
@@ -450,6 +452,66 @@ class QueueReportTests(unittest.TestCase):
             _write_queue_report([])
         content = self.report_path.read_text(encoding="utf-8")
         self.assertIn("No items in queue", content)
+
+
+class SetFrontmatterFieldTests(unittest.TestCase):
+    def test_replaces_existing_field(self) -> None:
+        text = "---\nconfidence_score: 0.5\n---\n\nBody.\n"
+        result = _set_frontmatter_field(text, "confidence_score", "0.87")
+        self.assertIn("confidence_score: 0.87", result)
+        self.assertNotIn("confidence_score: 0.5", result)
+
+    def test_inserts_missing_field_before_closing_fence(self) -> None:
+        text = "---\ntitle: t\n---\n\nBody.\n"
+        result = _set_frontmatter_field(text, "confidence_score", "0.91")
+        self.assertIn("confidence_score: 0.91", result)
+        self.assertEqual(result.count("\n---\n"), 1)
+
+    def test_body_unchanged(self) -> None:
+        text = "---\ntitle: t\n---\n\nKeep this.\n"
+        result = _set_frontmatter_field(text, "approved", "true")
+        self.assertIn("Keep this.", result)
+
+
+class PatchNoteWithScoreTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def _make_note(self, name: str = "note.md") -> Path:
+        path = self.root / name
+        path.write_text(
+            "---\ntitle: Test\napproved: false\nconfidence_score: null\n---\n\nBody.\n",
+            encoding="utf-8",
+        )
+        return path
+
+    def test_confidence_score_written(self) -> None:
+        path = self._make_note()
+        _patch_note_with_score(path, 0.87, auto_approved=False)
+        text = path.read_text(encoding="utf-8")
+        self.assertIn("confidence_score: 0.87", text)
+
+    def test_approved_set_true_when_auto_approved(self) -> None:
+        path = self._make_note()
+        _patch_note_with_score(path, 0.9, auto_approved=True)
+        text = path.read_text(encoding="utf-8")
+        self.assertIn("approved: true", text)
+
+    def test_approved_not_changed_when_not_auto_approved(self) -> None:
+        path = self._make_note()
+        _patch_note_with_score(path, 0.7, auto_approved=False)
+        text = path.read_text(encoding="utf-8")
+        # approved field left as-is (false), not set to true
+        self.assertNotIn("approved: true", text)
+
+    def test_missing_file_handled_gracefully(self) -> None:
+        missing = self.root / "nonexistent.md"
+        # Should not raise
+        _patch_note_with_score(missing, 0.8, auto_approved=False)
 
 
 if __name__ == "__main__":

@@ -1,21 +1,28 @@
-"""Phase 9 Linting and Health Checks: scan the wiki for structural problems.
+"""Phase 6 Linting and Health Checks: scan the wiki for structural problems.
 
 Runs a suite of health checks over compiled and raw notes, then optionally
 files a report in outputs/reports/.
 
-Pure-Python checks (always run):
-  wikilinks  — find [[wikilinks]] in compiled notes that point to missing files
-  orphans    — find raw notes not referenced by any compiled note
+Pure-Python checks (always run, no Ollama required):
+  wikilinks        — find [[wikilinks]] in compiled notes that point to missing files
+  orphans          — find raw notes not referenced by any compiled note
+  orphan_summaries — find source summaries not linked to any topic note
+  unapproved       — find low/medium-confidence queue items never manually reviewed
 
 LLM-assisted checks (require --llm flag and a running Ollama instance):
-  coverage   — ask the model to identify topic gaps based on the wiki index
+  coverage          — ask the model to identify topic gaps based on the wiki index
+  contradictions    — find conflicting claims across source summaries within a topic
+  missing_concepts  — identify terms referenced across notes with no concept page
 
 Usage:
-    # Run pure checks, print report to terminal
+    # Run all pure checks, print report to terminal
     python3 scripts/lint.py
 
-    # Also run LLM coverage check
+    # Also run LLM-assisted checks
     python3 scripts/lint.py --llm
+
+    # Run LLM checks and auto-create concept stubs for missing concepts
+    python3 scripts/lint.py --llm --check missing_concepts --fix
 
     # File the report as an artifact in outputs/reports/
     python3 scripts/lint.py --report
@@ -32,20 +39,22 @@ import argparse
 import json
 import re
 import sys
-import urllib.request
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from urllib.error import URLError
 
+# llm_driver lives alongside lint.py in scripts/
+sys.path.insert(0, str(Path(__file__).parent))
+from llm_driver import _check_model_available, call_ollama  # noqa: E402
+
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MODEL = "qwen2.5:14b"
-OLLAMA_BASE_URL = "http://localhost:11434"
 
-PURE_CHECKS = ["wikilinks", "orphans"]
-LLM_CHECKS = ["coverage"]
-ALL_CHECKS = PURE_CHECKS + LLM_CHECKS
+PURE_CHECKS = ["wikilinks", "orphans", "orphan_summaries", "unapproved"]
+LLM_CHECKS  = ["coverage", "contradictions", "missing_concepts"]
+ALL_CHECKS  = PURE_CHECKS + LLM_CHECKS
 
 WIKILINK_RE = re.compile(r"\[\[([^\]|#]+?)(?:[|#][^\]]+)?\]\]")
 
@@ -56,7 +65,7 @@ WIKILINK_RE = re.compile(r"\[\[([^\]|#]+?)(?:[|#][^\]]+)?\]\]")
 
 @dataclass
 class LintIssue:
-    check: str        # "wikilinks" | "orphans" | "coverage"
+    check: str        # "wikilinks" | "orphans" | "orphan_summaries" | ...
     severity: str     # "error" | "warning" | "info"
     message: str
     detail: str = ""  # e.g. the file path where the issue was found
@@ -100,6 +109,33 @@ def _parse_compiled_from(text: str) -> list[str]:
             elif line.strip() and not line.startswith(" "):
                 break
     return refs
+
+
+def _parse_title(text: str) -> str | None:
+    """Extract the title field from a note's YAML frontmatter."""
+    normalized = text.replace("\r\n", "\n")
+    if not normalized.startswith("---\n"):
+        return None
+    parts = normalized.split("\n---\n", 1)
+    if len(parts) < 2:
+        return None
+    for line in parts[0].splitlines():
+        m = re.match(r'^title:\s*"?([^"]+?)"?\s*$', line)
+        if m:
+            return m.group(1).strip()
+    return None
+
+
+def _parse_json_array(text: str) -> list:
+    """Extract and parse the first JSON array from LLM output. Returns [] on failure."""
+    m = re.search(r"\[.*?\]", text, re.DOTALL)
+    if not m:
+        return []
+    try:
+        result = json.loads(m.group(0))
+        return result if isinstance(result, list) else []
+    except json.JSONDecodeError:
+        return []
 
 
 # ---------------------------------------------------------------------------
@@ -181,54 +217,65 @@ def check_orphaned_raw_notes(root: Path) -> list[LintIssue]:
     return issues
 
 
+def check_orphan_summaries(root: Path) -> list[LintIssue]:
+    """Find source summaries not linked to any topic note's compiled_from."""
+    summaries_dir = root / "compiled" / "source_summaries"
+    topics_dir = root / "compiled" / "topics"
+
+    if not summaries_dir.exists():
+        return []
+
+    summary_stems = {p.stem for p in summaries_dir.glob("*.md")}
+
+    referenced: set[str] = set()
+    if topics_dir.exists():
+        for topic_path in topics_dir.glob("*.md"):
+            text = topic_path.read_text(encoding="utf-8", errors="replace")
+            referenced.update(_parse_compiled_from(text))
+
+    issues: list[LintIssue] = []
+    for stem in sorted(summary_stems - referenced):
+        issues.append(LintIssue(
+            check="orphan_summaries",
+            severity="warning",
+            message=f"`compiled/source_summaries/{stem}.md` — not linked to any topic note",
+        ))
+    return issues
+
+
+def check_unapproved(root: Path) -> list[LintIssue]:
+    """Find low/medium-confidence queue items that were never manually reviewed."""
+    queue_path = root / "metadata" / "review-queue.json"
+    if not queue_path.exists():
+        return []
+
+    try:
+        data = json.loads(queue_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
+
+    if not isinstance(data, list):
+        return []
+
+    issues: list[LintIssue] = []
+    for entry in data:
+        band = entry.get("confidence_band", "")
+        action = entry.get("review_action")
+        if band in ("medium", "low") and not action:
+            source_id = entry.get("source_id", "unknown")
+            title = str(entry.get("title", ""))[:60]
+            issues.append(LintIssue(
+                check="unapproved",
+                severity="warning",
+                message=f"`{source_id}` — {band}-confidence item never manually reviewed",
+                detail=title,
+            ))
+    return issues
+
+
 # ---------------------------------------------------------------------------
 # LLM-assisted checks
 # ---------------------------------------------------------------------------
-
-def _stream_ollama(prompt: str, model: str) -> str:
-    """Stream a response from Ollama, return the full text."""
-    payload = json.dumps({"model": model, "prompt": prompt, "stream": True}).encode("utf-8")
-    req = urllib.request.Request(
-        f"{OLLAMA_BASE_URL}/api/generate",
-        data=payload,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    chunks: list[str] = []
-    with urllib.request.urlopen(req) as resp:
-        for raw_line in resp:
-            line = raw_line.strip()
-            if not line:
-                continue
-            data = json.loads(line)
-            token = data.get("response", "")
-            if token:
-                print(token, end="", flush=True)
-                chunks.append(token)
-            if data.get("done"):
-                break
-    print()
-    return "".join(chunks)
-
-
-def _check_model_available(model: str) -> None:
-    req = urllib.request.Request(f"{OLLAMA_BASE_URL}/api/tags", method="GET")
-    try:
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            data = json.loads(resp.read())
-    except URLError as exc:
-        raise ConnectionError(
-            f"Cannot reach Ollama at {OLLAMA_BASE_URL}. Is it running?\n"
-            "  Start with: ollama serve"
-        ) from exc
-    available = [m.get("name", "") for m in data.get("models", [])]
-    if model not in available:
-        raise ValueError(
-            f"Model '{model}' is not available in Ollama.\n"
-            f"  Available: {', '.join(available) or '(none)'}\n"
-            f"  Pull with: ollama pull {model}"
-        )
-
 
 def check_coverage_gaps(root: Path, model: str) -> list[LintIssue]:
     """Ask the LLM to identify topic gaps based on the wiki index."""
@@ -259,7 +306,7 @@ def check_coverage_gaps(root: Path, model: str) -> list[LintIssue]:
 
     print("Running LLM coverage check...")
     try:
-        response = _stream_ollama(prompt, model)
+        response = call_ollama(prompt, model)
     except URLError as exc:
         return [LintIssue(
             check="coverage",
@@ -267,7 +314,6 @@ def check_coverage_gaps(root: Path, model: str) -> list[LintIssue]:
             message=f"LLM call failed: {exc}",
         )]
 
-    # Each numbered line becomes one info issue
     issues: list[LintIssue] = []
     for line in response.splitlines():
         stripped = line.strip()
@@ -280,6 +326,155 @@ def check_coverage_gaps(root: Path, model: str) -> list[LintIssue]:
             severity="info",
             message=text,
         ))
+    return issues
+
+
+def check_contradictions(root: Path, model: str) -> list[LintIssue]:
+    """For each topic with 2+ source summaries, identify contradicting claims."""
+    topics_dir = root / "compiled" / "topics"
+    summaries_dir = root / "compiled" / "source_summaries"
+
+    if not topics_dir.exists() or not summaries_dir.exists():
+        return []
+
+    summary_files: dict[str, Path] = {p.stem: p for p in summaries_dir.glob("*.md")}
+
+    issues: list[LintIssue] = []
+
+    for topic_path in sorted(topics_dir.glob("*.md")):
+        topic_text = topic_path.read_text(encoding="utf-8", errors="replace")
+        topic_title = _parse_title(topic_text) or topic_path.stem
+        source_stems = _parse_compiled_from(topic_text)
+
+        matched: list[tuple[str, Path]] = [
+            (stem, summary_files[stem])
+            for stem in source_stems
+            if stem in summary_files
+        ]
+
+        if len(matched) < 2:
+            continue
+
+        sources_block = ""
+        for stem, path in matched:
+            content = _strip_frontmatter(path.read_text(encoding="utf-8", errors="replace"))
+            sources_block += f"\n## Source: {stem}\n{content}\n"
+
+        prompt = (
+            f'You are reviewing source summaries for the topic "{topic_title}".\n'
+            "Identify direct contradictions — claims in one source that conflict with claims in another.\n"
+            f"{sources_block}\n"
+            "Return ONLY a JSON array of objects. Each object must have:\n"
+            '  "claim_a": the claim from the first source\n'
+            '  "claim_b": the conflicting claim from another source\n'
+            '  "source_a": stem of the first source file\n'
+            '  "source_b": stem of the second source file\n\n'
+            "Return [] if no contradictions are found. No explanation outside the JSON array."
+        )
+
+        print(f"  Checking contradictions in: {topic_path.stem}...")
+        try:
+            response = call_ollama(prompt, model)
+        except URLError as exc:
+            issues.append(LintIssue(
+                check="contradictions",
+                severity="info",
+                message=f"LLM call failed for topic `{topic_path.stem}`: {exc}",
+            ))
+            continue
+
+        for item in _parse_json_array(response):
+            if not isinstance(item, dict):
+                continue
+            claim_a = str(item.get("claim_a", "")).strip()
+            claim_b = str(item.get("claim_b", "")).strip()
+            src_a = str(item.get("source_a", "")).strip()
+            src_b = str(item.get("source_b", "")).strip()
+            if claim_a and claim_b:
+                issues.append(LintIssue(
+                    check="contradictions",
+                    severity="warning",
+                    message=f'"{claim_a}" vs "{claim_b}"',
+                    detail=f"{topic_path.stem} ({src_a} ↔ {src_b})",
+                ))
+
+    return issues
+
+
+def _build_concept_stub(slug: str, today: str) -> str:
+    """Build the content of a concept stub page."""
+    title = slug.replace("-", " ").title()
+    return (
+        "---\n"
+        f'title: "{title}"\n'
+        'note_type: "concept"\n'
+        "compiled_from: []\n"
+        f'date_compiled: "{today}"\n'
+        "tags:\n"
+        '  - "concept"\n'
+        'generation_method: "stub"\n'
+        "---\n\n"
+        f"# {title}\n\n"
+        "_Stub page — created by `lint --fix`. Add content from relevant source summaries._\n"
+    )
+
+
+def check_missing_concepts(root: Path, model: str, fix: bool = False) -> list[LintIssue]:
+    """Ask the LLM to identify concepts referenced across notes with no concept page."""
+    index_path = root / "compiled" / "index.md"
+    if not index_path.exists():
+        return [LintIssue(
+            check="missing_concepts",
+            severity="info",
+            message="compiled/index.md not found — run index_notes.py first",
+        )]
+
+    index_text = _strip_frontmatter(
+        index_path.read_text(encoding="utf-8", errors="replace")
+    )
+
+    prompt = (
+        "You are reviewing a personal knowledge base wiki index.\n"
+        "Identify specific terms, tools, or concepts that are referenced across the notes\n"
+        "but have no dedicated concept page in compiled/concepts/.\n\n"
+        "## Wiki Index\n\n"
+        f"{index_text}\n\n"
+        'Return ONLY a JSON array of lowercase hyphenated slugs:\n'
+        '["vulnerability-scoring", "patch-cadence"]\n'
+        "Return [] if no gaps found. No explanation outside the JSON array."
+    )
+
+    print("Running LLM missing-concepts check...")
+    try:
+        response = call_ollama(prompt, model)
+    except URLError as exc:
+        return [LintIssue(
+            check="missing_concepts",
+            severity="info",
+            message=f"LLM call failed: {exc}",
+        )]
+
+    slugs = _parse_json_array(response)
+    issues: list[LintIssue] = []
+    today = date.today().isoformat()
+    concepts_dir = root / "compiled" / "concepts"
+
+    for slug in slugs:
+        if not isinstance(slug, str) or not slug.strip():
+            continue
+        slug = slug.strip()
+        issues.append(LintIssue(
+            check="missing_concepts",
+            severity="info",
+            message=f"`{slug}` — no concept page in compiled/concepts/",
+        ))
+        if fix:
+            stub_path = concepts_dir / f"{slug}.md"
+            if not stub_path.exists():
+                concepts_dir.mkdir(parents=True, exist_ok=True)
+                stub_path.write_text(_build_concept_stub(slug, today), encoding="utf-8")
+                print(f"  Created stub: compiled/concepts/{slug}.md")
+
     return issues
 
 
@@ -325,7 +520,6 @@ def build_report(
     def _section(label: str, severity_issues: list[LintIssue]) -> str:
         if not severity_issues:
             return f"## {label}\n\n_(none)_\n"
-        # Group by check
         by_check: dict[str, list[LintIssue]] = {}
         for issue in severity_issues:
             by_check.setdefault(issue.check, []).append(issue)
@@ -372,17 +566,16 @@ def run(
     report: bool,
     force: bool,
     dry_run: bool,
+    fix: bool = False,
 ) -> int:
     today = date.today().isoformat()
 
-    # Determine which checks to run
     checks_to_run = checks if checks else PURE_CHECKS
     if use_llm:
         for c in LLM_CHECKS:
             if c not in checks_to_run:
                 checks_to_run = checks_to_run + [c]
 
-    # Validate LLM availability before running
     if use_llm and any(c in LLM_CHECKS for c in checks_to_run):
         try:
             _check_model_available(model)
@@ -398,17 +591,37 @@ def run(
     if "wikilinks" in checks_to_run:
         found = check_dangling_wikilinks(root)
         issues.extend(found)
-        print(f"wikilinks     : {len(found)} issue{'s' if len(found) != 1 else ''}")
+        print(f"wikilinks        : {len(found)} issue{'s' if len(found) != 1 else ''}")
 
     if "orphans" in checks_to_run:
         found = check_orphaned_raw_notes(root)
         issues.extend(found)
-        print(f"orphans       : {len(found)} issue{'s' if len(found) != 1 else ''}")
+        print(f"orphans          : {len(found)} issue{'s' if len(found) != 1 else ''}")
+
+    if "orphan_summaries" in checks_to_run:
+        found = check_orphan_summaries(root)
+        issues.extend(found)
+        print(f"orphan_summaries : {len(found)} issue{'s' if len(found) != 1 else ''}")
+
+    if "unapproved" in checks_to_run:
+        found = check_unapproved(root)
+        issues.extend(found)
+        print(f"unapproved       : {len(found)} issue{'s' if len(found) != 1 else ''}")
 
     if "coverage" in checks_to_run:
         found = check_coverage_gaps(root, model)
         issues.extend(found)
-        print(f"coverage      : {len(found)} gap{'s' if len(found) != 1 else ''} identified")
+        print(f"coverage         : {len(found)} gap{'s' if len(found) != 1 else ''} identified")
+
+    if "contradictions" in checks_to_run:
+        found = check_contradictions(root, model)
+        issues.extend(found)
+        print(f"contradictions   : {len(found)} issue{'s' if len(found) != 1 else ''}")
+
+    if "missing_concepts" in checks_to_run:
+        found = check_missing_concepts(root, model, fix=fix)
+        issues.extend(found)
+        print(f"missing_concepts : {len(found)} issue{'s' if len(found) != 1 else ''}")
 
     print("-" * 60)
     errors = sum(1 for i in issues if i.severity == "error")
@@ -443,7 +656,7 @@ def run(
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Phase 9 Linting: scan the wiki for structural problems."
+        description="Phase 6 Linting: scan the wiki for structural problems."
     )
     parser.add_argument(
         "--check",
@@ -466,6 +679,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--model",
         default=DEFAULT_MODEL,
         help=f"Ollama model for LLM checks. Default: {DEFAULT_MODEL}",
+    )
+    parser.add_argument(
+        "--fix",
+        action="store_true",
+        help="Auto-create stub pages for missing concepts (applies to missing_concepts check).",
     )
     parser.add_argument(
         "--report",
@@ -496,6 +714,7 @@ def main(argv: list[str] | None = None) -> int:
         report=args.report,
         force=args.force,
         dry_run=args.dry_run,
+        fix=args.fix,
     )
 
 

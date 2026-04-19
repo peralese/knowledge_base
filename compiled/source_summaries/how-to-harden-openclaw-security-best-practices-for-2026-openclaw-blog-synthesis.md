@@ -20,6 +20,9 @@ tags:
   - "how-to-harden-openclaw-security-best-practices-for-2026-openclaw-blog"
 confidence: "medium"
 generation_method: "ollama_local"
+date_updated: "2026-04-16"
+confidence_score: 0.83
+approved: false
 ---
 
 # Summary

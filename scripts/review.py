@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -79,6 +80,40 @@ def _write_queue_report(entries: list[dict[str, object]]) -> None:
         for issue in entry.get("validation_issues", []):
             lines.append(f"|  |  |  | issue: {issue} |  |  |")
     REVIEW_QUEUE_REPORT_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# Frontmatter helpers
+# ---------------------------------------------------------------------------
+
+def _set_frontmatter_field(text: str, key: str, value_str: str) -> str:
+    """Set a scalar frontmatter field in note text. Replaces if present, inserts if absent."""
+    pattern = rf"^{re.escape(key)}:.*$"
+    if re.search(pattern, text, re.MULTILINE):
+        return re.sub(pattern, f"{key}: {value_str}", text, flags=re.MULTILINE)
+    return re.sub(r"\n---\n", f"\n{key}: {value_str}\n---\n", text, count=1)
+
+
+def _find_compiled_note(item: dict[str, object], root: Path) -> Path | None:
+    """Derive the compiled note path from a queue entry's source_note_path."""
+    note_path_str = str(item.get("source_note_path", ""))
+    if not note_path_str:
+        return None
+    slug = Path(note_path_str).stem
+    candidate = root / "compiled" / "source_summaries" / f"{slug}-synthesis.md"
+    return candidate if candidate.exists() else None
+
+
+def _patch_note_approved(path: Path, approved: bool) -> None:
+    """Write approved field into the note's frontmatter."""
+    if not path.exists():
+        return
+    try:
+        text = path.read_text(encoding="utf-8")
+        text = _set_frontmatter_field(text, "approved", "true" if approved else "false")
+        path.write_text(text, encoding="utf-8")
+    except OSError:
+        pass
 
 
 # ---------------------------------------------------------------------------
@@ -211,7 +246,7 @@ def cmd_list() -> int:
     return list_pending_review(load_queue())
 
 
-def cmd_approve(source_id: str | None, *, all_high: bool, threshold: float) -> int:
+def cmd_approve(source_id: str | None, *, all_high: bool, threshold: float, root: Path = ROOT) -> int:
     queue = load_queue()
 
     if all_high:
@@ -221,6 +256,11 @@ def cmd_approve(source_id: str | None, *, all_high: bool, threshold: float) -> i
             print(f"No unreviewed items scoring >= {threshold}.")
         else:
             print(f"Approved {count} high-confidence item(s) (threshold: {threshold}).")
+            for entry in updated:
+                if entry.get("review_action") == "approved":
+                    path = _find_compiled_note(entry, root)
+                    if path:
+                        _patch_note_approved(path, approved=True)
         return 0
 
     if not source_id:
@@ -234,11 +274,14 @@ def cmd_approve(source_id: str | None, *, all_high: bool, threshold: float) -> i
 
     save_queue(updated)
     item = next((e for e in updated if e.get("source_id") == source_id), {})
+    path = _find_compiled_note(item, root)
+    if path:
+        _patch_note_approved(path, approved=True)
     print(f"Approved: {item.get('title', source_id)}")
     return 0
 
 
-def cmd_reject(source_id: str, *, reason: str) -> int:
+def cmd_reject(source_id: str, *, reason: str, root: Path = ROOT) -> int:
     queue = load_queue()
     updated, found = reject(queue, source_id, reason=reason)
     if not found:
@@ -247,6 +290,9 @@ def cmd_reject(source_id: str, *, reason: str) -> int:
 
     save_queue(updated)
     item = next((e for e in updated if e.get("source_id") == source_id), {})
+    path = _find_compiled_note(item, root)
+    if path:
+        _patch_note_approved(path, approved=False)
     suffix = f" — reason: {reason}" if reason else ""
     print(f"Rejected: {item.get('title', source_id)}{suffix}")
     return 0
@@ -315,10 +361,11 @@ def main(argv: list[str] | None = None) -> int:
             getattr(args, "source_id", None),
             all_high=args.all_high_confidence,
             threshold=args.threshold,
+            root=ROOT,
         )
 
     if args.command == "reject":
-        return cmd_reject(args.source_id, reason=args.reason)
+        return cmd_reject(args.source_id, reason=args.reason, root=ROOT)
 
     parser.print_help()
     return 1

@@ -1,0 +1,8 @@
+[Unit]
+Description=Knowledge Base Weekly Lint
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/peralese/Projects/Knowledge_Base
+ExecStart=/usr/bin/python3 scripts/lint.py --llm --report

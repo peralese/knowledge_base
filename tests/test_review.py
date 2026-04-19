@@ -8,10 +8,15 @@ from pathlib import Path
 from unittest.mock import patch
 
 from scripts.review import (
+    _find_compiled_note,
+    _patch_note_approved,
     _reviewable_items,
+    _set_frontmatter_field,
     _write_queue_report,
     approve,
     approve_all_high_confidence,
+    cmd_approve,
+    cmd_reject,
     list_pending_review,
     load_queue,
     reject,
@@ -351,6 +356,154 @@ class QueueReportTests(unittest.TestCase):
             _write_queue_report([_make_entry(confidence_score=0.91, review_action="approved")])
         content = self.report_path.read_text(encoding="utf-8")
         self.assertIn("approved", content)
+
+
+class SetFrontmatterFieldTests(unittest.TestCase):
+    def test_replaces_existing_field(self) -> None:
+        text = "---\napproved: false\n---\n\nBody.\n"
+        result = _set_frontmatter_field(text, "approved", "true")
+        self.assertIn("approved: true", result)
+        self.assertNotIn("approved: false", result)
+
+    def test_inserts_missing_field(self) -> None:
+        text = "---\ntitle: t\n---\n\nBody.\n"
+        result = _set_frontmatter_field(text, "approved", "true")
+        self.assertIn("approved: true", result)
+        self.assertEqual(result.count("\n---\n"), 1)
+
+
+class FindCompiledNoteTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        (self.root / "compiled" / "source_summaries").mkdir(parents=True)
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def test_returns_path_when_file_exists(self) -> None:
+        slug = "test-article"
+        note = self.root / "compiled" / "source_summaries" / f"{slug}-synthesis.md"
+        note.write_text("content", encoding="utf-8")
+        entry = {"source_note_path": f"raw/articles/{slug}.md"}
+        result = _find_compiled_note(entry, self.root)
+        self.assertEqual(result, note)
+
+    def test_returns_none_when_file_missing(self) -> None:
+        entry = {"source_note_path": "raw/articles/nonexistent.md"}
+        result = _find_compiled_note(entry, self.root)
+        self.assertIsNone(result)
+
+    def test_returns_none_when_no_source_path(self) -> None:
+        result = _find_compiled_note({}, self.root)
+        self.assertIsNone(result)
+
+
+class PatchNoteApprovedTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def _make_note(self) -> Path:
+        path = self.root / "note.md"
+        path.write_text(
+            "---\ntitle: T\napproved: false\n---\n\nBody.\n",
+            encoding="utf-8",
+        )
+        return path
+
+    def test_approve_sets_approved_true(self) -> None:
+        path = self._make_note()
+        _patch_note_approved(path, approved=True)
+        self.assertIn("approved: true", path.read_text(encoding="utf-8"))
+
+    def test_reject_sets_approved_false(self) -> None:
+        path = self._make_note()
+        # First set to true, then reject
+        path.write_text("---\ntitle: T\napproved: true\n---\n\nBody.\n", encoding="utf-8")
+        _patch_note_approved(path, approved=False)
+        self.assertIn("approved: false", path.read_text(encoding="utf-8"))
+
+    def test_missing_file_handled_gracefully(self) -> None:
+        missing = self.root / "nonexistent.md"
+        _patch_note_approved(missing, approved=True)  # Should not raise
+
+
+class CmdApprovePatchesNoteTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        (self.root / "compiled" / "source_summaries").mkdir(parents=True)
+        (self.root / "metadata").mkdir(parents=True)
+        self.queue_path = self.root / "metadata" / "review-queue.json"
+        self.report_path = self.root / "metadata" / "review-queue.md"
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def _make_note_file(self, slug: str) -> Path:
+        path = self.root / "compiled" / "source_summaries" / f"{slug}-synthesis.md"
+        path.write_text(
+            "---\ntitle: T\napproved: false\n---\n\nBody.\n",
+            encoding="utf-8",
+        )
+        return path
+
+    def _write_queue(self, entries: list) -> None:
+        self.queue_path.write_text(
+            __import__("json").dumps(entries, indent=2) + "\n", encoding="utf-8"
+        )
+
+    def test_approve_cmd_patches_note_frontmatter(self) -> None:
+        import scripts.review as mod
+        slug = "test-article"
+        self._make_note_file(slug)
+        entry = {
+            "source_id": "SRC-001",
+            "title": "Test",
+            "source_note_path": f"raw/articles/{slug}.md",
+            "review_status": "synthesized",
+            "review_action": None,
+            "adapter": "browser",
+            "validation_status": "validated",
+            "validation_issues": [],
+        }
+        self._write_queue([entry])
+        with (
+            patch.object(mod, "REVIEW_QUEUE_PATH", self.queue_path),
+            patch.object(mod, "REVIEW_QUEUE_REPORT_PATH", self.report_path),
+        ):
+            cmd_approve("SRC-001", all_high=False, threshold=0.85, root=self.root)
+        note = self.root / "compiled" / "source_summaries" / f"{slug}-synthesis.md"
+        self.assertIn("approved: true", note.read_text(encoding="utf-8"))
+
+    def test_reject_cmd_patches_note_frontmatter(self) -> None:
+        import scripts.review as mod
+        slug = "test-article-2"
+        note = self.root / "compiled" / "source_summaries" / f"{slug}-synthesis.md"
+        note.write_text(
+            "---\ntitle: T\napproved: true\n---\n\nBody.\n", encoding="utf-8"
+        )
+        entry = {
+            "source_id": "SRC-002",
+            "title": "Test 2",
+            "source_note_path": f"raw/articles/{slug}.md",
+            "review_status": "synthesized",
+            "review_action": None,
+            "adapter": "browser",
+            "validation_status": "validated",
+            "validation_issues": [],
+        }
+        self._write_queue([entry])
+        with (
+            patch.object(mod, "REVIEW_QUEUE_PATH", self.queue_path),
+            patch.object(mod, "REVIEW_QUEUE_REPORT_PATH", self.report_path),
+        ):
+            cmd_reject("SRC-002", reason="off-topic", root=self.root)
+        self.assertIn("approved: false", note.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

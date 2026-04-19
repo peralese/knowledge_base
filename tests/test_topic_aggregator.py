@@ -302,6 +302,17 @@ class BuildTopicNoteTests(unittest.TestCase):
         )
         self.assertIn('generation_method: "scaffold"', result)
 
+    def test_approved_true_in_frontmatter(self) -> None:
+        result = _build_topic_note(
+            existing_md=None,
+            topic_slug="openclaw-security",
+            topic_title="OpenClaw Security",
+            new_source_stem="source",
+            llm_body="# Summary\n\nContent.",
+            generation_method="ollama_local",
+        )
+        self.assertIn("approved: true", result)
+
 
 # ---------------------------------------------------------------------------
 # BuildAggregatePromptTests

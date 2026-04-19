@@ -40,5 +40,26 @@
     "review_action": null,
     "review_method": null,
     "reviewed_at": null
+  },
+  {
+    "source_id": "SRC-20260418-0001",
+    "title": "How to Build Karpathy's LLM Wiki: The Complete Guide to AI-Maintained Knowledge Bases",
+    "source_note_path": "raw/articles/how-to-build-karpathy-s-llm-wiki-the-complete-guide-to-ai-maintained-knowledge-bases.md",
+    "input_path": "/home/peralese/Projects/Knowledge_Base/raw/inbox/browser/karpathy-llm-wiki-knowledge-base-guide.html",
+    "adapter": "browser",
+    "source_type": "article",
+    "origin": "web",
+    "queued_at": "2026-04-18T15:26:27.318818",
+    "review_status": "synthesized",
+    "validation_status": "validated",
+    "validation_issues": [],
+    "synthesized_at": "2026-04-18T17:14:23.506205",
+    "confidence_score": 0.75,
+    "confidence_band": "medium",
+    "confidence_reasoning": "The synthesis captures the main points effectively and is well-structured, but it lacks some detailed instructions for certain steps and does not fully cover all the criticisms and limitations discussed in the source material.",
+    "scored_at": "2026-04-18T17:14:35.571778",
+    "review_action": "approved",
+    "review_method": "manual",
+    "reviewed_at": "2026-04-18T17:21:02.840196"
   }
 ]

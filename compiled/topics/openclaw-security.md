@@ -13,6 +13,7 @@ tags:
   - "openclaw-security"
 confidence: "medium"
 generation_method: "ollama_local"
+approved: true
 ---
 
 # Summary

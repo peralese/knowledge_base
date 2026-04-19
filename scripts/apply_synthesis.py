@@ -692,6 +692,15 @@ def extract_generated_query(body: str) -> str:
     return " ".join(query_lines).strip()
 
 
+def _set_frontmatter_field(text: str, key: str, value_str: str) -> str:
+    """Set a scalar frontmatter field in note text. Replaces the field if present, inserts it if absent."""
+    pattern = rf"^{re.escape(key)}:.*$"
+    if re.search(pattern, text, re.MULTILINE):
+        return re.sub(pattern, f"{key}: {value_str}", text, flags=re.MULTILINE)
+    # Insert before the closing ---
+    return re.sub(r"\n---\n", f"\n{key}: {value_str}\n---\n", text, count=1)
+
+
 def build_compiled_frontmatter(
     title: str,
     note_type: str,
@@ -717,16 +726,26 @@ def build_compiled_frontmatter(
     generation = generation_method
     date_compiled = str(existing_metadata.get("date_compiled", "")).strip() or today
 
+    # Preserve existing approved/confidence_score if present; default to false/null on creation
+    existing_approved = existing_metadata.get("approved")
+    approved_str = "true" if existing_approved is True else ("false" if existing_approved is False else "false")
+
+    existing_score = existing_metadata.get("confidence_score")
+    score_str = str(round(float(existing_score), 4)) if isinstance(existing_score, (int, float)) else "null"
+
     return (
         "---\n"
         f'title: "{escape_yaml_string(resolved_title)}"\n'
         f'note_type: "{escape_yaml_string(resolved_note_type)}"\n'
         f"compiled_from: {format_yaml_list(resolved_compiled_from)}\n"
         f'date_compiled: "{escape_yaml_string(date_compiled)}"\n'
+        f'date_updated: "{escape_yaml_string(today)}"\n'
         f"topics: {format_yaml_list(resolved_topics)}\n"
         f"tags: {format_yaml_list(resolved_tags)}\n"
         f'confidence: "{escape_yaml_string(confidence)}"\n'
+        f"confidence_score: {score_str}\n"
         f'generation_method: "{escape_yaml_string(generation)}"\n'
+        f"approved: {approved_str}\n"
         "---"
     )
 

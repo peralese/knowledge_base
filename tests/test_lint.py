@@ -1,4 +1,4 @@
-"""Tests for scripts/lint.py (Phase 9)."""
+"""Tests for scripts/lint.py (Phase 6)."""
 from __future__ import annotations
 
 import io
@@ -7,18 +7,25 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from scripts.lint import (
     LintIssue,
+    _all_known_stems,
+    _build_concept_stub,
+    _parse_compiled_from,
+    _parse_json_array,
+    _parse_title,
+    _strip_frontmatter,
     build_report,
+    check_contradictions,
     check_dangling_wikilinks,
+    check_missing_concepts,
+    check_orphan_summaries,
     check_orphaned_raw_notes,
+    check_unapproved,
     file_report,
     run,
-    _parse_compiled_from,
-    _strip_frontmatter,
-    _all_known_stems,
 )
 
 
@@ -389,6 +396,414 @@ class RunIntegrationTests(unittest.TestCase):
         self.assertIn("wikilinks", output)
         self.assertIn("orphans", output)
         self.assertNotIn("coverage", output)
+
+
+# ---------------------------------------------------------------------------
+# Helpers for new tests
+# ---------------------------------------------------------------------------
+
+def _write_file(path: Path, text: str) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+def _topic_note_text(compiled_from: list[str], title: str = "Test Topic") -> str:
+    items = "\n".join(f'  - "{s}"' for s in compiled_from)
+    return (
+        "---\n"
+        f'title: "{title}"\n'
+        'note_type: "topic"\n'
+        "compiled_from:\n"
+        f"{items}\n"
+        "---\n\n"
+        "# Summary\n\nTopic body.\n"
+    )
+
+
+def _source_summary_text(body: str = "Source body content.") -> str:
+    return (
+        "---\n"
+        'title: "Source Summary"\n'
+        'note_type: "source_summary"\n'
+        "compiled_from:\n"
+        '  - "raw-article"\n'
+        "---\n\n"
+        f"{body}\n"
+    )
+
+
+def _queue_entry_dict(
+    source_id: str = "SRC-20260417-0001",
+    confidence_band: str = "high",
+    review_action: str | None = "approved",
+    title: str = "Test Article",
+) -> dict:
+    entry: dict = {
+        "source_id": source_id,
+        "title": title,
+        "confidence_band": confidence_band,
+        "review_status": "synthesized",
+    }
+    if review_action is not None:
+        entry["review_action"] = review_action
+    return entry
+
+
+# ---------------------------------------------------------------------------
+# _parse_json_array
+# ---------------------------------------------------------------------------
+
+class ParseJsonArrayTests(unittest.TestCase):
+    def test_valid_string_array(self) -> None:
+        self.assertEqual(_parse_json_array('["a", "b"]'), ["a", "b"])
+
+    def test_array_embedded_in_prose(self) -> None:
+        self.assertEqual(_parse_json_array('Result: ["foo", "bar"] done.'), ["foo", "bar"])
+
+    def test_empty_array(self) -> None:
+        self.assertEqual(_parse_json_array("[]"), [])
+
+    def test_malformed_json_returns_empty(self) -> None:
+        self.assertEqual(_parse_json_array("[not valid json"), [])
+
+    def test_no_array_returns_empty(self) -> None:
+        self.assertEqual(_parse_json_array("no array here"), [])
+
+    def test_object_array(self) -> None:
+        result = _parse_json_array('[{"a": 1}, {"b": 2}]')
+        self.assertEqual(result, [{"a": 1}, {"b": 2}])
+
+
+# ---------------------------------------------------------------------------
+# _parse_title
+# ---------------------------------------------------------------------------
+
+class ParseTitleTests(unittest.TestCase):
+    def test_quoted_title(self) -> None:
+        self.assertEqual(_parse_title('---\ntitle: "My Topic"\n---\n\nbody'), "My Topic")
+
+    def test_unquoted_title(self) -> None:
+        self.assertEqual(_parse_title("---\ntitle: My Topic\n---\n\nbody"), "My Topic")
+
+    def test_no_frontmatter_returns_none(self) -> None:
+        self.assertIsNone(_parse_title("no frontmatter here"))
+
+    def test_no_title_field_returns_none(self) -> None:
+        self.assertIsNone(_parse_title("---\nnote_type: topic\n---\n\nbody"))
+
+
+# ---------------------------------------------------------------------------
+# _build_concept_stub
+# ---------------------------------------------------------------------------
+
+class BuildConceptStubTests(unittest.TestCase):
+    def test_slug_converted_to_title(self) -> None:
+        stub = _build_concept_stub("vulnerability-scoring", "2026-04-17")
+        self.assertIn('title: "Vulnerability Scoring"', stub)
+        self.assertIn("# Vulnerability Scoring", stub)
+
+    def test_required_frontmatter_fields(self) -> None:
+        stub = _build_concept_stub("patch-cadence", "2026-04-17")
+        self.assertIn('note_type: "concept"', stub)
+        self.assertIn('generation_method: "stub"', stub)
+        self.assertIn('date_compiled: "2026-04-17"', stub)
+
+    def test_body_references_lint_fix(self) -> None:
+        stub = _build_concept_stub("zero-trust", "2026-04-17")
+        self.assertIn("lint --fix", stub)
+
+
+# ---------------------------------------------------------------------------
+# check_orphan_summaries
+# ---------------------------------------------------------------------------
+
+class CheckOrphanSummariesTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def test_linked_summary_no_issue(self) -> None:
+        _write_file(
+            self.root / "compiled" / "topics" / "my-topic.md",
+            _topic_note_text(["article-one-synthesis"]),
+        )
+        _write_file(
+            self.root / "compiled" / "source_summaries" / "article-one-synthesis.md",
+            _source_summary_text(),
+        )
+        self.assertEqual(check_orphan_summaries(self.root), [])
+
+    def test_unlinked_summary_flagged(self) -> None:
+        _write_file(
+            self.root / "compiled" / "topics" / "my-topic.md",
+            _topic_note_text(["other-synthesis"]),
+        )
+        _write_file(
+            self.root / "compiled" / "source_summaries" / "article-one-synthesis.md",
+            _source_summary_text(),
+        )
+        issues = check_orphan_summaries(self.root)
+        self.assertEqual(len(issues), 1)
+        self.assertEqual(issues[0].severity, "warning")
+        self.assertIn("article-one-synthesis", issues[0].message)
+
+    def test_no_topic_notes_all_flagged(self) -> None:
+        _write_file(
+            self.root / "compiled" / "source_summaries" / "article-one-synthesis.md",
+            _source_summary_text(),
+        )
+        _write_file(
+            self.root / "compiled" / "source_summaries" / "article-two-synthesis.md",
+            _source_summary_text(),
+        )
+        self.assertEqual(len(check_orphan_summaries(self.root)), 2)
+
+    def test_empty_summaries_dir_no_issues(self) -> None:
+        (self.root / "compiled" / "source_summaries").mkdir(parents=True)
+        self.assertEqual(check_orphan_summaries(self.root), [])
+
+    def test_no_summaries_dir_no_issues(self) -> None:
+        self.assertEqual(check_orphan_summaries(self.root), [])
+
+    def test_check_field_is_orphan_summaries(self) -> None:
+        _write_file(
+            self.root / "compiled" / "source_summaries" / "orphan.md",
+            _source_summary_text(),
+        )
+        issues = check_orphan_summaries(self.root)
+        self.assertEqual(issues[0].check, "orphan_summaries")
+
+
+# ---------------------------------------------------------------------------
+# check_unapproved
+# ---------------------------------------------------------------------------
+
+class CheckUnapprovedTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        (self.root / "metadata").mkdir(parents=True)
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def _write_queue(self, entries: list[dict]) -> None:
+        (self.root / "metadata" / "review-queue.json").write_text(
+            json.dumps(entries), encoding="utf-8"
+        )
+
+    def test_high_confidence_approved_no_issue(self) -> None:
+        self._write_queue([_queue_entry_dict(confidence_band="high", review_action="approved")])
+        self.assertEqual(check_unapproved(self.root), [])
+
+    def test_medium_confidence_no_action_flagged(self) -> None:
+        self._write_queue([_queue_entry_dict(
+            source_id="SRC-001", confidence_band="medium", review_action=None
+        )])
+        issues = check_unapproved(self.root)
+        self.assertEqual(len(issues), 1)
+        self.assertEqual(issues[0].severity, "warning")
+        self.assertIn("SRC-001", issues[0].message)
+        self.assertIn("medium", issues[0].message)
+
+    def test_low_confidence_no_action_flagged(self) -> None:
+        self._write_queue([_queue_entry_dict(confidence_band="low", review_action=None)])
+        issues = check_unapproved(self.root)
+        self.assertEqual(len(issues), 1)
+        self.assertIn("low", issues[0].message)
+
+    def test_low_confidence_manually_approved_no_issue(self) -> None:
+        self._write_queue([_queue_entry_dict(confidence_band="low", review_action="approved")])
+        self.assertEqual(check_unapproved(self.root), [])
+
+    def test_missing_queue_file_no_issues(self) -> None:
+        self.assertEqual(check_unapproved(self.root), [])
+
+    def test_malformed_queue_no_crash(self) -> None:
+        (self.root / "metadata" / "review-queue.json").write_text("not json", encoding="utf-8")
+        self.assertEqual(check_unapproved(self.root), [])
+
+    def test_only_unapproved_flagged_in_mixed_queue(self) -> None:
+        self._write_queue([
+            _queue_entry_dict(source_id="SRC-001", confidence_band="high", review_action="approved"),
+            _queue_entry_dict(source_id="SRC-002", confidence_band="medium", review_action=None),
+            _queue_entry_dict(source_id="SRC-003", confidence_band="low", review_action="rejected"),
+            _queue_entry_dict(source_id="SRC-004", confidence_band="low", review_action=None),
+        ])
+        issues = check_unapproved(self.root)
+        self.assertEqual(len(issues), 2)
+        ids = {i.message.split("`")[1] for i in issues}
+        self.assertEqual(ids, {"SRC-002", "SRC-004"})
+
+
+# ---------------------------------------------------------------------------
+# check_contradictions
+# ---------------------------------------------------------------------------
+
+class CheckContradictionsTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def _make_topic(self, slug: str, sources: list[str]) -> None:
+        _write_file(
+            self.root / "compiled" / "topics" / f"{slug}.md",
+            _topic_note_text(sources, title=slug.replace("-", " ").title()),
+        )
+
+    def _make_summary(self, stem: str, body: str = "Summary content.") -> None:
+        _write_file(
+            self.root / "compiled" / "source_summaries" / f"{stem}.md",
+            _source_summary_text(body),
+        )
+
+    @patch("scripts.lint.call_ollama")
+    def test_topic_with_one_source_skipped(self, mock_ollama: MagicMock) -> None:
+        self._make_topic("my-topic", ["source-one"])
+        self._make_summary("source-one")
+        issues = check_contradictions(self.root, "test-model")
+        mock_ollama.assert_not_called()
+        self.assertEqual(issues, [])
+
+    @patch("scripts.lint.call_ollama")
+    def test_llm_returns_empty_no_issues(self, mock_ollama: MagicMock) -> None:
+        mock_ollama.return_value = "[]"
+        self._make_topic("my-topic", ["source-one", "source-two"])
+        self._make_summary("source-one")
+        self._make_summary("source-two")
+        self.assertEqual(check_contradictions(self.root, "test-model"), [])
+
+    @patch("scripts.lint.call_ollama")
+    def test_llm_returns_contradiction(self, mock_ollama: MagicMock) -> None:
+        mock_ollama.return_value = json.dumps([
+            {"claim_a": "A is true", "claim_b": "A is false",
+             "source_a": "source-one", "source_b": "source-two"},
+        ])
+        self._make_topic("my-topic", ["source-one", "source-two"])
+        self._make_summary("source-one")
+        self._make_summary("source-two")
+        issues = check_contradictions(self.root, "test-model")
+        self.assertEqual(len(issues), 1)
+        self.assertEqual(issues[0].severity, "warning")
+        self.assertIn("A is true", issues[0].message)
+        self.assertIn("A is false", issues[0].message)
+        self.assertIn("my-topic", issues[0].detail)
+
+    @patch("scripts.lint.call_ollama")
+    def test_malformed_json_no_crash(self, mock_ollama: MagicMock) -> None:
+        mock_ollama.return_value = "not json at all"
+        self._make_topic("my-topic", ["source-one", "source-two"])
+        self._make_summary("source-one")
+        self._make_summary("source-two")
+        self.assertEqual(check_contradictions(self.root, "test-model"), [])
+
+    @patch("scripts.lint.call_ollama")
+    def test_topic_with_no_compiled_from_skipped(self, mock_ollama: MagicMock) -> None:
+        _write_file(
+            self.root / "compiled" / "topics" / "empty.md",
+            '---\ntitle: "Empty"\nnote_type: "topic"\n---\n\nbody',
+        )
+        check_contradictions(self.root, "test-model")
+        mock_ollama.assert_not_called()
+
+    @patch("scripts.lint.call_ollama")
+    def test_no_topics_dir_no_issues(self, mock_ollama: MagicMock) -> None:
+        self.assertEqual(check_contradictions(self.root, "test-model"), [])
+
+    @patch("scripts.lint.call_ollama")
+    def test_multiple_contradictions(self, mock_ollama: MagicMock) -> None:
+        mock_ollama.return_value = json.dumps([
+            {"claim_a": "X is red", "claim_b": "X is blue", "source_a": "s1", "source_b": "s2"},
+            {"claim_a": "Y is fast", "claim_b": "Y is slow", "source_a": "s1", "source_b": "s2"},
+        ])
+        self._make_topic("my-topic", ["s1", "s2"])
+        self._make_summary("s1")
+        self._make_summary("s2")
+        self.assertEqual(len(check_contradictions(self.root, "test-model")), 2)
+
+
+# ---------------------------------------------------------------------------
+# check_missing_concepts
+# ---------------------------------------------------------------------------
+
+class CheckMissingConceptsTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def _write_index(self, content: str = "# Topics\n\n- [[openclaw-security]]\n") -> None:
+        _write_file(self.root / "compiled" / "index.md", content)
+
+    @patch("scripts.lint.call_ollama")
+    def test_no_index_returns_info_issue(self, mock_ollama: MagicMock) -> None:
+        issues = check_missing_concepts(self.root, "test-model")
+        self.assertEqual(len(issues), 1)
+        self.assertEqual(issues[0].severity, "info")
+        self.assertIn("index_notes.py", issues[0].message)
+        mock_ollama.assert_not_called()
+
+    @patch("scripts.lint.call_ollama")
+    def test_llm_returns_slugs_one_issue_each(self, mock_ollama: MagicMock) -> None:
+        mock_ollama.return_value = '["vulnerability-scoring", "patch-cadence"]'
+        self._write_index()
+        issues = check_missing_concepts(self.root, "test-model")
+        self.assertEqual(len(issues), 2)
+        messages = [i.message for i in issues]
+        self.assertTrue(any("vulnerability-scoring" in m for m in messages))
+        self.assertTrue(any("patch-cadence" in m for m in messages))
+        for issue in issues:
+            self.assertEqual(issue.severity, "info")
+
+    @patch("scripts.lint.call_ollama")
+    def test_llm_returns_empty_no_issues(self, mock_ollama: MagicMock) -> None:
+        mock_ollama.return_value = "[]"
+        self._write_index()
+        self.assertEqual(check_missing_concepts(self.root, "test-model"), [])
+
+    @patch("scripts.lint.call_ollama")
+    def test_malformed_json_no_crash(self, mock_ollama: MagicMock) -> None:
+        mock_ollama.return_value = "here are: foo, bar"
+        self._write_index()
+        self.assertEqual(check_missing_concepts(self.root, "test-model"), [])
+
+    @patch("scripts.lint.call_ollama")
+    def test_fix_creates_stub(self, mock_ollama: MagicMock) -> None:
+        mock_ollama.return_value = '["zero-trust"]'
+        self._write_index()
+        check_missing_concepts(self.root, "test-model", fix=True)
+        stub = self.root / "compiled" / "concepts" / "zero-trust.md"
+        self.assertTrue(stub.exists())
+        content = stub.read_text(encoding="utf-8")
+        self.assertIn('title: "Zero Trust"', content)
+        self.assertIn('note_type: "concept"', content)
+        self.assertIn('generation_method: "stub"', content)
+
+    @patch("scripts.lint.call_ollama")
+    def test_fix_does_not_overwrite_existing(self, mock_ollama: MagicMock) -> None:
+        mock_ollama.return_value = '["zero-trust"]'
+        self._write_index()
+        existing = self.root / "compiled" / "concepts" / "zero-trust.md"
+        existing.parent.mkdir(parents=True, exist_ok=True)
+        existing.write_text("existing content", encoding="utf-8")
+        check_missing_concepts(self.root, "test-model", fix=True)
+        self.assertEqual(existing.read_text(encoding="utf-8"), "existing content")
+
+    @patch("scripts.lint.call_ollama")
+    def test_no_fix_flag_no_stubs(self, mock_ollama: MagicMock) -> None:
+        mock_ollama.return_value = '["zero-trust"]'
+        self._write_index()
+        check_missing_concepts(self.root, "test-model", fix=False)
+        self.assertFalse((self.root / "compiled" / "concepts" / "zero-trust.md").exists())
 
 
 if __name__ == "__main__":

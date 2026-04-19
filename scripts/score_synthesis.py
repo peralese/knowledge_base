@@ -195,6 +195,8 @@ def score_synthesis(request: ScoreRequest) -> ScoreResult:
     band = band_from_score(score, request.auto_approve_threshold)
     auto_approved = score >= request.auto_approve_threshold
 
+    _patch_note_with_score(request.compiled_note_path, score, auto_approved)
+
     return ScoreResult(
         source_id=request.source_id,
         score=score,
@@ -255,6 +257,28 @@ def _find_compiled_note(item: dict[str, object], root: Path) -> Path | None:
     slug = Path(note_path_str).stem
     candidate = root / "compiled" / "source_summaries" / f"{slug}-synthesis.md"
     return candidate if candidate.exists() else None
+
+
+def _set_frontmatter_field(text: str, key: str, value_str: str) -> str:
+    """Set a scalar frontmatter field in note text. Replaces if present, inserts if absent."""
+    pattern = rf"^{re.escape(key)}:.*$"
+    if re.search(pattern, text, re.MULTILINE):
+        return re.sub(pattern, f"{key}: {value_str}", text, flags=re.MULTILINE)
+    return re.sub(r"\n---\n", f"\n{key}: {value_str}\n---\n", text, count=1)
+
+
+def _patch_note_with_score(path: Path, score: float, auto_approved: bool) -> None:
+    """Write confidence_score (and approved if auto-approved) into the note's frontmatter."""
+    if not path.exists():
+        return
+    try:
+        text = path.read_text(encoding="utf-8")
+        text = _set_frontmatter_field(text, "confidence_score", str(round(score, 4)))
+        if auto_approved:
+            text = _set_frontmatter_field(text, "approved", "true")
+        path.write_text(text, encoding="utf-8")
+    except OSError:
+        pass
 
 
 # ---------------------------------------------------------------------------

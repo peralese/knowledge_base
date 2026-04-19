@@ -204,6 +204,7 @@ def _build_topic_note(
         f'  - "{topic_slug}"\n'
         f'confidence: "medium"\n'
         f'generation_method: "{generation_method}"\n'
+        f'approved: true\n'
         f'---'
     )
 

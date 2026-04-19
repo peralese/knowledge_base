@@ -10,6 +10,9 @@ tags:
   - "openclaw-security-risks-best-practices-and-a-checklist"
 confidence: "medium"
 generation_method: "ollama_local"
+date_updated: "2026-04-16"
+confidence_score: 0.85
+approved: true
 ---
 
 ### Summary of OpenClaw Security Best Practices

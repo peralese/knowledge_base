@@ -8,6 +8,17 @@
         "open-claw security",
         "open claw security"
       ]
+    },
+    {
+      "slug": "llm-knowledge-bases",
+      "title": "LLM Knowledge Bases",
+      "aliases": [
+        "llm knowledge base",
+        "karpathy llm wiki",
+        "karpathy wiki",
+        "ai knowledge base",
+        "llm wiki"
+      ]
     }
   ]
 }

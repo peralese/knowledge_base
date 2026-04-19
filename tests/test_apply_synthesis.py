@@ -6,7 +6,9 @@ import unittest
 from pathlib import Path
 
 from scripts.apply_synthesis import ApplySynthesisRequest
+from scripts.apply_synthesis import _set_frontmatter_field
 from scripts.apply_synthesis import apply_synthesis
+from scripts.apply_synthesis import build_compiled_frontmatter
 from scripts.apply_synthesis import ensure_source_notes_section
 from scripts.apply_synthesis import extract_prompt_pack_metadata
 from scripts.apply_synthesis import sanitize_markdown_body
@@ -359,6 +361,62 @@ class ApplySynthesisTests(unittest.TestCase):
 
         with self.assertRaises(FileExistsError):
             apply_synthesis(request)
+
+
+class SetFrontmatterFieldTests(unittest.TestCase):
+    def test_replaces_existing_field(self) -> None:
+        text = "---\ntitle: old\n---\n\nBody.\n"
+        result = _set_frontmatter_field(text, "title", "new")
+        self.assertIn("title: new", result)
+        self.assertNotIn("title: old", result)
+
+    def test_inserts_missing_field_before_closing_fence(self) -> None:
+        text = "---\ntitle: existing\n---\n\nBody.\n"
+        result = _set_frontmatter_field(text, "approved", "false")
+        self.assertIn("approved: false", result)
+        # Closing --- must still be present exactly once
+        self.assertEqual(result.count("\n---\n"), 1)
+
+    def test_body_text_is_unchanged(self) -> None:
+        text = "---\ntitle: t\n---\n\nImportant body content.\n"
+        result = _set_frontmatter_field(text, "title", "t2")
+        self.assertIn("Important body content.", result)
+
+
+class BuildCompiledFrontmatterTests(unittest.TestCase):
+    def _call(self, existing_metadata: dict | None = None) -> str:
+        return build_compiled_frontmatter(
+            title="Test Note",
+            note_type="source_summary",
+            compiled_from=["raw/articles/test.md"],
+            topics=["topic-a"],
+            tags=["source_summary"],
+            generation_method="ollama_local",
+            today="2026-04-16",
+            existing_metadata=existing_metadata or {},
+        )
+
+    def test_approved_false_by_default(self) -> None:
+        fm = self._call()
+        self.assertIn("approved: false", fm)
+
+    def test_confidence_score_null_by_default(self) -> None:
+        fm = self._call()
+        self.assertIn("confidence_score: null", fm)
+
+    def test_date_updated_matches_today(self) -> None:
+        fm = self._call()
+        self.assertIn('date_updated: "2026-04-16"', fm)
+
+    def test_preserves_existing_approved_true(self) -> None:
+        fm = self._call(existing_metadata={"approved": True})
+        self.assertIn("approved: true", fm)
+        self.assertNotIn("approved: false", fm)
+
+    def test_preserves_existing_confidence_score(self) -> None:
+        fm = self._call(existing_metadata={"confidence_score": 0.87})
+        self.assertIn("confidence_score: 0.87", fm)
+        self.assertNotIn("confidence_score: null", fm)
 
 
 if __name__ == "__main__":

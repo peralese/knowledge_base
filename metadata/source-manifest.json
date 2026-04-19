@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.2.0",
-  "last_updated": "2026-04-16",
+  "last_updated": "2026-04-18",
   "description": "Source manifest for Knowledge Base",
   "sources": [
     {
@@ -28,6 +28,19 @@
       "input_path": "/home/peralese/Projects/Knowledge_Base/raw/inbox/browser/default.html",
       "status": "raw",
       "archive_path": "raw/archive/default--archived-20260416-211254.html"
+    },
+    {
+      "source_id": "SRC-20260418-0001",
+      "title": "How to Build Karpathy's LLM Wiki: The Complete Guide to AI-Maintained Knowledge Bases",
+      "filename": "how-to-build-karpathy-s-llm-wiki-the-complete-guide-to-ai-maintained-knowledge-bases.md",
+      "path": "raw/articles/how-to-build-karpathy-s-llm-wiki-the-complete-guide-to-ai-maintained-knowledge-bases.md",
+      "source_type": "article",
+      "origin": "web",
+      "date_ingested": "2026-04-18",
+      "canonical_url": "https://blog.starmorph.com/blog/karpathy-llm-wiki-knowledge-base-guide",
+      "input_path": "/home/peralese/Projects/Knowledge_Base/raw/inbox/browser/karpathy-llm-wiki-knowledge-base-guide.html",
+      "status": "raw",
+      "archive_path": "raw/archive/karpathy-llm-wiki-knowledge-base-guide--archived-20260418-152627.html"
     }
   ]
 }

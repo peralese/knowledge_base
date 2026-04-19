@@ -502,6 +502,48 @@ systemctl --user enable --now kb-feed-poller.service
 
 ---
 
+## Obsidian Dataview Queries
+
+Phase 7 adds `approved`, `confidence_score`, and `date_updated` fields to all compiled notes, making them queryable as a live database in [Obsidian Dataview](https://blacksmithgu.github.io/obsidian-dataview/).
+
+```dataview
+// All source summaries sorted by confidence (lowest first — review targets)
+TABLE confidence_score, approved, date_compiled
+FROM "compiled/source_summaries"
+SORT confidence_score ASC
+```
+
+```dataview
+// Items still awaiting approval
+TABLE confidence_score, date_compiled
+FROM "compiled/source_summaries"
+WHERE approved = false
+SORT date_compiled DESC
+```
+
+```dataview
+// Low-confidence notes (below 0.65) across all compiled output
+TABLE confidence_score, note_type
+FROM "compiled"
+WHERE confidence_score < 0.65
+```
+
+```dataview
+// Recently updated topic notes
+TABLE compiled_from, date_updated
+FROM "compiled/topics"
+SORT date_updated DESC
+```
+
+```dataview
+// All notes by type and approval state
+TABLE note_type, approved, date_compiled
+FROM "compiled"
+SORT date_compiled DESC
+```
+
+---
+
 ## Roadmap
 
 ### ✅ Phase 1 — Automated Ingestion
