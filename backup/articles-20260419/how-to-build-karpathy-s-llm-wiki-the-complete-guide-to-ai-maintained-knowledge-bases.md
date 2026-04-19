@@ -1,90 +1,23 @@
-# Compilation Request
-
-- Requested title: How to Build Karpathy's LLM Wiki: The Complete Guide to AI-Maintained Knowledge Bases Synthesis
-- Canonical title: How to Build Karpathy's LLM Wiki: The Complete Guide to AI-Maintained Knowledge Bases Synthesis
-- Canonical slug: how-to-build-karpathy-s-llm-wiki-the-complete-guide-to-ai-maintained-knowledge-bases-synthesis
-- Note category: source_summary
-- Repository phase: Phase 3 compilation workflow
-- Required generation method value: prompt_pack
-
-# Canonical Identity Rules
-
-- Use the exact canonical title provided: How to Build Karpathy's LLM Wiki: The Complete Guide to AI-Maintained Knowledge Bases Synthesis
-- Use the exact canonical topic slug provided: how-to-build-karpathy-s-llm-wiki-the-complete-guide-to-ai-maintained-knowledge-bases-synthesis
-- Do not invent, modify, pluralize, misspell, or rename the topic.
-- Do not create alternative topic identities.
-- Do not create additional topic files or variants.
-
-# Instructions
-
-Use the provided source notes to synthesize one compiled markdown note in the exact repository format shown below.
-Preserve lineage explicitly by listing every source note in `compiled_from`, `# Source Notes`, and `# Lineage`.
-Do not invent unsupported claims. If the sources do not support a statement, omit it or mark it as uncertain in the note.
-Keep the result inspectable and grounded in the provided source material.
-Do not rewrite or mutate raw notes.
-
-# Desired Output Template
-
-```markdown
 ---
-title: "How to Build Karpathy's LLM Wiki: The Complete Guide to AI-Maintained Knowledge Bases Synthesis"
-note_type: "source_summary"
-compiled_from: 
-  - "how-to-build-karpathy-s-llm-wiki-the-complete-guide-to-ai-maintained-knowledge-bases"
-date_compiled: "YYYY-MM-DD"
+title: "How to Build Karpathy's LLM Wiki: The Complete Guide to AI-Maintained Knowledge Bases"
+source_type: "article"
+origin: "web"
+date_ingested: "2026-04-18"
+status: "raw"
 topics: []
 tags: []
-confidence: "medium"
-generation_method: "prompt_pack"
+author: ""
+date_created: ""
+date_published: ""
+language: "en"
+summary: ""
+source_id: "SRC-20260418-0001"
+canonical_url: "https://blog.starmorph.com/blog/karpathy-llm-wiki-knowledge-base-guide"
+related_sources: []
+confidence: ""
+license: ""
 ---
 
-# Summary
-
-[write a concise synthesis grounded in the sources]
-
-# Key Insights
-
-- [insight]
-- [insight]
-
-# Related Concepts
-
-- 
-
-# Source Notes
-
-- [[how-to-build-karpathy-s-llm-wiki-the-complete-guide-to-ai-maintained-knowledge-bases]]
-
-# Source Highlights
-
-## [[how-to-build-karpathy-s-llm-wiki-the-complete-guide-to-ai-maintained-knowledge-bases]]
-- Title:
-- Source Type:
-- Origin:
-- Summary:
-- Key excerpt:
-
-# Lineage
-
-This note was derived from:
-- [[how-to-build-karpathy-s-llm-wiki-the-complete-guide-to-ai-maintained-knowledge-bases]]
-```
-
-# Source Notes
-
-## [[how-to-build-karpathy-s-llm-wiki-the-complete-guide-to-ai-maintained-knowledge-bases]]
-
-- Path: /home/peralese/Projects/Knowledge_Base/raw/articles/how-to-build-karpathy-s-llm-wiki-the-complete-guide-to-ai-maintained-knowledge-bases.md
-- Title: How to Build Karpathy's LLM Wiki: The Complete Guide to AI-Maintained Knowledge Bases
-- Source Type: article
-- Origin: web
-- Summary: [none provided]
-- Topics: llm-knowledge-bases
-- Tags: Karpathy, Knowledge Base
-
-### Body
-
-```markdown
 # Overview
 
 Brief description of what this source is and why it matters.
@@ -92,24 +25,24 @@ Brief description of what this source is and why it matters.
 # Source Content
 
 ---
-title: How to Build Karpathy's LLM Wiki: The Complete Guide to AI-Maintained Knowledge Bases
-source_type: article
-origin: url
-canonical_url: https://blog.starmorph.com/blog/karpathy-llm-wiki-knowledge-base-guide
-topics:
-  - llm-knowledge-bases
-author: Dylan Boudro
-date_published: 2026-04-09
-tags:
-  - Karpathy
-  - Knowledge Base
+title: "Karpathy LLM Wiki Knowledge Base Guide"
+canonical_url: "https://blog.starmorph.com/blog/karpathy-llm-wiki-knowledge-base-guide"
 ---
 
-<!-- topic_slug: llm-knowledge-bases -->
-
 Starmorph
-articlestopicsmermaideditor.io↗starmorph↗YouTube
+articlestopicsmermaideditor.io↗starmorph↗YouTube13.2K
 Dark
+
+Dismiss ×
+
+CLI ToolsLocal LLMsAI Workflows
+
+One email a week.
+Actually useful.
+
+Dev tools, configs, and AI coding workflows — curated for developers who ship.
+Email addressSubscribe free
+Join 4,500+ developers · No spam, unsubscribe anytime
 
 Published onThursday, April 9, 202619 min read
 
@@ -250,7 +183,7 @@ A single ingest operation can touch dozens of wiki pages as the LLM traces impli
 
 Query
 
-You ask questions against the wiki. The LLM searches index.md, reads relevant pages, and synthesizes answers with [[wiki-link]] citations.
+You ask questions against the wiki. The LLM searches index.md, reads relevant pages, and synthesizes answers with citations.
 
 > What are the key differences between sparse and dense retrieval?
 
@@ -341,7 +274,7 @@ Every wiki page must have YAML frontmatter:
 ### Naming
 
 - Filenames: kebab-case matching the concept (e.g., attention-mechanism.md)
-- Cross-references: use [[wikilinks]] for all internal links
+- Cross-references: use for all internal links
 - Source references: always link back to raw/ file paths
 
 ## Workflows
@@ -359,7 +292,7 @@ Every wiki page must have YAML frontmatter:
 
 1. Read wiki/index.md to identify relevant pages
 2. Read those pages and synthesize an answer
-3. Cite sources using [[wikilinks]]
+3. Cite sources using wikilinks
 4. If the answer is novel and valuable, offer to save it as a new wiki page
 
 ### Lint
@@ -378,7 +311,7 @@ Obsidian is the recommended frontend for viewing and navigating the wiki. Open t
 
 Graph View
 
-Every [[wikilink]] the LLM creates becomes a visible connection in Obsidian's graph view. As the wiki grows, the graph reveals natural knowledge clusters — which concepts are central, which are isolated, where the gaps are.
+Every wikilink the LLM creates becomes a visible connection in Obsidian's graph view. As the wiki grows, the graph reveals natural knowledge clusters — which concepts are central, which are isolated, where the gaps are.
 
 Backlinks
 
@@ -509,7 +442,7 @@ Scan the entire wiki/ directory.
 Check for:
 
 - Contradictions between pages
-- Orphan pages (no incoming [[wikilinks]])
+- Orphan pages (no incoming wikilinks) 
 - Missing concepts (referenced but no page exists)
 - Low-confidence pages that haven't been updated recently
   Save results to outputs/lint-[today's date].md
@@ -690,6 +623,15 @@ March 8, 2026 · 13 min read
 
 cliterminaldeveloper-tools
 
+CLI ToolsLocal LLMsAI Workflows
+
+One email a week.
+Actually useful.
+
+Dev tools, configs, and AI coding workflows — curated for developers who ship.
+Email addressSubscribe free
+Join 4,500+ developers · No spam, unsubscribe anytime
+
 On This Page
 
 Table of Contents
@@ -737,7 +679,7 @@ llm-wikiknowledge-baseclaude-codeobsidianai-toolsproductivitymarkdownkarpathyrag
 # Lineage
 
 - Ingested via: scripts/ingest.py
-- Manifest entry: metadata/source-manifest.json::SRC-20260419-0006
-- Source path: /home/peralese/Projects/Knowledge_Base/raw/inbox/browser/how-to-build-karpathy-s-llm-wiki-the-complete-guide-to-ai-maintained-knowledge-bases.md
+- Manifest entry: metadata/source-manifest.json::SRC-20260418-0001
+- Source path: /home/peralese/Projects/Knowledge_Base/raw/inbox/browser/karpathy-llm-wiki-knowledge-base-guide.html
 - Canonical URL: https://blog.starmorph.com/blog/karpathy-llm-wiki-knowledge-base-guide
-```
+

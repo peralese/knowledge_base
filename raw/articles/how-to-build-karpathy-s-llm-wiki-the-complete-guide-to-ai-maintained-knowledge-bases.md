@@ -2,20 +2,18 @@
 title: "How to Build Karpathy's LLM Wiki: The Complete Guide to AI-Maintained Knowledge Bases"
 source_type: "article"
 origin: "web"
-date_ingested: "2026-04-18"
+date_ingested: "2026-04-19"
 status: "raw"
-topics: []
-tags: []
-author: ""
-date_created: ""
-date_published: ""
-language: "en"
-summary: ""
-source_id: "SRC-20260418-0001"
+topics: 
+  - "llm-knowledge-bases"
+tags: 
+  - "Karpathy"
+  - "Knowledge Base"
+author: "Dylan Boudro"
+date_published: "2026-04-09"
+source_id: "SRC-20260419-0006"
 canonical_url: "https://blog.starmorph.com/blog/karpathy-llm-wiki-knowledge-base-guide"
 related_sources: []
-confidence: ""
-license: ""
 ---
 
 # Overview
@@ -25,24 +23,24 @@ Brief description of what this source is and why it matters.
 # Source Content
 
 ---
-title: "Karpathy LLM Wiki Knowledge Base Guide"
-canonical_url: "https://blog.starmorph.com/blog/karpathy-llm-wiki-knowledge-base-guide"
+title: How to Build Karpathy's LLM Wiki: The Complete Guide to AI-Maintained Knowledge Bases
+source_type: article
+origin: url
+canonical_url: https://blog.starmorph.com/blog/karpathy-llm-wiki-knowledge-base-guide
+topics:
+  - llm-knowledge-bases
+author: Dylan Boudro
+date_published: 2026-04-09
+tags:
+  - Karpathy
+  - Knowledge Base
 ---
 
+<!-- topic_slug: llm-knowledge-bases -->
+
 Starmorph
-articlestopicsmermaideditor.io↗starmorph↗YouTube13.2K
+articlestopicsmermaideditor.io↗starmorph↗YouTube
 Dark
-
-Dismiss ×
-
-CLI ToolsLocal LLMsAI Workflows
-
-One email a week.
-Actually useful.
-
-Dev tools, configs, and AI coding workflows — curated for developers who ship.
-Email addressSubscribe free
-Join 4,500+ developers · No spam, unsubscribe anytime
 
 Published onThursday, April 9, 202619 min read
 
@@ -292,7 +290,7 @@ Every wiki page must have YAML frontmatter:
 
 1. Read wiki/index.md to identify relevant pages
 2. Read those pages and synthesize an answer
-3. Cite sources using wikilinks
+3. Cite sources 
 4. If the answer is novel and valuable, offer to save it as a new wiki page
 
 ### Lint
@@ -442,7 +440,7 @@ Scan the entire wiki/ directory.
 Check for:
 
 - Contradictions between pages
-- Orphan pages (no incoming wikilinks) 
+- Orphan pages (no incoming wikilinks)
 - Missing concepts (referenced but no page exists)
 - Low-confidence pages that haven't been updated recently
   Save results to outputs/lint-[today's date].md
@@ -623,15 +621,6 @@ March 8, 2026 · 13 min read
 
 cliterminaldeveloper-tools
 
-CLI ToolsLocal LLMsAI Workflows
-
-One email a week.
-Actually useful.
-
-Dev tools, configs, and AI coding workflows — curated for developers who ship.
-Email addressSubscribe free
-Join 4,500+ developers · No spam, unsubscribe anytime
-
 On This Page
 
 Table of Contents
@@ -679,7 +668,7 @@ llm-wikiknowledge-baseclaude-codeobsidianai-toolsproductivitymarkdownkarpathyrag
 # Lineage
 
 - Ingested via: scripts/ingest.py
-- Manifest entry: metadata/source-manifest.json::SRC-20260418-0001
-- Source path: /home/peralese/Projects/Knowledge_Base/raw/inbox/browser/karpathy-llm-wiki-knowledge-base-guide.html
+- Manifest entry: metadata/source-manifest.json::SRC-20260419-0006
+- Source path: /home/peralese/Projects/Knowledge_Base/raw/inbox/browser/how-to-build-karpathy-s-llm-wiki-the-complete-guide-to-ai-maintained-knowledge-bases.md
 - Canonical URL: https://blog.starmorph.com/blog/karpathy-llm-wiki-knowledge-base-guide
 

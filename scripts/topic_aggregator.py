@@ -100,6 +100,52 @@ def _title_for_slug(slug: str, registry: dict[str, object]) -> str:
     return slug.replace("-", " ").title()
 
 
+def _registry_slugs(registry: dict[str, object]) -> set[str]:
+    return {str(topic.get("slug", "")) for topic in registry.get("topics", []) if topic.get("slug")}
+
+
+def _parse_frontmatter_list(text: str, key: str) -> list[str]:
+    """Extract a simple YAML list from markdown frontmatter."""
+    fm_match = re.match(r"^---\s*\n(.*?)\n---\s*\n", text, re.DOTALL)
+    if not fm_match:
+        return []
+    lines = fm_match.group(1).splitlines()
+    values: list[str] = []
+    in_key = False
+    for raw_line in lines:
+        stripped = raw_line.strip()
+        if in_key:
+            if stripped.startswith("- "):
+                values.append(stripped[2:].strip().strip('"').strip("'"))
+                continue
+            if raw_line and not raw_line.startswith((" ", "\t")):
+                break
+        if stripped == f"{key}: []":
+            return []
+        if stripped == f"{key}:":
+            in_key = True
+            continue
+        if stripped.startswith(f"{key}:"):
+            value = stripped.split(":", 1)[1].strip().strip('"').strip("'")
+            return [value] if value and value != "[]" else []
+    return [value for value in values if value]
+
+
+def explicit_topic_for_source(item: dict[str, object], raw_note_body: str, registry: dict[str, object]) -> str | None:
+    """Return a user-selected topic slug when present and valid."""
+    valid_slugs = _registry_slugs(registry)
+    candidates: list[str] = []
+    queue_topic = str(item.get("topic_slug", "")).strip()
+    if queue_topic:
+        candidates.append(queue_topic)
+    candidates.extend(_parse_frontmatter_list(raw_note_body, "topics"))
+
+    for candidate in candidates:
+        if candidate in valid_slugs:
+            return candidate
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Topic note I/O
 # ---------------------------------------------------------------------------
@@ -365,7 +411,7 @@ def aggregate_for_source(
         body = raw_note_path.read_text(encoding="utf-8", errors="replace")
 
     registry = load_topic_registry(root)
-    topic_slug = classify_to_topic(title, body, registry)
+    topic_slug = explicit_topic_for_source(item, body, registry) or classify_to_topic(title, body, registry)
 
     if topic_slug is None:
         print("  Topic       : no registry match — skipping aggregation")
@@ -445,7 +491,7 @@ def cmd_aggregate_all(*, model: str, root: Path) -> int:
         title = str(item.get("title", ""))
         raw_note_path = root / str(item.get("source_note_path", ""))
         body = raw_note_path.read_text(encoding="utf-8", errors="replace") if raw_note_path.exists() else ""
-        topic_slug = classify_to_topic(title, body, registry)
+        topic_slug = explicit_topic_for_source(item, body, registry) or classify_to_topic(title, body, registry)
         if topic_slug is None:
             continue
 

@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c ':*)",
+      "Bash(rm /home/peralese/Projects/Knowledge_Base/raw/articles/*.md)",
+      "Bash(rm /home/peralese/Projects/Knowledge_Base/raw/archive/*)",
+      "Bash(rm /home/peralese/Projects/Knowledge_Base/compiled/source_summaries/*.md)",
+      "Bash(rm /home/peralese/Projects/Knowledge_Base/compiled/topics/*.md)",
+      "Bash(rm /home/peralese/Projects/Knowledge_Base/metadata/prompts/*.md)",
+      "Bash(python3 -c \"import json; d=json.load\\(open\\('metadata/source-manifest.json'\\)\\); print\\(f'{len\\(d[\\\\\"sources\\\\\"]\\)} sources'\\)\")"
+    ],
+    "additionalDirectories": [
+      "/home/peralese/Projects/Knowledge_Base/raw/articles"
+    ]
+  }
+}

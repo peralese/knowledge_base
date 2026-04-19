@@ -1,11 +1,40 @@
 ---
-title: "Technology"
+title: "I built a local AI stack with 5 Docker containers, and now I'll never pay for ChatGPT again"
+source_type: "article"
+origin: "web"
+date_ingested: "2026-04-19"
+status: "raw"
+topics: 
+  - "ollama"
+tags: 
+  - "ollama"
+author: "Yash Patel"
+date_published: "2026-04-16"
+source_id: "SRC-20260419-0001"
 canonical_url: "https://www.xda-developers.com/local-ai-stack-with-docker-containers/?utm_source=flipboard&utm_content=topic/technology"
+related_sources: []
 ---
 
-<!-- topic_slug: local-ai-stack -->
+# Overview
 
-<!-- notes: Ollama -->
+Brief description of what this source is and why it matters.
+
+# Source Content
+
+---
+title: I built a local AI stack with 5 Docker containers, and now I'll never pay for ChatGPT again
+source_type: article
+origin: url
+canonical_url: https://www.xda-developers.com/local-ai-stack-with-docker-containers/?utm_source=flipboard&utm_content=topic/technology
+topics:
+  - ollama
+author: Yash Patel
+date_published: 2026-04-16
+tags:
+  - ollama
+---
+
+<!-- topic_slug: ollama -->
 
 Menu
 
@@ -89,7 +118,7 @@ Sign in now
                                             Followed
 
                             Like
-                                        11
+                                        12
 
 Threads
 
@@ -146,7 +175,7 @@ followed
                                     Like
 
                             Like
-                                        11
+                                        12
 
 								Thread
 																										8
@@ -264,7 +293,7 @@ Artificial Intelligence
                                                             Followed
 
                                                             Like
-                                                                11
+                                                                12
 
     Share
 
@@ -292,11 +321,11 @@ Artificial Intelligence
 
             Trending Now
 
-			My favorite alternative to Office 365 isn’t LibreOffice – it’s something way cooler
+			I finally found a local LLM I actually want to use for coding
+
+			I fine-tuned a 7B model to write my Home Assistant automations, and it actually works
 
 			Ollama is still the easiest way to start local LLMs, but it's the worst way to keep running them
-
-			This MCP Server turned my NAS into a self-hosted AI assistant, and it changed how I work
 
                 Thread
                                     8
@@ -743,3 +772,17 @@ XDA is part of the
                             Valnet Publishing Group
 
                 Copyright © 2026 Valnet Inc.
+
+# Key Points
+
+- 
+
+# Notes
+
+# Lineage
+
+- Ingested via: scripts/ingest.py
+- Manifest entry: metadata/source-manifest.json::SRC-20260419-0001
+- Source path: /home/peralese/Projects/Knowledge_Base/raw/inbox/browser/i-built-a-local-ai-stack-with-5-docker-containers-and-now-i-ll-never-pay-for-chatgpt-again.md
+- Canonical URL: https://www.xda-developers.com/local-ai-stack-with-docker-containers/?utm_source=flipboard&utm_content=topic/technology
+

@@ -54,6 +54,8 @@ class IngestTests(unittest.TestCase):
 
     def test_destination_path_selection(self) -> None:
         self.assertEqual(destination_dir_for_source_type("article"), Path("raw/articles"))
+        self.assertEqual(destination_dir_for_source_type("blog"), Path("raw/articles"))
+        self.assertEqual(destination_dir_for_source_type("documentation"), Path("raw/articles"))
         self.assertEqual(destination_dir_for_source_type("note"), Path("raw/notes"))
         self.assertEqual(destination_dir_for_source_type("pdf"), Path("raw/pdfs"))
         self.assertEqual(destination_dir_for_source_type("unknown"), Path("raw/inbox"))

@@ -29,6 +29,38 @@
       "slug": "books",
       "title": "Books",
       "aliases": []
+    },
+    {
+      "slug": "agents",
+      "title": "Agents",
+      "aliases": [],
+      "keywords": [
+        "AI Agents"
+      ]
+    },
+    {
+      "slug": "ollama",
+      "title": "Ollama",
+      "aliases": [],
+      "keywords": [
+        "local LLM"
+      ]
+    },
+    {
+      "slug": "ai-tools",
+      "title": "AI Tools",
+      "aliases": [],
+      "keywords": [
+        "AI Tools"
+      ]
+    },
+    {
+      "slug": "auto-research",
+      "title": "Auto Research",
+      "aliases": [],
+      "keywords": [
+        "AI Tools"
+      ]
     }
   ]
 }

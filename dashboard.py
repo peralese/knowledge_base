@@ -23,21 +23,23 @@ import argparse
 import json
 import re
 import sys
-import tempfile
 import uuid
+from datetime import date
 from pathlib import Path
 from typing import Optional
 
 import httpx
 import uvicorn
+from bs4 import BeautifulSoup
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import BaseModel
 
 ROOT = Path(__file__).resolve().parent
 DASHBOARD_DIR = ROOT / "dashboard"
 TOPIC_REGISTRY_PATH = ROOT / "metadata" / "topic-registry.json"
 TMP_DIR = ROOT / "tmp"
+ARTICLES_DIR = ROOT / "raw" / "articles"
 
 # ---------------------------------------------------------------------------
 # Import reusable pipeline modules
@@ -54,7 +56,6 @@ from review import (  # noqa: E402
     reject,
     save_queue,
 )
-from stage_to_inbox import StageRequest, slugify_title, stage  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # App
@@ -87,6 +88,45 @@ def _kebab(text: str) -> str:
 
 
 SOURCE_TYPE_OPTIONS = ["article", "blog", "paper", "documentation", "repo", "podcast", "video"]
+
+_TITLE_SUFFIX_SEPS = [" | ", " — ", " - ", " · "]
+
+
+def slugify(title: str) -> str:
+    """Convert a title to a URL-safe slug. Consistent: same title always produces same slug."""
+    slug = title.strip().lower()
+    slug = re.sub(r"[^a-z0-9]+", "-", slug)
+    return slug.strip("-") or "article"
+
+
+def _extract_page_title(html: str) -> str | None:
+    """Extract the best available title from an HTML string. Returns None if not found."""
+    soup = BeautifulSoup(html, "html.parser")
+
+    # og:title (most reliable)
+    og = soup.find("meta", property="og:title")
+    if og and og.get("content", "").strip():
+        title = og["content"].strip()
+    else:
+        # twitter:title
+        tw = soup.find("meta", attrs={"name": "twitter:title"})
+        if tw and tw.get("content", "").strip():
+            title = tw["content"].strip()
+        else:
+            tag = soup.find("title")
+            title = tag.get_text().strip() if tag else None
+
+    if not title:
+        return None
+
+    # Strip common site-name suffixes — last occurrence only
+    for sep in _TITLE_SUFFIX_SEPS:
+        idx = title.rfind(sep)
+        if idx != -1:
+            title = title[:idx].strip()
+            break
+
+    return title or None
 
 
 def _inject_optional_frontmatter(path: Path, fields: dict) -> None:
@@ -132,6 +172,223 @@ def _parse_tags(raw: str) -> list[str]:
     return [t.strip() for t in raw.split(",") if t.strip()] if raw.strip() else []
 
 
+def _extract_frontmatter_tags(text: str) -> list[str]:
+    """Extract tags from a small YAML frontmatter subset."""
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+    if not normalized.startswith("---\n"):
+        return []
+    end = normalized.find("\n---\n", 4)
+    if end == -1:
+        return []
+
+    tags: list[str] = []
+    lines = normalized[4:end].splitlines()
+    in_tags = False
+    for raw_line in lines:
+        stripped = raw_line.strip()
+        if in_tags:
+            if stripped.startswith("- "):
+                tag = stripped[2:].strip().strip('"').strip("'")
+                if tag:
+                    tags.append(tag)
+                continue
+            if raw_line and not raw_line.startswith((" ", "\t")):
+                in_tags = False
+
+        if stripped == "tags:":
+            in_tags = True
+            continue
+        if stripped.startswith("tags:"):
+            raw_value = stripped.split(":", 1)[1].strip()
+            if raw_value.startswith("[") and raw_value.endswith("]"):
+                for tag in raw_value[1:-1].split(","):
+                    cleaned = tag.strip().strip('"').strip("'")
+                    if cleaned:
+                        tags.append(cleaned)
+            elif raw_value and raw_value != "[]":
+                cleaned = raw_value.strip().strip('"').strip("'")
+                if cleaned:
+                    tags.append(cleaned)
+    return tags
+
+
+def _used_tags() -> list[str]:
+    search_dirs = [
+        ROOT / "raw" / "articles",
+        ROOT / "compiled" / "source_summaries",
+        ROOT / "compiled" / "topics",
+    ]
+    tags: set[str] = set()
+    for directory in search_dirs:
+        if not directory.exists():
+            continue
+        for path in directory.glob("*.md"):
+            try:
+                tags.update(_extract_frontmatter_tags(path.read_text(encoding="utf-8", errors="replace")))
+            except OSError:
+                continue
+    return sorted(tags, key=str.lower)
+
+
+def _yaml_scalar(value: str) -> str:
+    return value.replace("\n", " ").replace("\r", " ").strip()
+
+
+def _render_frontmatter(frontmatter: dict[str, object]) -> str:
+    lines = ["---"]
+    for key, value in frontmatter.items():
+        if isinstance(value, list):
+            if value:
+                lines.append(f"{key}:")
+                lines.extend(f"  - {_yaml_scalar(str(item))}" for item in value)
+            continue
+        lines.append(f"{key}: {_yaml_scalar(str(value))}")
+    lines.append("---")
+    return "\n".join(lines)
+
+
+def _write_raw_article(
+    *,
+    title: str,
+    text: str,
+    origin: str,
+    source_type: str = "article",
+    author: str = "",
+    date_published: str = "",
+    tags: list[str] | None = None,
+    language: str = "",
+    license_: str = "",
+    canonical_url: str = "",
+    topic_slug: str = "",
+) -> Path:
+    slug = slugify(title)
+    destination = ARTICLES_DIR / f"{slug}.md"
+    if destination.exists():
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "conflict",
+                "message": "An article with this title already exists.",
+                "existing_path": str(destination.relative_to(ROOT)),
+            },
+        )
+
+    source_id = f"DASH-{date.today().strftime('%Y%m%d')}-{uuid.uuid4().hex[:8]}"
+    frontmatter: dict[str, object] = {
+        "title": title,
+        "source_type": source_type.strip() or "article",
+        "origin": origin,
+        "date_ingested": str(date.today()),
+        "status": "raw",
+        "source_id": source_id,
+    }
+    if canonical_url.strip():
+        frontmatter["canonical_url"] = canonical_url.strip()
+    if topic_slug.strip():
+        frontmatter["topics"] = [topic_slug.strip()]
+    if author.strip():
+        frontmatter["author"] = author.strip()
+    if date_published.strip():
+        frontmatter["date_published"] = date_published.strip()
+    if tags:
+        frontmatter["tags"] = tags
+    if language.strip():
+        frontmatter["language"] = language.strip()
+    if license_.strip():
+        frontmatter["license"] = license_.strip()
+
+    print(f"frontmatter: {frontmatter}")
+
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    body = normalize_text(text) or "[no content provided]"
+    destination.write_text(f"{_render_frontmatter(frontmatter)}\n\n{body}\n", encoding="utf-8")
+    return destination
+
+
+def _ingest_via_inbox(
+    *,
+    title: str,
+    text: str,
+    origin: str,
+    source_type: str = "article",
+    author: str = "",
+    date_published: str = "",
+    tags: list[str] | None = None,
+    language: str = "",
+    license_: str = "",
+    canonical_url: str = "",
+    topic_slug: str = "",
+) -> Path:
+    slug = slugify(title)
+    destination = ARTICLES_DIR / f"{slug}.md"
+    if destination.exists():
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "conflict",
+                "message": "An article with this title already exists.",
+                "existing_path": str(destination.relative_to(ROOT)),
+            },
+        )
+
+    staged_dir = ROOT / "raw" / "inbox" / "browser"
+    staged_dir.mkdir(parents=True, exist_ok=True)
+    staged_path = staged_dir / f"{slug}.md"
+    if staged_path.exists():
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "conflict",
+                "message": "A staged article with this title already exists.",
+                "existing_path": str(staged_path.relative_to(ROOT)),
+            },
+        )
+
+    frontmatter: dict[str, object] = {
+        "title": title,
+        "source_type": source_type.strip() or "article",
+        "origin": origin,
+    }
+    if canonical_url.strip():
+        frontmatter["canonical_url"] = canonical_url.strip()
+    if topic_slug.strip():
+        frontmatter["topics"] = [topic_slug.strip()]
+    if author.strip():
+        frontmatter["author"] = author.strip()
+    if date_published.strip():
+        frontmatter["date_published"] = date_published.strip()
+    if tags:
+        frontmatter["tags"] = tags
+    if language.strip():
+        frontmatter["language"] = language.strip()
+    if license_.strip():
+        frontmatter["license"] = license_.strip()
+
+    print(f"frontmatter: {frontmatter}")
+
+    body = normalize_text(text) or "[no content provided]"
+    staged_path.write_text(f"{_render_frontmatter(frontmatter)}\n\n{body}\n", encoding="utf-8")
+
+    import inbox_watcher  # noqa: PLC0415
+
+    original_root = inbox_watcher.ROOT
+    original_queue_path = inbox_watcher.REVIEW_QUEUE_PATH
+    original_queue_report_path = inbox_watcher.REVIEW_QUEUE_REPORT_PATH
+    try:
+        inbox_watcher.ROOT = ROOT
+        inbox_watcher.REVIEW_QUEUE_PATH = ROOT / "metadata" / "review-queue.json"
+        inbox_watcher.REVIEW_QUEUE_REPORT_PATH = ROOT / "metadata" / "review-queue.md"
+        outcome = inbox_watcher.ingest_file(staged_path, source_type.strip() or "article")
+    finally:
+        inbox_watcher.ROOT = original_root
+        inbox_watcher.REVIEW_QUEUE_PATH = original_queue_path
+        inbox_watcher.REVIEW_QUEUE_REPORT_PATH = original_queue_report_path
+
+    if not outcome.output_path:
+        raise HTTPException(status_code=500, detail="Failed to ingest staged article.")
+    return outcome.output_path
+
+
 def _reviewable_unscored_or_low(queue: list[dict]) -> list[dict]:
     """Items that are synthesized, not yet reviewed, and below auto-approve threshold."""
     return [
@@ -144,6 +401,23 @@ def _reviewable_unscored_or_low(queue: list[dict]) -> list[dict]:
 # ---------------------------------------------------------------------------
 # Static
 # ---------------------------------------------------------------------------
+
+@app.get("/api/fetch-title")
+def fetch_title(url: str):
+    """Fetch a URL and return the best title found in the HTML. Always returns HTTP 200."""
+    try:
+        response = httpx.get(
+            url,
+            follow_redirects=True,
+            timeout=5,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; KBDashboard/1.0)"},
+        )
+        response.raise_for_status()
+        title = _extract_page_title(response.text)
+        return {"title": title}
+    except Exception:
+        return {"title": None}
+
 
 @app.get("/")
 def serve_index():
@@ -165,6 +439,11 @@ def get_topics():
         for t in registry.get("topics", [])
     ]
     return {"topics": topics}
+
+
+@app.get("/api/tags")
+def get_tags():
+    return {"tags": _used_tags()}
 
 
 class NewTopicRequest(BaseModel):
@@ -203,6 +482,7 @@ def add_topic(body: NewTopicRequest):
 
 class IngestURLRequest(BaseModel):
     url: str
+    title: str = ""
     topic_slug: str = ""
     notes: str = ""
     source_type: str = "article"
@@ -218,6 +498,10 @@ def ingest_url(body: IngestURLRequest):
     url = body.url.strip()
     if not url:
         raise HTTPException(status_code=400, detail="url is required.")
+
+    title = body.title.strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="title is required.")
 
     # Download the page
     try:
@@ -235,43 +519,25 @@ def ingest_url(body: IngestURLRequest):
     else:
         text = normalize_text(raw_content)
 
-    # Derive a title from the URL path
-    url_path = url.rstrip("/").split("/")[-1] or "web-article"
-    title = _kebab(url_path).replace("-", " ").title()
-
     # Inject notes and topic into text
     if body.notes.strip():
         text = f"<!-- notes: {body.notes.strip()} -->\n\n{text}"
     if body.topic_slug.strip():
         text = f"<!-- topic_slug: {body.topic_slug.strip()} -->\n\n{text}"
 
-    # Write to a temp file then stage via browser adapter
-    TMP_DIR.mkdir(parents=True, exist_ok=True)
-    tmp_path = TMP_DIR / f"{uuid.uuid4().hex}.md"
-    try:
-        tmp_path.write_text(text, encoding="utf-8")
-        request = StageRequest(
-            adapter="browser",
-            title=title,
-            canonical_url=url,
-            input_file=tmp_path,
-            root=ROOT,
-        )
-        destination = stage(request)
-    finally:
-        if tmp_path.exists():
-            tmp_path.unlink()
-
-    # Inject optional metadata into the staged file's frontmatter
-    optional = {
-        "source_type": body.source_type or "article",
-        "author": body.author,
-        "date_published": body.date_published,
-        "tags": body.tags or [],
-        "language": body.language,
-        "license": body.license,
-    }
-    _inject_optional_frontmatter(destination, optional)
+    destination = _ingest_via_inbox(
+        title=title,
+        text=text,
+        origin="url",
+        source_type=body.source_type or "article",
+        author=body.author or "",
+        date_published=body.date_published or "",
+        tags=body.tags or [],
+        language=body.language or "",
+        license_=body.license or "",
+        canonical_url=url,
+        topic_slug=body.topic_slug,
+    )
 
     return {"status": "queued", "filename": destination.name}
 
@@ -279,15 +545,20 @@ def ingest_url(body: IngestURLRequest):
 @app.post("/api/ingest/file")
 def ingest_file(
     file: UploadFile = File(...),
+    title: str = Form(default=""),
     topic_slug: str = Form(default=""),
     notes: str = Form(default=""),
     source_type: str = Form(default="article"),
     author: str = Form(default=""),
+    canonical_url: str = Form(default=""),
     date_published: str = Form(default=""),
     tags: str = Form(default=""),
     language: str = Form(default=""),
     license: str = Form(default=""),
 ):
+    if not title.strip():
+        raise HTTPException(status_code=400, detail="title is required.")
+
     suffix = Path(file.filename or "upload").suffix.lower()
     allowed = {".pdf", ".html", ".htm", ".md"}
     if suffix not in allowed:
@@ -296,46 +567,33 @@ def ingest_file(
             detail=f"Unsupported file type '{suffix}'. Allowed: {', '.join(sorted(allowed))}",
         )
 
-    TMP_DIR.mkdir(parents=True, exist_ok=True)
-    tmp_path = TMP_DIR / f"{uuid.uuid4().hex}{suffix}"
+    raw_bytes = file.file.read()
+    if suffix in {".html", ".htm"}:
+        raw_text = raw_bytes.decode("utf-8", errors="replace")
+        text = normalize_text(html_to_text(raw_text))
+    elif suffix == ".pdf":
+        text = f"PDF upload: {file.filename or 'upload.pdf'}"
+    else:
+        text = raw_bytes.decode("utf-8", errors="replace")
 
-    try:
-        tmp_path.write_bytes(file.file.read())
+    if notes.strip():
+        text = f"<!-- notes: {notes.strip()} -->\n\n{text}"
+    if topic_slug.strip():
+        text = f"<!-- topic_slug: {topic_slug.strip()} -->\n\n{text}"
 
-        # For HTML files strip to text first
-        if suffix in {".html", ".htm"}:
-            raw = tmp_path.read_text(encoding="utf-8", errors="replace")
-            text = normalize_text(html_to_text(raw))
-            if notes.strip():
-                text = f"<!-- notes: {notes.strip()} -->\n\n{text}"
-            if topic_slug.strip():
-                text = f"<!-- topic_slug: {topic_slug.strip()} -->\n\n{text}"
-            tmp_path.write_text(text, encoding="utf-8")
-
-        title = Path(file.filename or "upload").stem.replace("-", " ").replace("_", " ").title()
-        adapter = "pdf-drop" if suffix == ".pdf" else "browser"
-
-        request = StageRequest(
-            adapter=adapter,
-            title=title,
-            input_file=tmp_path,
-            root=ROOT,
-        )
-        destination = stage(request)
-    finally:
-        if tmp_path.exists():
-            tmp_path.unlink()
-
-    # Inject optional metadata into the staged file's frontmatter
-    optional = {
-        "source_type": source_type.strip() or "article",
-        "author": author.strip() or None,
-        "date_published": date_published.strip() or None,
-        "tags": _parse_tags(tags),
-        "language": language.strip() or None,
-        "license": license.strip() or None,
-    }
-    _inject_optional_frontmatter(destination, optional)
+    destination = _ingest_via_inbox(
+        title=title.strip(),
+        text=text,
+        origin="file",
+        source_type=source_type,
+        author=author,
+        canonical_url=canonical_url,
+        date_published=date_published,
+        tags=_parse_tags(tags),
+        language=language,
+        license_=license,
+        topic_slug=topic_slug,
+    )
 
     return {"status": "queued", "filename": destination.name}
 

@@ -5,7 +5,7 @@ import html as html_module
 import json
 import re
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from datetime import datetime
 from html.parser import HTMLParser
@@ -20,6 +20,12 @@ DEFAULT_LANGUAGE = "en"
 
 DESTINATION_FOLDERS = {
     "article": Path("raw/articles"),
+    "blog": Path("raw/articles"),
+    "paper": Path("raw/articles"),
+    "documentation": Path("raw/articles"),
+    "repo": Path("raw/articles"),
+    "podcast": Path("raw/articles"),
+    "video": Path("raw/articles"),
     "note": Path("raw/notes"),
     "pdf": Path("raw/pdfs"),
 }
@@ -31,6 +37,8 @@ class IngestRequest:
     source_type: str
     origin: str
     canonical_url: str = ""
+    topics: list[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
     input_path: str = ""
     text: str = ""
     author: str = ""
@@ -38,7 +46,7 @@ class IngestRequest:
     date_published: str = ""
     summary: str = ""
     license_name: str = ""
-    language: str = DEFAULT_LANGUAGE
+    language: str = ""
     status: str = DEFAULT_STATUS
     confidence: str = ""
     force: bool = False
@@ -231,27 +239,42 @@ def build_frontmatter(
     date_ingested: str,
 ) -> str:
     """Build YAML frontmatter for an ingested raw note."""
-    return (
-        "---\n"
-        f'title: "{escape_yaml_string(request.title)}"\n'
-        f'source_type: "{escape_yaml_string(request.source_type)}"\n'
-        f'origin: "{escape_yaml_string(request.origin)}"\n'
-        f'date_ingested: "{date_ingested}"\n'
-        f'status: "{escape_yaml_string(request.status)}"\n'
-        f"topics: {format_yaml_list([])}\n"
-        f"tags: {format_yaml_list([])}\n"
-        f'author: "{escape_yaml_string(request.author)}"\n'
-        f'date_created: "{escape_yaml_string(request.date_created)}"\n'
-        f'date_published: "{escape_yaml_string(request.date_published)}"\n'
-        f'language: "{escape_yaml_string(request.language)}"\n'
-        f'summary: "{escape_yaml_string(request.summary)}"\n'
-        f'source_id: "{source_id}"\n'
-        f'canonical_url: "{escape_yaml_string(request.canonical_url)}"\n'
-        f"related_sources: {format_yaml_list([])}\n"
-        f'confidence: "{escape_yaml_string(request.confidence)}"\n'
-        f'license: "{escape_yaml_string(request.license_name)}"\n'
-        "---"
-    )
+    lines = [
+        "---",
+        f'title: "{escape_yaml_string(request.title)}"',
+        f'source_type: "{escape_yaml_string(request.source_type)}"',
+        f'origin: "{escape_yaml_string(request.origin)}"',
+        f'date_ingested: "{date_ingested}"',
+        f'status: "{escape_yaml_string(request.status)}"',
+        f"topics: {format_yaml_list(request.topics)}",
+    ]
+    if request.tags:
+        lines.append(f"tags: {format_yaml_list(request.tags)}")
+
+    optional_fields = [
+        ("author", request.author),
+        ("date_created", request.date_created),
+        ("date_published", request.date_published),
+        ("language", request.language),
+        ("summary", request.summary),
+    ]
+    for key, value in optional_fields:
+        if value.strip():
+            lines.append(f'{key}: "{escape_yaml_string(value)}"')
+
+    lines.extend([
+        f'source_id: "{source_id}"',
+        f'canonical_url: "{escape_yaml_string(request.canonical_url)}"',
+        f"related_sources: {format_yaml_list([])}",
+    ])
+
+    if request.confidence.strip():
+        lines.append(f'confidence: "{escape_yaml_string(request.confidence)}"')
+    if request.license_name.strip():
+        lines.append(f'license: "{escape_yaml_string(request.license_name)}"')
+
+    lines.append("---")
+    return "\n".join(lines)
 
 
 def update_lineage_section(note_text: str, manifest_entry_path: str, canonical_url: str) -> str:

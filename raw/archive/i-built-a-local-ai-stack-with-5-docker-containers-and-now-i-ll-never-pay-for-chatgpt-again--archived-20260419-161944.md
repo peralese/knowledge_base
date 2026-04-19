@@ -1,104 +1,17 @@
-# Compilation Request
-
-- Requested title: Technology Synthesis
-- Canonical title: Technology Synthesis
-- Canonical slug: technology-synthesis
-- Note category: source_summary
-- Repository phase: Phase 3 compilation workflow
-- Required generation method value: prompt_pack
-
-# Canonical Identity Rules
-
-- Use the exact canonical title provided: Technology Synthesis
-- Use the exact canonical topic slug provided: technology-synthesis
-- Do not invent, modify, pluralize, misspell, or rename the topic.
-- Do not create alternative topic identities.
-- Do not create additional topic files or variants.
-
-# Instructions
-
-Use the provided source notes to synthesize one compiled markdown note in the exact repository format shown below.
-Preserve lineage explicitly by listing every source note in `compiled_from`, `# Source Notes`, and `# Lineage`.
-Do not invent unsupported claims. If the sources do not support a statement, omit it or mark it as uncertain in the note.
-Keep the result inspectable and grounded in the provided source material.
-Do not rewrite or mutate raw notes.
-
-# Desired Output Template
-
-```markdown
 ---
-title: "Technology Synthesis"
-note_type: "source_summary"
-compiled_from: 
-  - "technology"
-date_compiled: "YYYY-MM-DD"
-topics: []
-tags: []
-confidence: "medium"
-generation_method: "prompt_pack"
+title: I built a local AI stack with 5 Docker containers, and now I'll never pay for ChatGPT again
+source_type: article
+origin: url
+canonical_url: https://www.xda-developers.com/local-ai-stack-with-docker-containers/?utm_source=flipboard&utm_content=topic/technology
+topics:
+  - ollama
+author: Yash Patel
+date_published: 2026-04-16
+tags:
+  - ollama
 ---
 
-# Summary
-
-[write a concise synthesis grounded in the sources]
-
-# Key Insights
-
-- [insight]
-- [insight]
-
-# Related Concepts
-
-- 
-
-# Source Notes
-
-- [[technology]]
-
-# Source Highlights
-
-## [[technology]]
-- Title:
-- Source Type:
-- Origin:
-- Summary:
-- Key excerpt:
-
-# Lineage
-
-This note was derived from:
-- [[technology]]
-```
-
-# Source Notes
-
-## [[technology]]
-
-- Path: /home/peralese/Projects/Knowledge_Base/raw/articles/technology.md
-- Title: Technology
-- Source Type: article
-- Origin: web
-- Summary: [none provided]
-- Topics: [none]
-- Tags: [none]
-
-### Body
-
-```markdown
-# Overview
-
-Brief description of what this source is and why it matters.
-
-# Source Content
-
----
-title: "Technology"
-canonical_url: "https://www.xda-developers.com/local-ai-stack-with-docker-containers/?utm_source=flipboard&utm_content=topic/technology"
----
-
-<!-- topic_slug: local-ai-stack -->
-
-<!-- notes: Ollama -->
+<!-- topic_slug: ollama -->
 
 Menu
 
@@ -182,7 +95,7 @@ Sign in now
                                             Followed
 
                             Like
-                                        11
+                                        12
 
 Threads
 
@@ -239,7 +152,7 @@ followed
                                     Like
 
                             Like
-                                        11
+                                        12
 
 								Thread
 																										8
@@ -357,7 +270,7 @@ Artificial Intelligence
                                                             Followed
 
                                                             Like
-                                                                11
+                                                                12
 
     Share
 
@@ -385,11 +298,11 @@ Artificial Intelligence
 
             Trending Now
 
-			My favorite alternative to Office 365 isn’t LibreOffice – it’s something way cooler
+			I finally found a local LLM I actually want to use for coding
+
+			I fine-tuned a 7B model to write my Home Assistant automations, and it actually works
 
 			Ollama is still the easiest way to start local LLMs, but it's the worst way to keep running them
-
-			This MCP Server turned my NAS into a self-hosted AI assistant, and it changed how I work
 
                 Thread
                                     8
@@ -836,17 +749,3 @@ XDA is part of the
                             Valnet Publishing Group
 
                 Copyright © 2026 Valnet Inc.
-
-# Key Points
-
-- 
-
-# Notes
-
-# Lineage
-
-- Ingested via: scripts/ingest.py
-- Manifest entry: metadata/source-manifest.json::SRC-20260418-0002
-- Source path: /home/peralese/Projects/Knowledge_Base/raw/inbox/browser/technology.md
-- Canonical URL: https://www.xda-developers.com/local-ai-stack-with-docker-containers/?utm_source=flipboard&utm_content=topic/technology
-```

@@ -22,6 +22,7 @@ from scripts.topic_aggregator import (
     aggregate_topic,
     build_aggregate_prompt,
     classify_to_topic,
+    explicit_topic_for_source,
     load_topic_registry,
 )
 
@@ -41,6 +42,11 @@ SAMPLE_REGISTRY = {
             "slug": "docker-containers",
             "title": "Docker Containers",
             "aliases": ["docker containerization", "container security"],
+        },
+        {
+            "slug": "ollama",
+            "title": "Ollama",
+            "aliases": ["local llm"],
         },
     ]
 }
@@ -141,6 +147,21 @@ class ClassifyToTopicTests(unittest.TestCase):
         # slug "docker-containers" → "docker containers" in text search
         result = classify_to_topic("docker containers overview", "", SAMPLE_REGISTRY)
         self.assertEqual(result, "docker-containers")
+
+
+class ExplicitTopicForSourceTests(unittest.TestCase):
+    def test_queue_topic_slug_wins_over_content_classification(self) -> None:
+        body = "---\ntopics:\n  - ollama\n---\n\nThis body talks about docker containers."
+        item = {"topic_slug": "ollama"}
+        self.assertEqual(explicit_topic_for_source(item, body, SAMPLE_REGISTRY), "ollama")
+
+    def test_raw_frontmatter_topic_used_when_queue_missing(self) -> None:
+        body = "---\ntopics:\n  - ollama\n---\n\nThis body talks about docker containers."
+        self.assertEqual(explicit_topic_for_source({}, body, SAMPLE_REGISTRY), "ollama")
+
+    def test_unknown_explicit_topic_ignored(self) -> None:
+        body = "---\ntopics:\n  - missing\n---\n\nBody."
+        self.assertIsNone(explicit_topic_for_source({"topic_slug": "missing"}, body, SAMPLE_REGISTRY))
 
 
 # ---------------------------------------------------------------------------
@@ -476,6 +497,17 @@ class AggregateForSourceTests(unittest.TestCase):
         topic_note = self.root / "compiled" / "topics" / "openclaw-security.md"
         self.assertTrue(topic_note.exists())
 
+    @patch("scripts.topic_aggregator.call_ollama")
+    @patch("scripts.topic_aggregator._check_model_available")
+    def test_explicit_topic_overrides_content_match(self, mock_check: MagicMock, mock_ollama: MagicMock) -> None:
+        mock_check.return_value = None
+        mock_ollama.return_value = "# Summary\n\nContent.\n\n# Key Insights\n\n- Point."
+        item = self._make_item()
+        item["topic_slug"] = "ollama"
+        aggregate_for_source(item, self.summary_path, root=self.root)
+        self.assertTrue((self.root / "compiled" / "topics" / "ollama.md").exists())
+        self.assertFalse((self.root / "compiled" / "topics" / "openclaw-security.md").exists())
+
     def test_skips_when_no_registry_match(self) -> None:
         item = {
             "source_id": "SRC-001",
@@ -538,7 +570,7 @@ class LoadTopicRegistryTests(unittest.TestCase):
             json.dumps(SAMPLE_REGISTRY), encoding="utf-8"
         )
         result = load_topic_registry(self.root)
-        self.assertEqual(len(result["topics"]), 2)
+        self.assertEqual(len(result["topics"]), 3)
 
     def test_returns_empty_when_file_missing(self) -> None:
         result = load_topic_registry(self.root)

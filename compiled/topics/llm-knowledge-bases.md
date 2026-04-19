@@ -3,8 +3,8 @@ title: "LLM Knowledge Bases"
 note_type: "topic"
 compiled_from: 
   - "how-to-build-karpathy-s-llm-wiki-the-complete-guide-to-ai-maintained-knowledge-bases-synthesis"
-date_compiled: "2026-04-18"
-date_updated: "2026-04-18"
+date_compiled: "2026-04-19"
+date_updated: "2026-04-19"
 topics:
   - "LLM Knowledge Bases"
 tags:
@@ -16,28 +16,19 @@ approved: true
 ---
 
 # Summary
-
-The summary covers the creation of a Knowledge Base with an AI-powered system inspired by Andrej Karpathy's approach. This involves storing original sources in an immutable `raw` directory, leveraging LLMs to manage and maintain cross-references automatically through three key operations: Ingest, Query, and Lint. A schema file (`CLAUDE.md`) guides how the LLM processes new information. The Obsidian frontend provides a user-friendly interface for interacting with the knowledge base.
+This guide outlines the process of setting up an AI-driven knowledge base system known as LLM Wiki. The setup involves using Obsidian for managing and navigating your knowledge base, alongside Claude Code for automating tasks such as summarization and indexing. Key steps include preparing a directory structure, configuring Obsidian, creating a schema file (`claudefile.md`), ingesting raw data, processing with Claude code, and maintaining the system through regular linting operations.
 
 # Key Insights
-
-1. **Immutable Raw Layer**: Storing original sources in an immutable layer ensures traceability of all claims.
-2. **Automated Maintenance**: Use an LLM to handle updates and cross-references, reducing maintenance costs significantly.
-3. **Three Core Operations**:
-   - Ingest: Import new data and generate relevant pages.
-   - Query: Retrieve information from the knowledge base efficiently.
-   - Lint: Regularly check for accuracy and consistency in the wiki's content.
-4. **Obsidian Integration**: Utilize Obsidian as a frontend to visualize and interact with the generated knowledge base.
-5. **Schema File**: Define how sources should be processed using templates and prompts in `CLAUDE.md`.
-6. **Context Navigation Pattern**: Optimize context loading for better performance by only including relevant parts.
+- **Directory Structure**: A well-defined directory structure (e.g., `raw`, `processed`, `outbox`) helps in managing different stages of knowledge base files efficiently.
+- **Claude Code Integration**: Utilizing Claude Code allows for automation of tasks such as data ingestion, summarization, and indexing, which significantly enhances the efficiency of maintaining a large-scale knowledge base.
+- **Obsidian Features**: Leveraging Obsidian's advanced features like backlinks, tags, and custom workspaces enables better organization and navigation within the knowledge base.
+- **Regular Maintenance**: Regular linting operations are crucial for ensuring that the knowledge base remains consistent and up-to-date over time.
 
 # Related Concepts
-
-- **LLM (Large Language Models)**: AI models that can generate human-like text based on provided input.
-- **Immutable Layer**: A storage layer where data remains unchanged after initial creation, aiding in version control and traceability.
-- **Cross-referencing**: The process of linking related information across different documents or parts of a knowledge base to provide context and clarity.
-- **Knowledge Graphs**: Structures that represent knowledge as nodes (entities) connected by edges (relationships), often used to enhance the accessibility and understanding of complex datasets.
-- **Frontend Tools for Knowledge Management**: Applications like Obsidian that facilitate interaction, visualization, and navigation within structured data environments.
+- **Knowledge Management Systems (KMS)**: Tools and techniques used to capture, organize, store, retrieve, share, enhance, and use collective expertise in an organization.
+- **Obsidian**: A note-taking application that leverages local markdown files for organizing information with powerful features like backlinks and graph views.
+- **Claude Code**: A set of scripts or commands designed to interact with the Claude language model API, enabling automation of tasks related to AI-driven knowledge base management.
+- **LLM Wiki**: An advanced system that integrates large language models (LLMs) for maintaining a knowledge base through automated summarization, indexing, and navigation features.
 
 # Source Notes
 

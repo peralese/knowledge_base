@@ -94,6 +94,25 @@ class DeriveTitleTests(unittest.TestCase):
         p = self._write("my-article.html", "<!DOCTYPE html><html><body></body></html>")
         self.assertEqual(derive_title(p), "My Article")
 
+    def test_html_with_yaml_frontmatter_uses_frontmatter_title(self) -> None:
+        """Bug 1 fix: dashboard-staged .html files have YAML frontmatter, not an HTML <title> tag."""
+        content = (
+            '---\ntitle: "Top AI Tools for Researchers in 2025"\n'
+            'canonical_url: "https://example.com/tools"\n---\n\n'
+            "Skip to main content\n\nSome article body...\n"
+        )
+        p = self._write("top-ai-tools.html", content)
+        self.assertEqual(derive_title(p), "Top AI Tools for Researchers in 2025")
+
+    def test_html_frontmatter_title_beats_html_title_tag(self) -> None:
+        """Frontmatter title should win even when an HTML <title> tag is also present."""
+        content = (
+            '---\ntitle: "Frontmatter Title"\n---\n\n'
+            "<html><head><title>HTML Title Tag</title></head><body>Content</body></html>"
+        )
+        p = self._write("mixed.html", content)
+        self.assertEqual(derive_title(p), "Frontmatter Title")
+
 
 # ---------------------------------------------------------------------------
 # Source type and origin derivation
@@ -305,6 +324,116 @@ class ScanInboxTests(unittest.TestCase):
             mod.ROOT = original_root
             mod.REVIEW_QUEUE_PATH = original_review_queue
             mod.REVIEW_QUEUE_REPORT_PATH = original_review_md
+
+
+class IngestFileOptionalMetadataTests(unittest.TestCase):
+    """Bug 2 fix: optional metadata fields injected into staged frontmatter survive to raw/articles/."""
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        for d in [
+            "raw/inbox/browser", "raw/articles", "raw/notes", "raw/pdfs",
+            "raw/archive", "metadata",
+        ]:
+            (self.root / d).mkdir(parents=True, exist_ok=True)
+        (self.root / "metadata" / "source-manifest.json").write_text(
+            json.dumps({"manifest_version": "0.2.0", "last_updated": "", "description": "", "sources": []}),
+            encoding="utf-8",
+        )
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def test_optional_fields_propagate_to_article_frontmatter(self) -> None:
+        """author, date_published, language, license from staged frontmatter appear in raw/articles/."""
+        import scripts.inbox_watcher as mod
+        original_root = mod.ROOT
+        original_rq = mod.REVIEW_QUEUE_PATH
+        original_rmd = mod.REVIEW_QUEUE_REPORT_PATH
+        mod.ROOT = self.root
+        mod.REVIEW_QUEUE_PATH = self.root / "metadata" / "review-queue.json"
+        mod.REVIEW_QUEUE_REPORT_PATH = self.root / "metadata" / "review-queue.md"
+        try:
+            staged = self.root / "raw" / "inbox" / "browser" / "my-article.md"
+            staged.write_text(
+                '---\n'
+                'title: "My Article"\n'
+                'canonical_url: "https://example.com/article"\n'
+                'author: "Jane Doe"\n'
+                'date_published: "2025-08-01"\n'
+                'language: "fr"\n'
+                'license: "CC BY 4.0"\n'
+                '---\n\nArticle content here.\n',
+                encoding="utf-8",
+            )
+            from scripts.inbox_watcher import ingest_file
+            outcome = ingest_file(staged, "article")
+            self.assertTrue(outcome.processed)
+            output = self.root / "raw" / "articles" / "my-article.md"
+            self.assertTrue(output.exists())
+            text = output.read_text(encoding="utf-8")
+            self.assertIn('author: "Jane Doe"', text)
+            self.assertIn('date_published: "2025-08-01"', text)
+            self.assertIn('language: "fr"', text)
+            self.assertIn('license: "CC BY 4.0"', text)
+        finally:
+            mod.ROOT = original_root
+            mod.REVIEW_QUEUE_PATH = original_rq
+            mod.REVIEW_QUEUE_REPORT_PATH = original_rmd
+
+    def test_topic_slug_hint_propagates_to_article_and_queue(self) -> None:
+        """Dashboard topic_slug hint survives ingestion for downstream aggregation."""
+        import scripts.inbox_watcher as mod
+        original_root = mod.ROOT
+        original_rq = mod.REVIEW_QUEUE_PATH
+        original_rmd = mod.REVIEW_QUEUE_REPORT_PATH
+        mod.ROOT = self.root
+        mod.REVIEW_QUEUE_PATH = self.root / "metadata" / "review-queue.json"
+        mod.REVIEW_QUEUE_REPORT_PATH = self.root / "metadata" / "review-queue.md"
+        try:
+            staged = self.root / "raw" / "inbox" / "browser" / "my-article.md"
+            staged.write_text(
+                '---\ntitle: "My Article"\n---\n\n<!-- topic_slug: ollama -->\n\nArticle content here.\n',
+                encoding="utf-8",
+            )
+            from scripts.inbox_watcher import ingest_file
+            outcome = ingest_file(staged, "article")
+            self.assertTrue(outcome.processed)
+
+            output = self.root / "raw" / "articles" / "my-article.md"
+            text = output.read_text(encoding="utf-8")
+            self.assertIn('- "ollama"', text)
+
+            queue = json.loads((self.root / "metadata" / "review-queue.json").read_text(encoding="utf-8"))
+            self.assertEqual(queue[0]["topic_slug"], "ollama")
+        finally:
+            mod.ROOT = original_root
+            mod.REVIEW_QUEUE_PATH = original_rq
+            mod.REVIEW_QUEUE_REPORT_PATH = original_rmd
+
+    def test_missing_optional_fields_do_not_crash(self) -> None:
+        """Files without optional metadata fields ingest successfully with defaults."""
+        import scripts.inbox_watcher as mod
+        original_root = mod.ROOT
+        original_rq = mod.REVIEW_QUEUE_PATH
+        original_rmd = mod.REVIEW_QUEUE_REPORT_PATH
+        mod.ROOT = self.root
+        mod.REVIEW_QUEUE_PATH = self.root / "metadata" / "review-queue.json"
+        mod.REVIEW_QUEUE_REPORT_PATH = self.root / "metadata" / "review-queue.md"
+        try:
+            staged = self.root / "raw" / "inbox" / "browser" / "plain-article.md"
+            staged.write_text(
+                '---\ntitle: "Plain Article"\n---\n\nJust some content.\n',
+                encoding="utf-8",
+            )
+            from scripts.inbox_watcher import ingest_file
+            outcome = ingest_file(staged, "article")
+            self.assertTrue(outcome.processed)
+        finally:
+            mod.ROOT = original_root
+            mod.REVIEW_QUEUE_PATH = original_rq
+            mod.REVIEW_QUEUE_REPORT_PATH = original_rmd
 
 
 class ValidateIngestedNoteTests(unittest.TestCase):

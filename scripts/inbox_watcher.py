@@ -64,7 +64,6 @@ REQUIRED_FRONTMATTER_KEYS = [
     "date_ingested",
     "status",
     "topics",
-    "tags",
     "source_id",
     "canonical_url",
 ]
@@ -176,6 +175,23 @@ def _parse_frontmatter_value(text: str, key: str) -> str:
     return ""
 
 
+def _parse_frontmatter_list(text: str, key: str) -> list[str]:
+    """Extract a simple YAML list from staged frontmatter."""
+    frontmatter = _parse_frontmatter(text)
+    value = frontmatter.get(key)
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if isinstance(value, str) and value.strip() and value.strip() != "[]":
+        return [value.strip()]
+    return []
+
+
+def _parse_topic_slug_hint(text: str) -> str:
+    """Read dashboard's staged topic hint from the note body when present."""
+    match = re.search(r"<!--\s*topic_slug:\s*([a-zA-Z0-9_-]+)\s*-->", text)
+    return match.group(1).strip() if match else ""
+
+
 def _first_content_line(text: str) -> str:
     """Return the first non-empty, non-frontmatter line stripped of markdown heading markers."""
     normalized = text.replace("\r\n", "\n").replace("\r", "\n")
@@ -220,6 +236,11 @@ def derive_title(path: Path) -> str:
                     return value[:120]
 
     if path.suffix.lower() == ".html":
+        # Check YAML frontmatter first — dashboard-staged files are plain text
+        # with a YAML header even though the file extension is .html
+        fm_title = _parse_frontmatter_title(text)
+        if fm_title:
+            return fm_title
         # Try <title> tag before falling back to text extraction
         title_match = re.search(r"<title[^>]*>([^<]+)</title>", text, re.IGNORECASE)
         if title_match:
@@ -354,6 +375,8 @@ def validate_ingested_note(path: Path) -> list[str]:
             issues.append(f"missing frontmatter field: {key}")
 
     for key in ("topics", "tags"):
+        if key not in frontmatter:
+            continue
         value = frontmatter.get(key)
         if not isinstance(value, list) and value != "[]":
             issues.append(f"frontmatter field should be a list: {key}")
@@ -377,6 +400,7 @@ def queue_review_item(
     origin: str,
     adapter: str,
     validation_issues: list[str],
+    topic_slug: str = "",
 ) -> None:
     """Add or update a pending review entry for an ingested note."""
     queue = load_review_queue()
@@ -390,6 +414,7 @@ def queue_review_item(
         "adapter": adapter,
         "source_type": source_type,
         "origin": origin,
+        "topic_slug": topic_slug,
         "queued_at": datetime.now().isoformat(),
         "review_status": "pending_review",
         "validation_status": "validated" if not validation_issues else "needs_review",
@@ -459,23 +484,51 @@ def ingest_file(path: Path, source_type: str) -> IngestOutcome:
     canonical_url = derive_canonical_url(path)
     adapter = detect_adapter(path)
 
+    # Read optional metadata fields written by _inject_optional_frontmatter in
+    # dashboard.py so they survive into the raw/articles/ note frontmatter.
+    try:
+        staged_text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        staged_text = ""
+    staged_author = _parse_frontmatter_value(staged_text, "author")
+    staged_date_published = _parse_frontmatter_value(staged_text, "date_published")
+    staged_language = _parse_frontmatter_value(staged_text, "language")
+    staged_license = _parse_frontmatter_value(staged_text, "license")
+    staged_topics = _parse_frontmatter_list(staged_text, "topics")
+    staged_tags = _parse_frontmatter_list(staged_text, "tags")
+    staged_topic_hint = _parse_topic_slug_hint(staged_text)
+    if staged_topic_hint and staged_topic_hint not in staged_topics:
+        staged_topics.append(staged_topic_hint)
+
     print(f"  Title       : {title}")
     print(f"  Source type : {resolved_source_type}")
     print(f"  Origin      : {origin}")
     if canonical_url:
         print(f"  Canonical   : {canonical_url}")
 
+    ingest_kwargs: dict = dict(
+        title=title,
+        source_type=resolved_source_type,
+        origin=origin,
+        canonical_url=canonical_url,
+        input_path=str(path),
+        root=ROOT,
+    )
+    if staged_author:
+        ingest_kwargs["author"] = staged_author
+    if staged_date_published:
+        ingest_kwargs["date_published"] = staged_date_published
+    if staged_language:
+        ingest_kwargs["language"] = staged_language
+    if staged_license:
+        ingest_kwargs["license_name"] = staged_license
+    if staged_topics:
+        ingest_kwargs["topics"] = staged_topics
+    if staged_tags:
+        ingest_kwargs["tags"] = staged_tags
+
     try:
-        result = ingest_source(
-            IngestRequest(
-                title=title,
-                source_type=resolved_source_type,
-                origin=origin,
-                canonical_url=canonical_url,
-                input_path=str(path),
-                root=ROOT,
-            )
-        )
+        result = ingest_source(IngestRequest(**ingest_kwargs))
         validation_issues = validate_ingested_note(result)
         queue_review_item(
             source_note_path=result,
@@ -484,6 +537,7 @@ def ingest_file(path: Path, source_type: str) -> IngestOutcome:
             source_type=resolved_source_type,
             origin=origin,
             adapter=adapter,
+            topic_slug=staged_topics[0] if staged_topics else "",
             validation_issues=validation_issues,
         )
         print(f"  -> {result.relative_to(ROOT)}")

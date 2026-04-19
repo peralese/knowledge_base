@@ -1,27 +1,4 @@
 ---
-title: "OpenClaw Security  Risks, Best Practices, And A Checklist"
-source_type: "article"
-origin: "web"
-date_ingested: "2026-04-19"
-status: "raw"
-topics: 
-  - "openclaw-security"
-tags: 
-  - "openclaw"
-author: "Larassatti D."
-date_published: "2026-02-06"
-source_id: "SRC-20260419-0004"
-canonical_url: "https://www.hostinger.com/tutorials/openclaw-security"
-related_sources: []
----
-
-# Overview
-
-Brief description of what this source is and why it matters.
-
-# Source Content
-
----
 title: OpenClaw Security  Risks, Best Practices, And A Checklist
 source_type: article
 origin: file
@@ -893,17 +870,3 @@ Drop files here
 Kodee can make mistakes. Double-check replies.
 
 Ask Kodee
-
-# Key Points
-
-- 
-
-# Notes
-
-# Lineage
-
-- Ingested via: scripts/ingest.py
-- Manifest entry: metadata/source-manifest.json::SRC-20260419-0004
-- Source path: /home/peralese/Projects/Knowledge_Base/raw/inbox/browser/openclaw-security-risks-best-practices-and-a-checklist.md
-- Canonical URL: https://www.hostinger.com/tutorials/openclaw-security
-

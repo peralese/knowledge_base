@@ -372,6 +372,30 @@
       grid-template-columns: 1fr 1fr;
       gap: 12px;
     }
+
+    .tag-picks {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+      min-height: 0;
+    }
+
+    .tag-pick {
+      border: 1px solid #2d3148;
+      background: #151927;
+      color: #cbd5e1;
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 12px;
+      line-height: 1.2;
+      cursor: pointer;
+    }
+
+    .tag-pick:hover {
+      border-color: #4f6ef7;
+      color: #f8fafc;
+    }
   </style>
 </head>
 <body>
@@ -411,6 +435,13 @@
       <div class="field" id="file-field" style="display:none">
         <label>File</label>
         <input type="file" id="file-input" accept=".pdf,.html,.htm,.md" />
+      </div>
+
+      <!-- Title -->
+      <div class="field">
+        <label for="title-input">Title</label>
+        <input type="text" id="title-input" placeholder="e.g. How to Harden OpenClaw Security" />
+        <span id="title-error" style="display:none;font-size:12px;color:#ef4444;margin-top:4px;display:none;">A title is required</span>
       </div>
 
       <!-- Topic -->
@@ -468,6 +499,11 @@
             <input type="text" id="meta-author" placeholder="e.g. Jane Smith" />
           </div>
 
+          <div class="field">
+            <label>Canonical URL <span style="font-weight:400;text-transform:none">(optional)</span></label>
+            <input type="url" id="meta-canonical-url" placeholder="https://example.com/original-article" />
+          </div>
+
           <div class="row-half">
             <div class="field">
               <label>Date published <span style="font-weight:400;text-transform:none">(optional)</span></label>
@@ -482,6 +518,7 @@
           <div class="field">
             <label>Tags <span style="font-weight:400;text-transform:none">(comma-separated, optional)</span></label>
             <input type="text" id="meta-tags" placeholder="e.g. security, hardening, 2026" />
+            <div class="tag-picks" id="tag-picks"></div>
           </div>
 
           <div class="field">
@@ -528,6 +565,79 @@ function toggleSourceType() {
   const type = document.querySelector('input[name="source-type"]:checked').value;
   document.getElementById('url-field').style.display = type === 'url' ? 'block' : 'none';
   document.getElementById('file-field').style.display = type === 'file' ? 'block' : 'none';
+  // Clear title so auto-population logic for the new source type can run cleanly
+  document.getElementById('title-input').value = '';
+  _titleDirty = false;
+  hideTitleError();
+}
+
+// ---------------------------------------------------------------------------
+// Title auto-population
+// ---------------------------------------------------------------------------
+let _titleFetchTimer = null;
+let _titleDirty = false;
+
+function hideTitleError() {
+  document.getElementById('title-error').style.display = 'none';
+}
+
+function showTitleError(msg) {
+  const el = document.getElementById('title-error');
+  el.textContent = msg || 'A title is required';
+  el.style.display = 'block';
+}
+
+async function _autoFetchTitle() {
+  const url = document.getElementById('url-input').value.trim();
+  if (!url) return;
+  if (_titleDirty) return; // user already typed a title — don't overwrite
+
+  const titleInput = document.getElementById('title-input');
+  if (titleInput.value.trim()) return;
+  const prevPlaceholder = titleInput.placeholder;
+  titleInput.placeholder = 'Fetching title\u2026';
+  try {
+    const res = await fetch('/api/fetch-title?url=' + encodeURIComponent(url));
+    const data = await res.json();
+    if (!_titleDirty && data.title) {
+      titleInput.value = data.title;
+    }
+  } catch (_) {
+    // silently fall back — user can type manually
+  } finally {
+    titleInput.placeholder = prevPlaceholder;
+  }
+}
+
+// Attach URL input listeners after DOM ready (at bottom of script)
+function _initTitleListeners() {
+  const urlInput = document.getElementById('url-input');
+  urlInput.addEventListener('blur', () => {
+    if (_titleFetchTimer) { clearTimeout(_titleFetchTimer); _titleFetchTimer = null; }
+    _autoFetchTitle();
+  });
+  urlInput.addEventListener('input', () => {
+    if (_titleFetchTimer) clearTimeout(_titleFetchTimer);
+    _titleFetchTimer = setTimeout(_autoFetchTitle, 600);
+  });
+
+  const titleInput = document.getElementById('title-input');
+  titleInput.addEventListener('input', () => {
+    _titleDirty = titleInput.value.length > 0;
+    if (titleInput.value.trim()) hideTitleError();
+  });
+
+  const fileInput = document.getElementById('file-input');
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    if (_titleDirty || titleInput.value.trim()) return;
+    const stem = file.name.replace(/\.[^.]+$/, '');
+    const pretty = stem.replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    titleInput.value = pretty;
+    _titleDirty = false;
+    hideTitleError();
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -618,29 +728,74 @@ function cancelNewTopic() {
 }
 
 // ---------------------------------------------------------------------------
+// Tags
+// ---------------------------------------------------------------------------
+function _currentTags() {
+  const raw = document.getElementById('meta-tags').value.trim();
+  return raw ? raw.split(',').map(t => t.trim()).filter(Boolean) : [];
+}
+
+function addTag(tag) {
+  const input = document.getElementById('meta-tags');
+  const current = _currentTags();
+  const exists = current.some(t => t.toLowerCase() === tag.toLowerCase());
+  if (!exists) current.push(tag);
+  input.value = current.join(', ');
+  input.focus();
+}
+
+async function loadTags() {
+  const pane = document.getElementById('tag-picks');
+  pane.innerHTML = '';
+  try {
+    const res = await fetch('/api/tags');
+    const data = await res.json();
+    for (const tag of data.tags || []) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'tag-pick';
+      btn.textContent = tag;
+      btn.onclick = () => addTag(tag);
+      pane.appendChild(btn);
+    }
+  } catch (_) {
+    pane.innerHTML = '';
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Ingest submit
 // ---------------------------------------------------------------------------
 function _collectMeta() {
   const sourceType = document.getElementById('meta-source-type').value || 'article';
   const author     = document.getElementById('meta-author').value.trim();
+  const canonical  = document.getElementById('meta-canonical-url').value.trim();
   const datePub    = document.getElementById('meta-date-published').value.trim();
   const tagsRaw    = document.getElementById('meta-tags').value.trim();
   const language   = document.getElementById('meta-language').value.trim();
   const license    = document.getElementById('meta-license').value.trim();
   const tags       = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
-  return { sourceType, author, datePub, tags, language, license };
+  return { sourceType, author, canonical, datePub, tags, language, license };
 }
 
 async function submitIngest() {
   const btn = document.getElementById('submit-btn');
   const msgEl = document.getElementById('ingest-msg');
   const type = document.querySelector('input[name="source-type"]:checked').value;
+  const title = document.getElementById('title-input').value.trim();
   const topicSlug = document.getElementById('topic-select').value;
   const notes = document.getElementById('notes-input').value.trim();
   const meta = _collectMeta();
 
   msgEl.className = 'msg';
   msgEl.textContent = '';
+  hideTitleError();
+
+  if (!title) {
+    showTitleError();
+    document.getElementById('title-input').focus();
+    return;
+  }
 
   if (topicSlug === '__new__' || !topicSlug) {
     msgEl.className = 'msg msg-error';
@@ -658,6 +813,7 @@ async function submitIngest() {
       if (!url) throw new Error('URL is required.');
       const payload = {
         url,
+        title,
         topic_slug: topicSlug,
         notes,
         source_type: meta.sourceType,
@@ -677,10 +833,12 @@ async function submitIngest() {
       if (!fileInput.files.length) throw new Error('Please choose a file.');
       const fd = new FormData();
       fd.append('file', fileInput.files[0]);
+      fd.append('title', title);
       fd.append('topic_slug', topicSlug);
       fd.append('notes', notes);
       fd.append('source_type', meta.sourceType);
       fd.append('author', meta.author);
+      fd.append('canonical_url', meta.canonical);
       fd.append('date_published', meta.datePub);
       fd.append('tags', meta.tags.join(','));
       fd.append('language', meta.language);
@@ -690,6 +848,11 @@ async function submitIngest() {
 
     if (!res.ok) {
       const err = await res.json();
+      if (res.status === 409) {
+        // Show conflict inline under the title field — not a generic banner
+        showTitleError('An article with this title already exists. Please choose a different title.');
+        return;
+      }
       throw new Error(err.detail || 'Submission failed.');
     }
 
@@ -697,14 +860,17 @@ async function submitIngest() {
     msgEl.textContent = 'Queued. The pipeline will synthesize this shortly.';
     document.getElementById('url-input').value = '';
     document.getElementById('file-input').value = '';
+    document.getElementById('title-input').value = '';
     document.getElementById('notes-input').value = '';
     document.getElementById('topic-select').value = '';
     document.getElementById('meta-author').value = '';
+    document.getElementById('meta-canonical-url').value = '';
     document.getElementById('meta-date-published').value = '';
     document.getElementById('meta-tags').value = '';
     document.getElementById('meta-language').value = '';
     document.getElementById('meta-license').value = '';
     document.getElementById('meta-source-type').value = 'article';
+    _titleDirty = false;
   } catch (err) {
     msgEl.className = 'msg msg-error';
     msgEl.textContent = err.message || 'Unknown error.';
@@ -845,7 +1011,9 @@ function escHtml(str) {
 // Init
 // ---------------------------------------------------------------------------
 loadTopics();
+loadTags();
 loadQueue().then(() => {});
+_initTitleListeners();
 </script>
 </body>
 </html>

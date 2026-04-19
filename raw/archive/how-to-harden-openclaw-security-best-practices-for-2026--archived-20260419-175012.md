@@ -1,95 +1,16 @@
-# Compilation Request
-
-- Requested title: How to Harden OpenClaw: Security Best Practices for 2026 | OpenClaw Blog Synthesis
-- Canonical title: How to Harden OpenClaw: Security Best Practices for 2026 | OpenClaw Blog Synthesis
-- Canonical slug: how-to-harden-openclaw-security-best-practices-for-2026-openclaw-blog-synthesis
-- Note category: source_summary
-- Repository phase: Phase 3 compilation workflow
-- Required generation method value: prompt_pack
-
-# Canonical Identity Rules
-
-- Use the exact canonical title provided: How to Harden OpenClaw: Security Best Practices for 2026 | OpenClaw Blog Synthesis
-- Use the exact canonical topic slug provided: how-to-harden-openclaw-security-best-practices-for-2026-openclaw-blog-synthesis
-- Do not invent, modify, pluralize, misspell, or rename the topic.
-- Do not create alternative topic identities.
-- Do not create additional topic files or variants.
-
-# Instructions
-
-Use the provided source notes to synthesize one compiled markdown note in the exact repository format shown below.
-Preserve lineage explicitly by listing every source note in `compiled_from`, `# Source Notes`, and `# Lineage`.
-Do not invent unsupported claims. If the sources do not support a statement, omit it or mark it as uncertain in the note.
-Keep the result inspectable and grounded in the provided source material.
-Do not rewrite or mutate raw notes.
-
-# Desired Output Template
-
-```markdown
 ---
-title: "How to Harden OpenClaw: Security Best Practices for 2026 | OpenClaw Blog Synthesis"
-note_type: "source_summary"
-compiled_from: 
-  - "how-to-harden-openclaw-security-best-practices-for-2026-openclaw-blog"
-date_compiled: "YYYY-MM-DD"
-topics: []
-tags: []
-confidence: "medium"
-generation_method: "prompt_pack"
+title: How to Harden OpenClaw: Security Best Practices for 2026
+source_type: article
+origin: url
+canonical_url: https://openclawdesktop.com/blog/hardening-openclaw-security-best-practices.html
+topics:
+  - openclaw-security
+date_published: 2026-03-20
+tags:
+  - openclaw
 ---
 
-# Summary
-
-[write a concise synthesis grounded in the sources]
-
-# Key Insights
-
-- [insight]
-- [insight]
-
-# Related Concepts
-
-- 
-
-# Source Notes
-
-- [[how-to-harden-openclaw-security-best-practices-for-2026-openclaw-blog]]
-
-# Source Highlights
-
-## [[how-to-harden-openclaw-security-best-practices-for-2026-openclaw-blog]]
-- Title:
-- Source Type:
-- Origin:
-- Summary:
-- Key excerpt:
-
-# Lineage
-
-This note was derived from:
-- [[how-to-harden-openclaw-security-best-practices-for-2026-openclaw-blog]]
-```
-
-# Source Notes
-
-## [[how-to-harden-openclaw-security-best-practices-for-2026-openclaw-blog]]
-
-- Path: /home/peralese/Projects/Knowledge_Base/raw/articles/how-to-harden-openclaw-security-best-practices-for-2026-openclaw-blog.md
-- Title: How to Harden OpenClaw: Security Best Practices for 2026 | OpenClaw Blog
-- Source Type: article
-- Origin: web
-- Summary: [none provided]
-- Topics: [none]
-- Tags: [none]
-
-### Body
-
-```markdown
-# Overview
-
-Brief description of what this source is and why it matters.
-
-# Source Content
+<!-- topic_slug: openclaw-security -->
 
 OpenClaw Desktop
 
@@ -431,26 +352,10 @@ Community (openclaw.ai)
 
 Contact
 
-hello@openclawdesktop.com
+[email protected]
 
 © 2026 OpenClaw Community Hub
 
 ⚠️ This is a community-driven website, not operated by the official OpenClaw team. OpenClaw (formerly MoltBot/ClawdBot) is developed by Peter Steinberger & the open-source community.
 
 We use cookies to improve your experience. By using our site, you agree to our Privacy Policy and Terms.
-
-If the file doesn't appear, check your browser's download bar or your Downloads folder.
-
-# Key Points
-
-- 
-
-# Notes
-
-# Lineage
-
-- Ingested via: scripts/ingest.py
-- Manifest entry: metadata/source-manifest.json::SRC-20260415-0001
-- Source path: /home/peralese/Projects/Knowledge_Base/raw/inbox/browser/index.html
-- Canonical URL: https://openclawdesktop.com/blog/hardening-openclaw-security-best-practices.html
-```
