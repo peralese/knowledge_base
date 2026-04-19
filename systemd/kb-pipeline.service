@@ -1,0 +1,13 @@
+[Unit]
+Description=KB Pipeline Runner (synthesize → score → aggregate → index)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /home/peralese/Projects/Knowledge_Base/scripts/pipeline_run.py --watch --interval 30
+WorkingDirectory=/home/peralese/Projects/Knowledge_Base
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

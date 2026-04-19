@@ -41,6 +41,32 @@
       "input_path": "/home/peralese/Projects/Knowledge_Base/raw/inbox/browser/karpathy-llm-wiki-knowledge-base-guide.html",
       "status": "raw",
       "archive_path": "raw/archive/karpathy-llm-wiki-knowledge-base-guide--archived-20260418-152627.html"
+    },
+    {
+      "source_id": "SRC-20260418-0002",
+      "title": "Technology",
+      "filename": "technology.md",
+      "path": "raw/articles/technology.md",
+      "source_type": "article",
+      "origin": "web",
+      "date_ingested": "2026-04-18",
+      "canonical_url": "https://www.xda-developers.com/local-ai-stack-with-docker-containers/?utm_source=flipboard&utm_content=topic/technology",
+      "input_path": "/home/peralese/Projects/Knowledge_Base/raw/inbox/browser/technology.md",
+      "status": "raw",
+      "archive_path": "raw/archive/technology--archived-20260418-211911.md"
+    },
+    {
+      "source_id": "SRC-20260418-0003",
+      "title": "Sitemap",
+      "filename": "sitemap.md",
+      "path": "raw/articles/sitemap.md",
+      "source_type": "article",
+      "origin": "web",
+      "date_ingested": "2026-04-18",
+      "canonical_url": "",
+      "input_path": "/home/peralese/Projects/Knowledge_Base/raw/inbox/browser/books.html",
+      "status": "raw",
+      "archive_path": "raw/archive/books--archived-20260418-222605.html"
     }
   ]
 }

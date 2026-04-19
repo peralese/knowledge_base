@@ -1,0 +1,13 @@
+[Unit]
+Description=KB Ingestion & Review Dashboard
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /home/peralese/Projects/Knowledge_Base/dashboard.py
+WorkingDirectory=/home/peralese/Projects/Knowledge_Base
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

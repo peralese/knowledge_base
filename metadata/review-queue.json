@@ -37,9 +37,9 @@
     "confidence_band": "medium",
     "confidence_reasoning": "The synthesis captures the key points accurately and is clear in its structure. However, it lacks some specific details such as emergency controls and logging & auditing practices mentioned in the source material, leading to a slight deduction in completeness.",
     "scored_at": "2026-04-16T21:17:11.281579",
-    "review_action": null,
-    "review_method": null,
-    "reviewed_at": null
+    "review_action": "approved",
+    "review_method": "manual",
+    "reviewed_at": "2026-04-18T21:19:54.952948"
   },
   {
     "source_id": "SRC-20260418-0001",
@@ -61,5 +61,46 @@
     "review_action": "approved",
     "review_method": "manual",
     "reviewed_at": "2026-04-18T17:21:02.840196"
+  },
+  {
+    "source_id": "SRC-20260418-0002",
+    "title": "Technology",
+    "source_note_path": "raw/articles/technology.md",
+    "input_path": "/home/peralese/Projects/Knowledge_Base/raw/inbox/browser/technology.md",
+    "adapter": "browser",
+    "source_type": "article",
+    "origin": "web",
+    "queued_at": "2026-04-18T21:19:11.236639",
+    "review_status": "synthesized",
+    "validation_status": "validated",
+    "validation_issues": [],
+    "synthesized_at": "2026-04-18T21:24:38.020509",
+    "confidence_score": 0.75,
+    "confidence_band": "medium",
+    "confidence_reasoning": "The synthesis captures most key points from the source document but lacks specific details such as exact model specifications, reader comments, and hardware recommendations. It also could be clearer by explicitly linking sections together.",
+    "scored_at": "2026-04-18T21:24:49.179315",
+    "review_action": "approved",
+    "review_method": "manual",
+    "reviewed_at": "2026-04-18T21:28:20.483114"
+  },
+  {
+    "source_id": "SRC-20260418-0003",
+    "title": "Sitemap",
+    "source_note_path": "raw/articles/sitemap.md",
+    "input_path": "/home/peralese/Projects/Knowledge_Base/raw/inbox/browser/books.html",
+    "adapter": "browser",
+    "source_type": "article",
+    "origin": "web",
+    "queued_at": "2026-04-18T22:26:05.371638",
+    "review_status": "pending_review",
+    "validation_status": "validated",
+    "validation_issues": [],
+    "confidence_score": 0.65,
+    "confidence_band": "medium",
+    "confidence_reasoning": "The synthesis captures some key points but lacks depth and misses crucial details that were present in the source material, leading to lower scores in accuracy and completeness.",
+    "scored_at": "2026-04-18T22:37:31.101399",
+    "review_action": null,
+    "review_method": null,
+    "reviewed_at": null
   }
 ]

@@ -19,6 +19,16 @@
         "ai knowledge base",
         "llm wiki"
       ]
+    },
+    {
+      "slug": "local-ai-stack",
+      "title": "Local AI Stack",
+      "aliases": []
+    },
+    {
+      "slug": "books",
+      "title": "Books",
+      "aliases": []
     }
   ]
 }

@@ -144,15 +144,32 @@ class BuildIndexTextTests(unittest.TestCase):
         groups = self._groups(concepts=[_entry("c", "C", "Summary C", "concepts")])
         self.assertIn("## Concepts", build_index_text(groups, "2026-04-11"))
 
-    def test_source_summaries_section_present_when_non_empty(self) -> None:
+    def test_source_summaries_never_appear_in_index(self) -> None:
+        """Source summaries must never be wikilinked from the index.
+
+        They are reachable only via their parent topic note, preserving the
+        correct Obsidian graph hierarchy: index → topic → source summary → raw article.
+        """
         groups = self._groups(source_summaries=[_entry("s", "S", "Summary S", "source_summaries")])
-        self.assertIn("## Source Summaries", build_index_text(groups, "2026-04-11"))
+        text = build_index_text(groups, "2026-04-11")
+        self.assertNotIn("## Source Summaries", text)
+        self.assertNotIn("[[s]]", text)
 
     def test_empty_category_omits_heading(self) -> None:
         groups = self._groups(topics=[_entry("a", "A", "Summary A")])
         text = build_index_text(groups, "2026-04-11")
         self.assertNotIn("## Concepts", text)
         self.assertNotIn("## Source Summaries", text)
+
+    def test_source_summaries_excluded_even_when_topics_present(self) -> None:
+        groups = self._groups(
+            topics=[_entry("my-topic", "My Topic", "Topic summary")],
+            source_summaries=[_entry("my-summary-synthesis", "My Summary", "Source summary", "source_summaries")],
+        )
+        text = build_index_text(groups, "2026-04-11")
+        self.assertIn("[[my-topic]]", text)
+        self.assertNotIn("[[my-summary-synthesis]]", text)
+        self.assertNotIn("source_summaries", text)
 
     def test_wikilink_format(self) -> None:
         groups = self._groups(topics=[_entry("aws-containers", "AWS Containers", "EKS guide")])

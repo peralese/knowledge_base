@@ -36,10 +36,14 @@ INDEX_PATH = ROOT / "compiled" / "index.md"
 
 CATEGORY_ORDER = ["topics", "concepts", "source_summaries"]
 
+# Only these categories get wikilinks in the index.
+# source_summaries are linked from their parent topic note — not from the index.
+# This keeps the Obsidian graph hierarchy: index → topic → source summary → raw article.
+INDEX_LINK_CATEGORIES = ["topics", "concepts"]
+
 CATEGORY_HEADINGS = {
-    "topics":           "Topics",
-    "concepts":         "Concepts",
-    "source_summaries": "Source Summaries",
+    "topics":   "Topics",
+    "concepts": "Concepts",
 }
 
 SUMMARY_MAX_LEN = 120
@@ -185,26 +189,33 @@ def _load_note_entries(root: Path) -> dict[str, list[NoteEntry]]:
 # ---------------------------------------------------------------------------
 
 def build_index_text(groups: dict[str, list[NoteEntry]], today: str) -> str:
-    """Render the full compiled/index.md content."""
-    total = sum(len(v) for v in groups.values())
+    """Render the full compiled/index.md content.
+
+    Only topics and concepts are wikilinked here. Source summaries are
+    intentionally excluded — they are reachable via their parent topic note,
+    which preserves the correct Obsidian graph hierarchy:
+        index → topic → source summary → raw article
+    """
+    # Count only linked categories for the header (source_summaries not shown)
+    linked_total = sum(len(groups.get(cat, [])) for cat in INDEX_LINK_CATEGORIES)
 
     frontmatter = (
         "---\n"
         'title: "Wiki Index"\n'
         'note_type: "index"\n'
         f'generated_on: "{today}"\n'
-        f"note_count: {total}\n"
+        f"note_count: {linked_total}\n"
         "---"
     )
 
     header = (
         f"{frontmatter}\n\n"
         "# Wiki Index\n\n"
-        f"_Generated on {today} — {total} note{'s' if total != 1 else ''}_\n"
+        f"_Generated on {today} — {linked_total} topic{'s' if linked_total != 1 else ''}_\n"
     )
 
     sections: list[str] = []
-    for cat in CATEGORY_ORDER:
+    for cat in INDEX_LINK_CATEGORIES:
         entries = groups.get(cat, [])
         if not entries:
             continue

@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KB Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 14px;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #1a1d27;
+      border-bottom: 1px solid #2d3148;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      height: 52px;
+    }
+
+    header h1 {
+      font-size: 15px;
+      font-weight: 600;
+      color: #94a3b8;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    nav { display: flex; gap: 4px; }
+
+    nav button {
+      background: none;
+      border: none;
+      color: #64748b;
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.15s;
+      position: relative;
+    }
+
+    nav button:hover { background: #1e2235; color: #e2e8f0; }
+    nav button.active { background: #1e2235; color: #e2e8f0; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #ef4444;
+      color: white;
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: 700;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+
+    .badge:empty, .badge[data-count="0"] { display: none; }
+
+    main { max-width: 860px; margin: 40px auto; padding: 0 24px; }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* ---- Form ---- */
+    .form-card {
+      background: #1a1d27;
+      border: 1px solid #2d3148;
+      border-radius: 10px;
+      padding: 28px;
+    }
+
+    .form-card h2 {
+      font-size: 15px;
+      font-weight: 600;
+      color: #94a3b8;
+      margin-bottom: 24px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .field { margin-bottom: 20px; }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+
+    input[type="text"], input[type="url"], textarea, select {
+      width: 100%;
+      background: #0f1117;
+      border: 1px solid #2d3148;
+      border-radius: 6px;
+      color: #e2e8f0;
+      padding: 9px 12px;
+      font-size: 13px;
+      font-family: inherit;
+      transition: border-color 0.15s;
+      outline: none;
+    }
+
+    input[type="text"]:focus, input[type="url"]:focus,
+    textarea:focus, select:focus {
+      border-color: #4f6ef7;
+    }
+
+    textarea { resize: vertical; min-height: 80px; }
+
+    select option { background: #1a1d27; }
+
+    .radio-group { display: flex; gap: 12px; }
+
+    .radio-group label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: 13px;
+      font-weight: 500;
+      color: #94a3b8;
+      cursor: pointer;
+    }
+
+    input[type="radio"] { accent-color: #4f6ef7; cursor: pointer; }
+    input[type="file"] {
+      color: #94a3b8;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    /* New topic sub-form */
+    #new-topic-form {
+      display: none;
+      background: #0f1117;
+      border: 1px solid #2d3148;
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 12px;
+    }
+
+    #new-topic-form.visible { display: block; }
+
+    #new-topic-form .field { margin-bottom: 12px; }
+
+    .slug-preview {
+      font-size: 11px;
+      color: #4f6ef7;
+      margin-top: 4px;
+      font-family: monospace;
+    }
+
+    .sub-actions { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 18px;
+      border-radius: 6px;
+      border: none;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn-primary { background: #4f6ef7; color: white; }
+    .btn-primary:hover { background: #3d5ce5; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-sm { padding: 6px 14px; font-size: 12px; }
+    .btn-success { background: #16a34a; color: white; }
+    .btn-success:hover { background: #15803d; }
+    .btn-danger { background: #dc2626; color: white; }
+    .btn-danger:hover { background: #b91c1c; }
+
+    .link-btn {
+      background: none;
+      border: none;
+      color: #64748b;
+      cursor: pointer;
+      font-size: 12px;
+      text-decoration: underline;
+      padding: 0;
+    }
+
+    .link-btn:hover { color: #94a3b8; }
+
+    .msg { margin-top: 14px; padding: 10px 14px; border-radius: 6px; font-size: 13px; }
+    .msg-success { background: #14532d; color: #86efac; border: 1px solid #166534; }
+    .msg-error   { background: #450a0a; color: #fca5a5; border: 1px solid #7f1d1d; }
+    .msg:empty { display: none; }
+
+    .spinner {
+      display: inline-block;
+      width: 12px; height: 12px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ---- Queue ---- */
+    .queue-empty {
+      text-align: center;
+      color: #4f5a7a;
+      padding: 60px 0;
+      font-size: 14px;
+    }
+
+    .card {
+      background: #1a1d27;
+      border: 1px solid #2d3148;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 14px;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+
+    .card-title { font-size: 14px; font-weight: 600; color: #e2e8f0; flex: 1; }
+
+    .pill {
+      background: #1e2235;
+      border: 1px solid #2d3148;
+      color: #94a3b8;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 3px 8px;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+
+    .card-meta {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    .confidence-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #94a3b8;
+    }
+
+    .confidence-bar-wrap {
+      flex: 1;
+      max-width: 160px;
+      background: #0f1117;
+      border-radius: 4px;
+      height: 6px;
+      overflow: hidden;
+    }
+
+    .confidence-bar {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.3s;
+    }
+
+    .bar-red    { background: #ef4444; }
+    .bar-amber  { background: #f59e0b; }
+    .bar-green  { background: #22c55e; }
+
+    .date-meta { font-size: 11px; color: #4f5a7a; }
+
+    .card-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+    .btn-expand {
+      background: none;
+      border: 1px solid #2d3148;
+      color: #64748b;
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .btn-expand:hover { border-color: #4f6ef7; color: #4f6ef7; }
+
+    .preview-pane {
+      display: none;
+      margin-top: 16px;
+      background: #0f1117;
+      border: 1px solid #2d3148;
+      border-radius: 8px;
+      padding: 16px;
+      font-family: monospace;
+      font-size: 12px;
+      color: #94a3b8;
+      white-space: pre-wrap;
+      max-height: 360px;
+      overflow-y: auto;
+    }
+
+    .preview-pane.visible { display: block; }
+
+    .confirm-row {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .confirm-row.visible { display: flex; }
+    .confirm-row span { font-size: 12px; color: #94a3b8; }
+
+    /* Additional metadata collapsible */
+    details.meta-section { margin-bottom: 20px; }
+
+    details.meta-section summary {
+      list-style: none;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      color: #4f6ef7;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 6px 0;
+      user-select: none;
+    }
+
+    details.meta-section summary::-webkit-details-marker { display: none; }
+
+    details.meta-section summary::before {
+      content: "▶ ";
+      font-size: 10px;
+    }
+
+    details.meta-section[open] summary::before { content: "▼ "; }
+
+    .meta-body {
+      background: #0f1117;
+      border: 1px solid #2d3148;
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 8px;
+    }
+
+    .meta-body .field { margin-bottom: 14px; }
+    .meta-body .field:last-child { margin-bottom: 0; }
+
+    .row-half {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>KB Dashboard</h1>
+  <nav>
+    <button class="active" onclick="showTab('ingest')">Ingest</button>
+    <button onclick="showTab('queue')">
+      Review Queue
+      <span class="badge" id="queue-badge"></span>
+    </button>
+  </nav>
+</header>
+
+<main>
+
+  <!-- ===================== INGEST TAB ===================== -->
+  <div class="panel active" id="panel-ingest">
+    <div class="form-card">
+      <h2>Add to Knowledge Base</h2>
+
+      <!-- Source toggle -->
+      <div class="field">
+        <label>Source</label>
+        <div class="radio-group">
+          <label><input type="radio" name="source-type" value="url" checked onchange="toggleSourceType()"> URL</label>
+          <label><input type="radio" name="source-type" value="file" onchange="toggleSourceType()"> File</label>
+        </div>
+      </div>
+
+      <div class="field" id="url-field">
+        <label>URL</label>
+        <input type="url" id="url-input" placeholder="https://example.com/article" />
+      </div>
+
+      <div class="field" id="file-field" style="display:none">
+        <label>File</label>
+        <input type="file" id="file-input" accept=".pdf,.html,.htm,.md" />
+      </div>
+
+      <!-- Topic -->
+      <div class="field">
+        <label>Topic</label>
+        <select id="topic-select" onchange="onTopicSelectChange()">
+          <option value="">Loading…</option>
+        </select>
+      </div>
+
+      <!-- New topic sub-form -->
+      <div id="new-topic-form">
+        <div class="field">
+          <label>Display Name</label>
+          <input type="text" id="new-topic-name" placeholder="Machine Learning" oninput="updateSlugPreview()" />
+          <div class="slug-preview" id="slug-preview">slug: —</div>
+        </div>
+        <div class="field">
+          <label>Keywords <span style="font-weight:400;text-transform:none">(comma-separated, optional)</span></label>
+          <input type="text" id="new-topic-keywords" placeholder="neural network, deep learning" />
+        </div>
+        <div class="sub-actions">
+          <button class="btn btn-sm btn-primary" onclick="createTopic()">Create Topic</button>
+          <button class="link-btn" onclick="cancelNewTopic()">Cancel</button>
+          <span id="new-topic-msg" style="font-size:12px;color:#ef4444;"></span>
+        </div>
+      </div>
+
+      <!-- Notes -->
+      <div class="field">
+        <label>Notes <span style="font-weight:400;text-transform:none">(optional)</span></label>
+        <textarea id="notes-input" placeholder="Any context about this source…"></textarea>
+      </div>
+
+      <!-- Additional metadata (collapsed by default) -->
+      <details class="meta-section" id="meta-details">
+        <summary>Additional metadata</summary>
+        <div class="meta-body">
+
+          <div class="field">
+            <label>Source type</label>
+            <select id="meta-source-type">
+              <option value="article">article</option>
+              <option value="blog">blog</option>
+              <option value="paper">paper</option>
+              <option value="documentation">documentation</option>
+              <option value="repo">repo</option>
+              <option value="podcast">podcast</option>
+              <option value="video">video</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Author <span style="font-weight:400;text-transform:none">(optional)</span></label>
+            <input type="text" id="meta-author" placeholder="e.g. Jane Smith" />
+          </div>
+
+          <div class="row-half">
+            <div class="field">
+              <label>Date published <span style="font-weight:400;text-transform:none">(optional)</span></label>
+              <input type="date" id="meta-date-published" />
+            </div>
+            <div class="field">
+              <label>Language <span style="font-weight:400;text-transform:none">(optional)</span></label>
+              <input type="text" id="meta-language" placeholder="en" maxlength="10" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Tags <span style="font-weight:400;text-transform:none">(comma-separated, optional)</span></label>
+            <input type="text" id="meta-tags" placeholder="e.g. security, hardening, 2026" />
+          </div>
+
+          <div class="field">
+            <label>License <span style="font-weight:400;text-transform:none">(optional)</span></label>
+            <input type="text" id="meta-license" placeholder="e.g. CC BY 4.0, MIT, proprietary" />
+          </div>
+
+        </div>
+      </details>
+
+      <button class="btn btn-primary" id="submit-btn" onclick="submitIngest()">
+        Add to Knowledge Base
+      </button>
+
+      <div id="ingest-msg" class="msg"></div>
+    </div>
+  </div>
+
+  <!-- ===================== QUEUE TAB ===================== -->
+  <div class="panel" id="panel-queue">
+    <div id="queue-container">
+      <div class="queue-empty">Loading…</div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ---------------------------------------------------------------------------
+// Tab switching
+// ---------------------------------------------------------------------------
+function showTab(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (name === 'queue') loadQueue();
+}
+
+// ---------------------------------------------------------------------------
+// Source type toggle
+// ---------------------------------------------------------------------------
+function toggleSourceType() {
+  const type = document.querySelector('input[name="source-type"]:checked').value;
+  document.getElementById('url-field').style.display = type === 'url' ? 'block' : 'none';
+  document.getElementById('file-field').style.display = type === 'file' ? 'block' : 'none';
+}
+
+// ---------------------------------------------------------------------------
+// Topics
+// ---------------------------------------------------------------------------
+async function loadTopics() {
+  const res = await fetch('/api/topics');
+  const data = await res.json();
+  const sel = document.getElementById('topic-select');
+  sel.innerHTML = '<option value="">— Select a topic —</option>';
+  for (const t of data.topics) {
+    const opt = document.createElement('option');
+    opt.value = t.slug;
+    opt.textContent = t.display_name;
+    sel.appendChild(opt);
+  }
+  const addOpt = document.createElement('option');
+  addOpt.value = '__new__';
+  addOpt.textContent = '+ Add new topic…';
+  sel.appendChild(addOpt);
+}
+
+function onTopicSelectChange() {
+  const val = document.getElementById('topic-select').value;
+  const form = document.getElementById('new-topic-form');
+  if (val === '__new__') {
+    form.classList.add('visible');
+    document.getElementById('new-topic-name').focus();
+  } else {
+    form.classList.remove('visible');
+  }
+}
+
+function updateSlugPreview() {
+  const name = document.getElementById('new-topic-name').value;
+  const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || '—';
+  document.getElementById('slug-preview').textContent = 'slug: ' + slug;
+}
+
+async function createTopic() {
+  const name = document.getElementById('new-topic-name').value.trim();
+  const kw = document.getElementById('new-topic-keywords').value.trim();
+  const msg = document.getElementById('new-topic-msg');
+
+  if (!name) { msg.textContent = 'Display name is required.'; return; }
+  msg.textContent = '';
+
+  const payload = {
+    display_name: name,
+    keywords: kw ? kw.split(',').map(s => s.trim()).filter(Boolean) : [],
+  };
+
+  const res = await fetch('/api/topics', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    msg.textContent = err.detail || 'Error creating topic.';
+    return;
+  }
+
+  const data = await res.json();
+  const slug = data.topic.slug;
+
+  // Add to dropdown, select it, collapse sub-form
+  const sel = document.getElementById('topic-select');
+  const addOpt = sel.querySelector('option[value="__new__"]');
+  const newOpt = document.createElement('option');
+  newOpt.value = slug;
+  newOpt.textContent = data.topic.display_name;
+  sel.insertBefore(newOpt, addOpt);
+  sel.value = slug;
+
+  document.getElementById('new-topic-form').classList.remove('visible');
+  document.getElementById('new-topic-name').value = '';
+  document.getElementById('new-topic-keywords').value = '';
+  document.getElementById('slug-preview').textContent = 'slug: —';
+}
+
+function cancelNewTopic() {
+  document.getElementById('new-topic-form').classList.remove('visible');
+  document.getElementById('new-topic-name').value = '';
+  document.getElementById('slug-preview').textContent = 'slug: —';
+  document.getElementById('topic-select').value = '';
+}
+
+// ---------------------------------------------------------------------------
+// Ingest submit
+// ---------------------------------------------------------------------------
+function _collectMeta() {
+  const sourceType = document.getElementById('meta-source-type').value || 'article';
+  const author     = document.getElementById('meta-author').value.trim();
+  const datePub    = document.getElementById('meta-date-published').value.trim();
+  const tagsRaw    = document.getElementById('meta-tags').value.trim();
+  const language   = document.getElementById('meta-language').value.trim();
+  const license    = document.getElementById('meta-license').value.trim();
+  const tags       = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
+  return { sourceType, author, datePub, tags, language, license };
+}
+
+async function submitIngest() {
+  const btn = document.getElementById('submit-btn');
+  const msgEl = document.getElementById('ingest-msg');
+  const type = document.querySelector('input[name="source-type"]:checked').value;
+  const topicSlug = document.getElementById('topic-select').value;
+  const notes = document.getElementById('notes-input').value.trim();
+  const meta = _collectMeta();
+
+  msgEl.className = 'msg';
+  msgEl.textContent = '';
+
+  if (topicSlug === '__new__' || !topicSlug) {
+    msgEl.className = 'msg msg-error';
+    msgEl.textContent = 'Please select a topic.';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Adding…';
+
+  try {
+    let res;
+    if (type === 'url') {
+      const url = document.getElementById('url-input').value.trim();
+      if (!url) throw new Error('URL is required.');
+      const payload = {
+        url,
+        topic_slug: topicSlug,
+        notes,
+        source_type: meta.sourceType,
+      };
+      if (meta.author)   payload.author         = meta.author;
+      if (meta.datePub)  payload.date_published = meta.datePub;
+      if (meta.tags.length) payload.tags        = meta.tags;
+      if (meta.language) payload.language       = meta.language;
+      if (meta.license)  payload.license        = meta.license;
+      res = await fetch('/api/ingest/url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } else {
+      const fileInput = document.getElementById('file-input');
+      if (!fileInput.files.length) throw new Error('Please choose a file.');
+      const fd = new FormData();
+      fd.append('file', fileInput.files[0]);
+      fd.append('topic_slug', topicSlug);
+      fd.append('notes', notes);
+      fd.append('source_type', meta.sourceType);
+      fd.append('author', meta.author);
+      fd.append('date_published', meta.datePub);
+      fd.append('tags', meta.tags.join(','));
+      fd.append('language', meta.language);
+      fd.append('license', meta.license);
+      res = await fetch('/api/ingest/file', { method: 'POST', body: fd });
+    }
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Submission failed.');
+    }
+
+    msgEl.className = 'msg msg-success';
+    msgEl.textContent = 'Queued. The pipeline will synthesize this shortly.';
+    document.getElementById('url-input').value = '';
+    document.getElementById('file-input').value = '';
+    document.getElementById('notes-input').value = '';
+    document.getElementById('topic-select').value = '';
+    document.getElementById('meta-author').value = '';
+    document.getElementById('meta-date-published').value = '';
+    document.getElementById('meta-tags').value = '';
+    document.getElementById('meta-language').value = '';
+    document.getElementById('meta-license').value = '';
+    document.getElementById('meta-source-type').value = 'article';
+  } catch (err) {
+    msgEl.className = 'msg msg-error';
+    msgEl.textContent = err.message || 'Unknown error.';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Add to Knowledge Base';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Review Queue
+// ---------------------------------------------------------------------------
+async function loadQueue() {
+  const container = document.getElementById('queue-container');
+  container.innerHTML = '<div class="queue-empty">Loading…</div>';
+  const res = await fetch('/api/queue');
+  const data = await res.json();
+  renderQueue(data.items);
+}
+
+function renderQueue(items) {
+  const container = document.getElementById('queue-container');
+  const badge = document.getElementById('queue-badge');
+
+  badge.textContent = items.length || '';
+
+  if (!items.length) {
+    container.innerHTML = '<div class="queue-empty">No items pending review. The pipeline is running clean.</div>';
+    return;
+  }
+
+  container.innerHTML = '';
+  for (const item of items) {
+    container.appendChild(buildCard(item));
+  }
+}
+
+function buildCard(item) {
+  const conf = item.confidence != null ? item.confidence : null;
+  const confPct = conf != null ? Math.round(conf * 100) : null;
+  const barClass = conf == null ? 'bar-amber' : conf < 0.6 ? 'bar-red' : conf < 0.85 ? 'bar-amber' : 'bar-green';
+  const confLabel = conf != null ? `${confPct}%` : 'unscored';
+
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.id = 'card-' + item.id;
+
+  card.innerHTML = `
+    <div class="card-header">
+      <div class="card-title">${escHtml(item.title || item.id)}</div>
+      ${item.topic ? `<span class="pill">${escHtml(item.topic)}</span>` : ''}
+    </div>
+    <div class="card-meta">
+      <span class="confidence-label">Confidence: ${confLabel}</span>
+      <div class="confidence-bar-wrap">
+        <div class="confidence-bar ${barClass}" style="width:${confPct ?? 50}%"></div>
+      </div>
+      ${item.date_synthesized ? `<span class="date-meta">${escHtml(item.date_synthesized)}</span>` : ''}
+    </div>
+    <div class="card-actions">
+      <button class="btn-expand" onclick="togglePreview('${item.id}')">Preview</button>
+      <button class="btn btn-sm btn-success" onclick="approveItem('${item.id}')">Approve</button>
+      <button class="btn btn-sm btn-danger" onclick="showRejectConfirm('${item.id}')">Reject</button>
+    </div>
+    <div class="confirm-row" id="confirm-${item.id}">
+      <span>Reject this item?</span>
+      <button class="btn btn-sm btn-danger" onclick="rejectItem('${item.id}')">Confirm Reject</button>
+      <button class="link-btn" onclick="hideRejectConfirm('${item.id}')">Cancel</button>
+    </div>
+    <div class="preview-pane" id="preview-${item.id}"></div>
+  `;
+  return card;
+}
+
+async function togglePreview(id) {
+  const pane = document.getElementById('preview-' + id);
+  if (pane.classList.contains('visible')) {
+    pane.classList.remove('visible');
+    return;
+  }
+  pane.textContent = 'Loading…';
+  pane.classList.add('visible');
+  const res = await fetch('/api/queue/' + id + '/preview');
+  if (res.ok) {
+    pane.textContent = await res.text();
+  } else {
+    pane.textContent = 'Preview unavailable.';
+  }
+}
+
+async function approveItem(id) {
+  const res = await fetch('/api/queue/' + id + '/approve', { method: 'POST' });
+  if (res.ok) {
+    removeCard(id);
+  } else {
+    alert('Approve failed: ' + (await res.json()).detail);
+  }
+}
+
+function showRejectConfirm(id) {
+  document.getElementById('confirm-' + id).classList.add('visible');
+}
+
+function hideRejectConfirm(id) {
+  document.getElementById('confirm-' + id).classList.remove('visible');
+}
+
+async function rejectItem(id) {
+  const res = await fetch('/api/queue/' + id + '/reject', { method: 'POST' });
+  if (res.ok) {
+    removeCard(id);
+  } else {
+    alert('Reject failed: ' + (await res.json()).detail);
+  }
+}
+
+function removeCard(id) {
+  const card = document.getElementById('card-' + id);
+  if (card) card.remove();
+  const remaining = document.querySelectorAll('.card').length;
+  const badge = document.getElementById('queue-badge');
+  badge.textContent = remaining || '';
+  if (!remaining) {
+    document.getElementById('queue-container').innerHTML =
+      '<div class="queue-empty">No items pending review. The pipeline is running clean.</div>';
+  }
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ---------------------------------------------------------------------------
+// Init
+// ---------------------------------------------------------------------------
+loadTopics();
+loadQueue().then(() => {});
+</script>
+</body>
+</html>
