@@ -34,6 +34,7 @@ DEFAULT_MODEL = "qwen2.5:14b"
 
 # Import llm_driver at module level so tests can patch call_ollama on this module.
 sys.path.insert(0, str(Path(__file__).parent))
+from git_ops import commit_pipeline_stage  # noqa: E402, PLC0415
 from llm_driver import _check_model_available, call_ollama  # noqa: E402, PLC0415
 
 
@@ -49,6 +50,7 @@ class AggregateRequest:
     model: str = DEFAULT_MODEL
     force: bool = False
     root: Path = field(default_factory=lambda: ROOT)
+    no_commit: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -388,6 +390,11 @@ def aggregate_topic(request: AggregateRequest) -> Path:
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(note_text, encoding="utf-8")
+    commit_pipeline_stage(
+        message=f"topic: updated {request.topic_slug} (+{request.new_source_id})",
+        paths=[output_path],
+        no_commit=request.no_commit,
+    )
     return output_path
 
 
@@ -397,11 +404,13 @@ def aggregate_for_source(
     *,
     model: str = DEFAULT_MODEL,
     root: Path = ROOT,
-) -> None:
+    no_commit: bool = False,
+) -> Path | None:
     """Classify a source article and aggregate into the matching topic note.
 
     Called from synthesize.py after synthesis + scoring. Non-blocking by design —
     the caller wraps this in a try/except.
+    Returns the written topic note path, or None if skipped.
     """
     title = str(item.get("title", ""))
     raw_note_path = root / str(item.get("source_note_path", ""))
@@ -415,7 +424,7 @@ def aggregate_for_source(
 
     if topic_slug is None:
         print("  Topic       : no registry match — skipping aggregation")
-        return
+        return None
 
     source_id = str(item.get("source_id", ""))
     print(f"  Topic       : {topic_slug}")
@@ -426,8 +435,10 @@ def aggregate_for_source(
         new_source_id=source_id,
         model=model,
         root=root,
+        no_commit=no_commit,
     ))
     print(f"  Topic note  : {result_path.relative_to(root)}")
+    return result_path
 
 
 # ---------------------------------------------------------------------------
@@ -459,7 +470,7 @@ def _find_source_summary(item: dict[str, object], root: Path) -> Path | None:
 # CLI commands
 # ---------------------------------------------------------------------------
 
-def cmd_aggregate_one(source_id: str, *, model: str, root: Path) -> int:
+def cmd_aggregate_one(source_id: str, *, model: str, root: Path, no_commit: bool = False) -> int:
     queue = _load_queue(root)
     item = next((e for e in queue if e.get("source_id") == source_id), None)
     if item is None:
@@ -472,11 +483,11 @@ def cmd_aggregate_one(source_id: str, *, model: str, root: Path) -> int:
         return 1
 
     print(f"Aggregating: {item.get('title', source_id)}  ({source_id})")
-    aggregate_for_source(item, summary_path, model=model, root=root)
+    aggregate_for_source(item, summary_path, model=model, root=root, no_commit=no_commit)
     return 0
 
 
-def cmd_aggregate_all(*, model: str, root: Path) -> int:
+def cmd_aggregate_all(*, model: str, root: Path, no_commit: bool = False) -> int:
     queue = _load_queue(root)
     registry = load_topic_registry(root)
     candidates = [e for e in queue if e.get("review_status") in {"synthesized", "approved"}]
@@ -509,6 +520,7 @@ def cmd_aggregate_all(*, model: str, root: Path) -> int:
                 new_source_id=source_id,
                 model=model,
                 root=root,
+                no_commit=no_commit,
             ))
             print(f"  Topic note  : {result_path.relative_to(root)}")
         except Exception as exc:  # noqa: BLE001
@@ -575,6 +587,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_MODEL,
         help=f"Ollama model name. Default: {DEFAULT_MODEL}",
     )
+    parser.add_argument(
+        "--no-commit",
+        action="store_true",
+        dest="no_commit",
+        help="Skip git auto-commit after aggregation.",
+    )
     return parser
 
 
@@ -586,10 +604,10 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_list(ROOT)
 
     if args.all:
-        return cmd_aggregate_all(model=args.model, root=ROOT)
+        return cmd_aggregate_all(model=args.model, root=ROOT, no_commit=args.no_commit)
 
     if args.source_id:
-        return cmd_aggregate_one(args.source_id, model=args.model, root=ROOT)
+        return cmd_aggregate_one(args.source_id, model=args.model, root=ROOT, no_commit=args.no_commit)
 
     parser.print_help()
     return 1

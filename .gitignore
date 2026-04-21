@@ -1,17 +1,52 @@
-.venv/
-venv/
+# Python
 __pycache__/
 *.py[cod]
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
 
+# Environment
+.env
+.env.*
+
+# Inbox — transient staging area, not persisted
+raw/inbox/
+
+# Archive — large HTML source files, not needed in repo
+raw/archive/
+
+# Backup directories
+backup/
+
+# Dashboard runtime
+dashboard/__pycache__/
+
+# OS
 .DS_Store
 Thumbs.db
 
+# Editor
+.vscode/settings.json
+.idea/
+
+# Obsidian workspace state (not project config)
 .obsidian/workspace.json
 .obsidian/workspace-mobile.json
 
+# Ollama / LLM artifacts
+*.gguf
+*.bin
+
+# Outputs — keep reports, exclude large generated files
+outputs/answers/
+
+# Misc runtime
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 *.log
 *.tmp
 *.swp

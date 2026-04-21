@@ -30,6 +30,9 @@ ROOT = Path(__file__).resolve().parents[1]
 REVIEW_QUEUE_PATH = ROOT / "metadata" / "review-queue.json"
 REVIEW_QUEUE_REPORT_PATH = ROOT / "metadata" / "review-queue.md"
 
+sys.path.insert(0, str(Path(__file__).parent))
+from git_ops import commit_pipeline_stage  # noqa: E402
+
 
 # ---------------------------------------------------------------------------
 # Queue helpers
@@ -246,7 +249,14 @@ def cmd_list() -> int:
     return list_pending_review(load_queue())
 
 
-def cmd_approve(source_id: str | None, *, all_high: bool, threshold: float, root: Path = ROOT) -> int:
+def cmd_approve(
+    source_id: str | None,
+    *,
+    all_high: bool,
+    threshold: float,
+    root: Path = ROOT,
+    no_commit: bool = False,
+) -> int:
     queue = load_queue()
 
     if all_high:
@@ -256,11 +266,18 @@ def cmd_approve(source_id: str | None, *, all_high: bool, threshold: float, root
             print(f"No unreviewed items scoring >= {threshold}.")
         else:
             print(f"Approved {count} high-confidence item(s) (threshold: {threshold}).")
+            note_paths = []
             for entry in updated:
                 if entry.get("review_action") == "approved":
                     path = _find_compiled_note(entry, root)
                     if path:
                         _patch_note_approved(path, approved=True)
+                        note_paths.append(path)
+            commit_pipeline_stage(
+                message=f"review: approved {count} high-confidence items",
+                paths=[REVIEW_QUEUE_PATH, *note_paths],
+                no_commit=no_commit,
+            )
         return 0
 
     if not source_id:
@@ -278,10 +295,15 @@ def cmd_approve(source_id: str | None, *, all_high: bool, threshold: float, root
     if path:
         _patch_note_approved(path, approved=True)
     print(f"Approved: {item.get('title', source_id)}")
+    commit_pipeline_stage(
+        message=f"review: approved {source_id} — {item.get('title', '')}",
+        paths=[REVIEW_QUEUE_PATH] + ([path] if path else []),
+        no_commit=no_commit,
+    )
     return 0
 
 
-def cmd_reject(source_id: str, *, reason: str, root: Path = ROOT) -> int:
+def cmd_reject(source_id: str, *, reason: str, root: Path = ROOT, no_commit: bool = False) -> int:
     queue = load_queue()
     updated, found = reject(queue, source_id, reason=reason)
     if not found:
@@ -295,6 +317,11 @@ def cmd_reject(source_id: str, *, reason: str, root: Path = ROOT) -> int:
         _patch_note_approved(path, approved=False)
     suffix = f" — reason: {reason}" if reason else ""
     print(f"Rejected: {item.get('title', source_id)}{suffix}")
+    commit_pipeline_stage(
+        message=f"review: rejected {source_id} — {item.get('title', '')}",
+        paths=[REVIEW_QUEUE_PATH] + ([path] if path else []),
+        no_commit=no_commit,
+    )
     return 0
 
 
@@ -346,6 +373,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional reason for rejection.",
     )
 
+    # --no-commit applies to all subcommands
+    for sub in (approve_p, reject_p):
+        sub.add_argument(
+            "--no-commit",
+            action="store_true",
+            dest="no_commit",
+            help="Skip git auto-commit after the review action.",
+        )
+
     return parser
 
 
@@ -362,10 +398,11 @@ def main(argv: list[str] | None = None) -> int:
             all_high=args.all_high_confidence,
             threshold=args.threshold,
             root=ROOT,
+            no_commit=getattr(args, "no_commit", False),
         )
 
     if args.command == "reject":
-        return cmd_reject(args.source_id, reason=args.reason, root=ROOT)
+        return cmd_reject(args.source_id, reason=args.reason, root=ROOT, no_commit=getattr(args, "no_commit", False))
 
     parser.print_help()
     return 1

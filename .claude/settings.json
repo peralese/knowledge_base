@@ -8,7 +8,8 @@
       "Bash(rm /home/peralese/Projects/Knowledge_Base/compiled/topics/*.md)",
       "Bash(rm /home/peralese/Projects/Knowledge_Base/metadata/prompts/*.md)",
       "Bash(python3 -c \"import json; d=json.load\\(open\\('metadata/source-manifest.json'\\)\\); print\\(f'{len\\(d[\\\\\"sources\\\\\"]\\)} sources'\\)\")",
-      "Bash(grep -l \"approved\\\\|confidence_score\\\\|date_updated\" /home/peralese/Projects/Knowledge_Base/scripts/*.py)"
+      "Bash(grep -l \"approved\\\\|confidence_score\\\\|date_updated\" /home/peralese/Projects/Knowledge_Base/scripts/*.py)",
+      "Bash(python3 -m pytest tests/ -x -q)"
     ],
     "additionalDirectories": [
       "/home/peralese/Projects/Knowledge_Base/raw/articles"

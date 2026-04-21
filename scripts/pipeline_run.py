@@ -25,6 +25,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+from git_ops import commit_pipeline_stage  # noqa: E402
 from index_notes import run as rebuild_index  # noqa: E402
 from score_synthesis import (  # noqa: E402
     ScoreRequest,
@@ -67,9 +68,12 @@ def run_for_item(
     model: str = DEFAULT_MODEL,
     threshold: float = DEFAULT_THRESHOLD,
     root: Path = ROOT,
+    no_commit: bool = False,
 ) -> bool:
     """Run the full pipeline for one queue item. Returns True on success."""
     source_id = str(item.get("source_id", ""))
+    title = str(item.get("title", ""))
+    slug = Path(str(item.get("source_note_path", ""))).stem
 
     # ---- 1. Synthesize -------------------------------------------------------
     t0 = time.monotonic()
@@ -91,6 +95,12 @@ def run_for_item(
         return False
     _log(source_id, "synthesize", f"OK     ({elapsed:.1f}s)")
 
+    commit_pipeline_stage(
+        message=f"synth: {source_id} — {title} (confidence pending)",
+        paths=[root / "compiled" / "source_summaries" / f"{slug}-synthesis.md"],
+        no_commit=no_commit,
+    )
+
     # ---- 2. Score ------------------------------------------------------------
     # Re-load the queue to get the updated entry (synthesize_item writes to it)
     queue = load_queue()
@@ -108,7 +118,7 @@ def run_for_item(
                 auto_approve_threshold=threshold,
                 root=root,
             ))
-            update_queue_with_score(result)
+            update_queue_with_score(result, no_commit=no_commit)
             _log(source_id, "score", f"OK     confidence={result.score:.2f} ({result.band})")
 
             if result.auto_approved:
@@ -126,7 +136,7 @@ def run_for_item(
         _log(source_id, "topic_aggregate", "SKIP   source summary not found")
     else:
         try:
-            aggregate_for_source(updated_item, source_summary_path, model=model, root=root)
+            aggregate_for_source(updated_item, source_summary_path, model=model, root=root, no_commit=no_commit)
             _log(source_id, "topic_aggregate", "OK")
         except Exception as exc:
             _log(source_id, "topic_aggregate", f"ERROR  {exc}")
@@ -139,9 +149,9 @@ def run_for_item(
 # Index rebuild (shared across all processed items)
 # ---------------------------------------------------------------------------
 
-def run_index_rebuild(root: Path) -> None:
+def run_index_rebuild(root: Path, no_commit: bool = False) -> None:
     try:
-        rc = rebuild_index(root)
+        rc = rebuild_index(root, no_commit=no_commit)
         compiled = root / "compiled"
         n = sum(1 for _ in compiled.rglob("*.md")) if compiled.exists() else 0
         status = f"OK     ({n} notes)" if rc == 0 else "FAILED"
@@ -154,7 +164,7 @@ def run_index_rebuild(root: Path) -> None:
 # CLI commands
 # ---------------------------------------------------------------------------
 
-def cmd_run_one(source_id: str, *, model: str, threshold: float, root: Path) -> int:
+def cmd_run_one(source_id: str, *, model: str, threshold: float, root: Path, no_commit: bool = False) -> int:
     queue = load_queue()
     item = next((e for e in queue if e.get("source_id") == source_id), None)
     if item is None:
@@ -169,8 +179,8 @@ def cmd_run_one(source_id: str, *, model: str, threshold: float, root: Path) -> 
         )
         return 1
 
-    run_for_item(item, model=model, threshold=threshold, root=root)
-    run_index_rebuild(root)
+    run_for_item(item, model=model, threshold=threshold, root=root, no_commit=no_commit)
+    run_index_rebuild(root, no_commit=no_commit)
     return 0
 
 
@@ -178,7 +188,7 @@ def _pending_items(queue: list[dict[str, object]]) -> list[dict[str, object]]:
     return [e for e in queue if e.get("review_status") == "pending_review"]
 
 
-def cmd_run_all(*, model: str, threshold: float, root: Path) -> int:
+def cmd_run_all(*, model: str, threshold: float, root: Path, no_commit: bool = False) -> int:
     queue = load_queue()
     items = _pending_items(queue)
     if not items:
@@ -188,18 +198,18 @@ def cmd_run_all(*, model: str, threshold: float, root: Path) -> int:
     print(f"Processing {len(items)} item(s)...\n")
     failed = 0
     for item in items:
-        success = run_for_item(item, model=model, threshold=threshold, root=root)
+        success = run_for_item(item, model=model, threshold=threshold, root=root, no_commit=no_commit)
         if not success:
             failed += 1
 
-    run_index_rebuild(root)
+    run_index_rebuild(root, no_commit=no_commit)
 
     passed = len(items) - failed
     print(f"\nDone: {passed}/{len(items)} succeeded.")
     return 0 if failed == 0 else 1
 
 
-def cmd_watch(*, interval: int, model: str, threshold: float, root: Path) -> int:
+def cmd_watch(*, interval: int, model: str, threshold: float, root: Path, no_commit: bool = False) -> int:
     print(f"Watching queue every {interval}s (Ctrl-C to stop)…")
     try:
         while True:
@@ -208,8 +218,8 @@ def cmd_watch(*, interval: int, model: str, threshold: float, root: Path) -> int
             if items:
                 print(f"\n[{_ts()}] Found {len(items)} pending item(s).")
                 for item in items:
-                    run_for_item(item, model=model, threshold=threshold, root=root)
-                run_index_rebuild(root)
+                    run_for_item(item, model=model, threshold=threshold, root=root, no_commit=no_commit)
+                run_index_rebuild(root, no_commit=no_commit)
             time.sleep(interval)
     except KeyboardInterrupt:
         print("\nStopped.")
@@ -260,6 +270,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_THRESHOLD,
         help=f"Auto-approve threshold (0.0–1.0). Default: {DEFAULT_THRESHOLD}",
     )
+    parser.add_argument(
+        "--no-commit",
+        action="store_true",
+        dest="no_commit",
+        help="Skip git auto-commits for all pipeline steps.",
+    )
     return parser
 
 
@@ -273,16 +289,17 @@ def main(argv: list[str] | None = None) -> int:
             model=args.model,
             threshold=args.threshold,
             root=ROOT,
+            no_commit=args.no_commit,
         )
 
     if args.all:
-        return cmd_run_all(model=args.model, threshold=args.threshold, root=ROOT)
+        return cmd_run_all(model=args.model, threshold=args.threshold, root=ROOT, no_commit=args.no_commit)
 
     if not args.source_id:
         parser.print_help()
         return 1
 
-    return cmd_run_one(args.source_id, model=args.model, threshold=args.threshold, root=ROOT)
+    return cmd_run_one(args.source_id, model=args.model, threshold=args.threshold, root=ROOT, no_commit=args.no_commit)
 
 
 if __name__ == "__main__":

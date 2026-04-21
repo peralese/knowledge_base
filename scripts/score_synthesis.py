@@ -33,6 +33,7 @@ DEFAULT_AUTO_APPROVE_THRESHOLD = 0.85
 
 # Import llm_driver functions at module level so tests can patch them on this module.
 sys.path.insert(0, str(Path(__file__).parent))
+from git_ops import commit_pipeline_stage  # noqa: E402, PLC0415
 from llm_driver import _check_model_available, call_ollama  # noqa: E402, PLC0415
 
 
@@ -227,14 +228,26 @@ def update_entry_with_score(entry: dict[str, object], result: ScoreResult) -> di
     return {**entry, **extra}
 
 
-def update_queue_with_score(result: ScoreResult) -> None:
+def update_queue_with_score(result: ScoreResult, no_commit: bool = False) -> None:
     """Persist scoring result to review-queue.json and regenerate the markdown report."""
     queue = load_queue()
+    item = next((e for e in queue if e.get("source_id") == result.source_id), {})
     updated = [
         update_entry_with_score(e, result) if e.get("source_id") == result.source_id else e
         for e in queue
     ]
     save_queue(updated)
+
+    slug = Path(str(item.get("source_note_path", ""))).stem
+    label = "auto-approved" if result.auto_approved else "needs-review"
+    commit_pipeline_stage(
+        message=f"score: {result.source_id} confidence={result.score:.2f} {label}",
+        paths=[
+            ROOT / "compiled" / "source_summaries" / f"{slug}-synthesis.md",
+            REVIEW_QUEUE_PATH,
+        ],
+        no_commit=no_commit,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -285,7 +298,7 @@ def _patch_note_with_score(path: Path, score: float, auto_approved: bool) -> Non
 # CLI commands
 # ---------------------------------------------------------------------------
 
-def cmd_score_one(source_id: str, *, model: str, threshold: float, root: Path) -> int:
+def cmd_score_one(source_id: str, *, model: str, threshold: float, root: Path, no_commit: bool = False) -> int:
     queue = load_queue()
     item = next((e for e in queue if e.get("source_id") == source_id), None)
     if item is None:
@@ -309,7 +322,7 @@ def cmd_score_one(source_id: str, *, model: str, threshold: float, root: Path) -
         auto_approve_threshold=threshold,
         root=root,
     ))
-    update_queue_with_score(result)
+    update_queue_with_score(result, no_commit=no_commit)
 
     label = "auto-approved" if result.auto_approved else "needs review"
     print(f"  Confidence  : {result.band} {result.score:.2f}")
@@ -318,7 +331,7 @@ def cmd_score_one(source_id: str, *, model: str, threshold: float, root: Path) -
     return 0
 
 
-def cmd_score_all(*, model: str, threshold: float, root: Path) -> int:
+def cmd_score_all(*, model: str, threshold: float, root: Path, no_commit: bool = False) -> int:
     queue = load_queue()
     items = _synthesized_unscored(queue)
     if not items:
@@ -341,7 +354,7 @@ def cmd_score_all(*, model: str, threshold: float, root: Path) -> int:
             auto_approve_threshold=threshold,
             root=root,
         ))
-        update_queue_with_score(result)
+        update_queue_with_score(result, no_commit=no_commit)
         label = "auto-approved" if result.auto_approved else "needs review"
         print(f"  {source_id}  {result.band} {result.score:.2f}  {label}")
 
@@ -413,6 +426,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_AUTO_APPROVE_THRESHOLD,
         help=f"Auto-approve threshold (0.0–1.0). Default: {DEFAULT_AUTO_APPROVE_THRESHOLD}",
     )
+    parser.add_argument(
+        "--no-commit",
+        action="store_true",
+        dest="no_commit",
+        help="Skip git auto-commit after scoring.",
+    )
     return parser
 
 
@@ -424,13 +443,13 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_list_scored()
 
     if args.all:
-        return cmd_score_all(model=args.model, threshold=args.threshold, root=ROOT)
+        return cmd_score_all(model=args.model, threshold=args.threshold, root=ROOT, no_commit=args.no_commit)
 
     if not args.source_id:
         parser.print_help()
         return 1
 
-    return cmd_score_one(args.source_id, model=args.model, threshold=args.threshold, root=ROOT)
+    return cmd_score_one(args.source_id, model=args.model, threshold=args.threshold, root=ROOT, no_commit=args.no_commit)
 
 
 if __name__ == "__main__":

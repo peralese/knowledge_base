@@ -32,6 +32,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
+sys.path.insert(0, str(Path(__file__).parent))
+from git_ops import commit_pipeline_stage  # noqa: E402
+
 INDEX_PATH = ROOT / "compiled" / "index.md"
 
 CATEGORY_ORDER = ["topics", "concepts", "source_summaries"]
@@ -233,7 +236,7 @@ def build_index_text(groups: dict[str, list[NoteEntry]], today: str) -> str:
 # Main run
 # ---------------------------------------------------------------------------
 
-def run(root: Path, dry_run: bool = False, as_json: bool = False) -> int:
+def run(root: Path, dry_run: bool = False, as_json: bool = False, no_commit: bool = False) -> int:
     compiled_dir = root / "compiled"
     if not compiled_dir.exists():
         print("Error: compiled/ directory not found. Run compile_notes.py first.", file=sys.stderr)
@@ -257,6 +260,11 @@ def run(root: Path, dry_run: bool = False, as_json: bool = False) -> int:
     dest.write_text(text, encoding="utf-8")
     total = sum(len(v) for v in groups.values())
     print(f"Index written : compiled/index.md ({total} notes)")
+    commit_pipeline_stage(
+        message=f"index: rebuilt ({total} notes)",
+        paths=[dest],
+        no_commit=no_commit,
+    )
     return 0
 
 
@@ -279,13 +287,19 @@ def build_parser() -> argparse.ArgumentParser:
         dest="as_json",
         help="Output structured JSON to stdout instead of writing the index file.",
     )
+    parser.add_argument(
+        "--no-commit",
+        action="store_true",
+        dest="no_commit",
+        help="Skip git auto-commit after rebuilding the index.",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    return run(ROOT, dry_run=args.dry_run, as_json=args.as_json)
+    return run(ROOT, dry_run=args.dry_run, as_json=args.as_json, no_commit=args.no_commit)
 
 
 if __name__ == "__main__":

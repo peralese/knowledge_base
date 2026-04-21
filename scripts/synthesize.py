@@ -30,6 +30,8 @@ from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).parent))
+from git_ops import commit_pipeline_stage  # noqa: E402
 REVIEW_QUEUE_PATH = ROOT / "metadata" / "review-queue.json"
 REVIEW_QUEUE_REPORT_PATH = ROOT / "metadata" / "review-queue.md"
 TMP_OUTPUT = ROOT / "tmp" / "synthesis-output.md"
@@ -298,7 +300,7 @@ def synthesize_item(
 # Scoring integration (non-blocking — errors never fail synthesis)
 # ---------------------------------------------------------------------------
 
-def _run_scoring(item: dict[str, object], *, model: str, root: Path) -> None:
+def _run_scoring(item: dict[str, object], *, model: str, root: Path, no_commit: bool = False) -> None:
     """Call score_synthesis for one successfully synthesized item.
 
     Runs after the queue has been saved with 'synthesized' status so that
@@ -322,7 +324,7 @@ def _run_scoring(item: dict[str, object], *, model: str, root: Path) -> None:
             model=model,
             root=root,
         ))
-        update_queue_with_score(result)
+        update_queue_with_score(result, no_commit=no_commit)
         label = "auto-approved" if result.auto_approved else "needs review"
         print(f"  Confidence  : {result.band} {result.score:.2f}  ({label})")
     except Exception as exc:  # noqa: BLE001
@@ -333,7 +335,7 @@ def _run_scoring(item: dict[str, object], *, model: str, root: Path) -> None:
 # Topic aggregation integration (non-blocking — errors never fail synthesis)
 # ---------------------------------------------------------------------------
 
-def _run_topic_aggregation(item: dict[str, object], *, model: str, root: Path) -> None:
+def _run_topic_aggregation(item: dict[str, object], *, model: str, root: Path, no_commit: bool = False) -> None:
     """Classify and aggregate a synthesized source summary into its topic note."""
     try:
         from score_synthesis import _find_compiled_note  # noqa: PLC0415
@@ -341,7 +343,7 @@ def _run_topic_aggregation(item: dict[str, object], *, model: str, root: Path) -
         compiled_path = _find_compiled_note(item, root)
         if compiled_path is None:
             return
-        aggregate_for_source(item, compiled_path, model=model, root=root)
+        aggregate_for_source(item, compiled_path, model=model, root=root, no_commit=no_commit)
     except Exception as exc:  # noqa: BLE001
         print(f"  Warning: topic aggregation failed: {exc}")
 
@@ -357,6 +359,7 @@ def cmd_synthesize(
     model: str,
     force: bool,
     root: Path,
+    no_commit: bool = False,
 ) -> int:
     queue = load_queue()
     item = find_item(queue, source_id)
@@ -364,6 +367,7 @@ def cmd_synthesize(
         print(f"Error: source_id '{source_id}' not found in review queue.", file=sys.stderr)
         return 1
 
+    title = title_override.strip() or str(item.get("title", ""))
     success = synthesize_item(
         item,
         title_override=title_override,
@@ -377,13 +381,22 @@ def cmd_synthesize(
     print(f"  Queue status: {status}")
 
     if success:
-        _run_scoring(item, model=model, root=root)
-        _run_topic_aggregation(item, model=model, root=root)
+        slug = Path(str(item.get("source_note_path", ""))).stem
+        commit_pipeline_stage(
+            message=f"synth: {source_id} — {title} (confidence pending)",
+            paths=[
+                root / "compiled" / "source_summaries" / f"{slug}-synthesis.md",
+                root / "metadata" / "review-queue.json",
+            ],
+            no_commit=no_commit,
+        )
+        _run_scoring(item, model=model, root=root, no_commit=no_commit)
+        _run_topic_aggregation(item, model=model, root=root, no_commit=no_commit)
 
     return 0 if success else 1
 
 
-def cmd_all(*, title_override: str, model: str, force: bool, root: Path) -> int:
+def cmd_all(*, title_override: str, model: str, force: bool, root: Path, no_commit: bool = False) -> int:
     queue = load_queue()
     items = pending_items(queue)
     if not items:
@@ -394,6 +407,7 @@ def cmd_all(*, title_override: str, model: str, force: bool, root: Path) -> int:
     failed = 0
     for item in items:
         source_id = str(item.get("source_id", ""))
+        title = title_override.strip() or str(item.get("title", ""))
         success = synthesize_item(
             item,
             title_override=title_override,
@@ -405,6 +419,16 @@ def cmd_all(*, title_override: str, model: str, force: bool, root: Path) -> int:
         queue = _update_status(queue, source_id, status, {"synthesized_at": datetime.now().isoformat()})
         if not success:
             failed += 1
+        else:
+            slug = Path(str(item.get("source_note_path", ""))).stem
+            commit_pipeline_stage(
+                message=f"synth: {source_id} — {title} (confidence pending)",
+                paths=[
+                    root / "compiled" / "source_summaries" / f"{slug}-synthesis.md",
+                    root / "metadata" / "review-queue.json",
+                ],
+                no_commit=no_commit,
+            )
         print()
 
     save_queue(queue)
@@ -415,8 +439,8 @@ def cmd_all(*, title_override: str, model: str, force: bool, root: Path) -> int:
     }
     for item in items:
         if str(item.get("source_id", "")) not in failed_ids:
-            _run_scoring(item, model=model, root=root)
-            _run_topic_aggregation(item, model=model, root=root)
+            _run_scoring(item, model=model, root=root, no_commit=no_commit)
+            _run_topic_aggregation(item, model=model, root=root, no_commit=no_commit)
 
     passed = len(items) - failed
     print(f"Done: {passed}/{len(items)} synthesized successfully.")
@@ -466,6 +490,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Overwrite existing prompt-pack and compiled note if they already exist.",
     )
+    parser.add_argument(
+        "--no-commit",
+        action="store_true",
+        dest="no_commit",
+        help="Skip git auto-commit after synthesis.",
+    )
     return parser
 
 
@@ -484,6 +514,7 @@ def main(argv: list[str] | None = None) -> int:
             model=args.model,
             force=args.force,
             root=ROOT,
+            no_commit=args.no_commit,
         )
 
     if not args.source_id:
@@ -496,6 +527,7 @@ def main(argv: list[str] | None = None) -> int:
         model=args.model,
         force=args.force,
         root=ROOT,
+        no_commit=args.no_commit,
     )
 
 

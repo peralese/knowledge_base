@@ -527,7 +527,67 @@ Open the repository folder as an Obsidian vault. Folder structure, wikilinks, an
 
 ## How Git Fits In
 
-Because everything is stored as ordinary markdown files, Git tracks the full evolution of the knowledge base — which articles were ingested, when topic notes changed, and how synthesis quality improved over time. Keep commits small and meaningful; avoid force-rewriting source-truth material.
+Because everything is stored as ordinary markdown files, Git tracks the full evolution of the knowledge base — which articles were ingested, when topic notes changed, and how synthesis quality improved over time.
+
+### Auto-commits
+
+Each pipeline step commits its own changes after a successful write:
+
+| Step | Commit prefix | Files committed |
+|---|---|---|
+| Synthesis | `synth:` | `compiled/source_summaries/…-synthesis.md`, `metadata/review-queue.json` |
+| Confidence scoring | `score:` | compiled note (frontmatter patched), `metadata/review-queue.json` |
+| Human review | `review:` | compiled note (`approved` field), `metadata/review-queue.json` |
+| Topic aggregation | `topic:` | `compiled/topics/{slug}.md` |
+| Index rebuild | `index:` | `compiled/index.md` |
+
+Running `python3 scripts/pipeline_run.py SRC-xxxx` produces 4–5 commits visible in `git log --oneline`.
+
+### `GIT_DISABLED=1` — global escape hatch
+
+Set this environment variable to suppress all auto-commits without changing any code:
+
+```bash
+# Disable for a single run
+GIT_DISABLED=1 python3 scripts/pipeline_run.py --all
+
+# Disable in your shell session (bulk imports)
+export GIT_DISABLED=1
+```
+
+Use cases:
+- **Test suite** — set automatically in `conftest.py` so tests never write to the repo
+- **Bulk imports** — ingest many articles first, then commit manually
+- **New machine setup** — before git is configured on the target machine
+
+### `--no-commit` flag
+
+All five pipeline scripts also accept `--no-commit` to disable commits for a single invocation:
+
+```bash
+python3 scripts/synthesize.py SRC-xxxx --no-commit
+python3 scripts/pipeline_run.py --all --no-commit
+```
+
+### Operation log
+
+Read the pipeline's history via git:
+
+```bash
+# Show last 20 pipeline commits
+python3 scripts/log.py
+
+# Filter by step type
+python3 scripts/log.py --type synth
+python3 scripts/log.py --type review
+
+# Filter by source ID or topic
+python3 scripts/log.py --source SRC-20260419-0001
+python3 scripts/log.py --topic openclaw-security
+
+# Filter by date
+python3 scripts/log.py --since "2026-04-14"
+```
 
 ---
 
