@@ -396,6 +396,25 @@
       border-color: #4f6ef7;
       color: #f8fafc;
     }
+
+    .query-answer {
+      white-space: pre-wrap;
+      line-height: 1.7;
+      color: #cbd5e1;
+      background: #0f1117;
+      border: 1px solid #2d3148;
+      border-radius: 6px;
+      padding: 16px;
+      margin-top: 16px;
+    }
+
+    .source-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+    .topic-row { display: flex; gap: 12px; align-items: flex-end; }
+    .topic-row .field { flex: 1; margin-bottom: 0; }
+    .recent-list { display: grid; gap: 10px; }
+    .recent-answer { cursor: pointer; }
+    .recent-answer:hover { border-color: #4f6ef7; }
+    .muted { color: #64748b; font-size: 12px; margin-top: 8px; }
   </style>
 </head>
 <body>
@@ -408,6 +427,7 @@
       Review Queue
       <span class="badge" id="queue-badge"></span>
     </button>
+    <button onclick="showTab('query')">Query</button>
   </nav>
 </header>
 
@@ -544,6 +564,58 @@
     </div>
   </div>
 
+  <!-- ===================== QUERY TAB ===================== -->
+  <div class="panel" id="panel-query">
+    <div class="form-card">
+      <h2>Query Knowledge Base</h2>
+
+      <div class="field">
+        <label>Topic</label>
+        <select id="query-topic-select">
+          <option value="">All topics</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Question</label>
+        <textarea id="query-question" placeholder="Ask anything about your knowledge base…"></textarea>
+      </div>
+
+      <button class="btn btn-primary" id="query-submit" onclick="submitQuery()">Ask</button>
+      <div id="query-msg" class="msg"></div>
+
+      <div id="query-response" style="display:none">
+        <div class="query-answer" id="query-answer"></div>
+        <div class="source-pills" id="query-sources"></div>
+        <div class="muted" id="query-saved-path"></div>
+        <div class="sub-actions" style="margin-top:12px">
+          <button class="btn btn-sm" onclick="copyAnswer()">Copy</button>
+          <button class="link-btn" onclick="askFollowup()">Ask follow-up</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-card" style="margin-top:18px">
+      <h2>Recent Answers</h2>
+      <div id="recent-answers" class="recent-list">
+        <div class="queue-empty">Loading…</div>
+      </div>
+    </div>
+
+    <div class="form-card" style="margin-top:18px">
+      <h2>Topic Management</h2>
+      <div class="topic-row">
+        <div class="field">
+          <label>Topic</label>
+          <select id="manage-topic-select" onchange="loadTopicStatus()"></select>
+        </div>
+        <button class="btn btn-primary" id="resynth-submit" onclick="resynthesizeTopic()">Re-synthesize Topic</button>
+      </div>
+      <div class="muted" id="topic-status">Select a topic to view synthesis state.</div>
+      <div id="resynth-msg" class="msg"></div>
+    </div>
+  </div>
+
 </main>
 
 <script>
@@ -556,6 +628,10 @@ function showTab(name) {
   document.getElementById('panel-' + name).classList.add('active');
   event.currentTarget.classList.add('active');
   if (name === 'queue') loadQueue();
+  if (name === 'query') {
+    loadRecentAnswers();
+    loadTopicStatus();
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -648,16 +724,31 @@ async function loadTopics() {
   const data = await res.json();
   const sel = document.getElementById('topic-select');
   sel.innerHTML = '<option value="">— Select a topic —</option>';
+  const querySel = document.getElementById('query-topic-select');
+  querySel.innerHTML = '<option value="">All topics</option>';
+  const manageSel = document.getElementById('manage-topic-select');
+  manageSel.innerHTML = '';
   for (const t of data.topics) {
     const opt = document.createElement('option');
     opt.value = t.slug;
     opt.textContent = t.display_name;
     sel.appendChild(opt);
+
+    const qOpt = document.createElement('option');
+    qOpt.value = t.slug;
+    qOpt.textContent = t.display_name;
+    querySel.appendChild(qOpt);
+
+    const mOpt = document.createElement('option');
+    mOpt.value = t.slug;
+    mOpt.textContent = t.display_name;
+    manageSel.appendChild(mOpt);
   }
   const addOpt = document.createElement('option');
   addOpt.value = '__new__';
   addOpt.textContent = '+ Add new topic…';
   sel.appendChild(addOpt);
+  loadTopicStatus();
 }
 
 function onTopicSelectChange() {
@@ -714,6 +805,18 @@ async function createTopic() {
   sel.insertBefore(newOpt, addOpt);
   sel.value = slug;
 
+  const querySel = document.getElementById('query-topic-select');
+  const qOpt = document.createElement('option');
+  qOpt.value = slug;
+  qOpt.textContent = data.topic.display_name;
+  querySel.appendChild(qOpt);
+
+  const manageSel = document.getElementById('manage-topic-select');
+  const mOpt = document.createElement('option');
+  mOpt.value = slug;
+  mOpt.textContent = data.topic.display_name;
+  manageSel.appendChild(mOpt);
+
   document.getElementById('new-topic-form').classList.remove('visible');
   document.getElementById('new-topic-name').value = '';
   document.getElementById('new-topic-keywords').value = '';
@@ -760,6 +863,174 @@ async function loadTags() {
     }
   } catch (_) {
     pane.innerHTML = '';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Query
+// ---------------------------------------------------------------------------
+let _lastQuestion = '';
+let _lastAnswer = '';
+
+function _setQueryMsg(text, kind) {
+  const msg = document.getElementById('query-msg');
+  msg.textContent = text || '';
+  msg.className = 'msg' + (kind ? ' msg-' + kind : '');
+}
+
+function _renderAnswer(data) {
+  _lastAnswer = data.answer || '';
+  document.getElementById('query-response').style.display = 'block';
+  document.getElementById('query-answer').textContent = _lastAnswer;
+  const sources = document.getElementById('query-sources');
+  sources.innerHTML = '';
+  const label = document.createElement('span');
+  label.className = 'muted';
+  label.textContent = 'Sources consulted:';
+  sources.appendChild(label);
+  for (const source of (data.sources || [])) {
+    const pill = document.createElement('span');
+    pill.className = 'pill';
+    pill.textContent = source;
+    sources.appendChild(pill);
+  }
+  document.getElementById('query-saved-path').textContent = data.saved_path ? 'Saved to ' + data.saved_path : '';
+}
+
+async function submitQuery() {
+  const question = document.getElementById('query-question').value.trim();
+  const topic = document.getElementById('query-topic-select').value || null;
+  const btn = document.getElementById('query-submit');
+  if (!question) {
+    _setQueryMsg('Question is required.', 'error');
+    return;
+  }
+
+  _lastQuestion = question;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Ask';
+  _setQueryMsg('Querying Ollama… this may take a moment', 'success');
+  try {
+    const res = await fetch('/api/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: question, topic_slug: topic }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      _setQueryMsg(data.message || data.detail || 'Query failed.', 'error');
+      return;
+    }
+    _setQueryMsg('', '');
+    _renderAnswer(data);
+    loadRecentAnswers();
+  } catch (_) {
+    _setQueryMsg('Query failed. Check the dashboard service logs.', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Ask';
+  }
+}
+
+async function loadRecentAnswers() {
+  const container = document.getElementById('recent-answers');
+  if (!container) return;
+  container.innerHTML = '<div class="queue-empty">Loading…</div>';
+  const res = await fetch('/api/answers/recent');
+  const data = await res.json();
+  const answers = data.answers || [];
+  if (!answers.length) {
+    container.innerHTML = '<div class="queue-empty">No saved answers yet.</div>';
+    return;
+  }
+  container.innerHTML = '';
+  for (const answer of answers) {
+    const card = document.createElement('div');
+    card.className = 'card recent-answer';
+    card.onclick = () => loadAnswer(answer.filename);
+    const q = answer.question || answer.filename;
+    const question = q.length > 80 ? q.slice(0, 77) + '...' : q;
+    card.innerHTML = `
+      <div class="card-title">${escHtml(question)}</div>
+      <div class="muted">${escHtml(answer.date || '')} · ${escHtml(answer.topic || 'all')}</div>
+    `;
+    container.appendChild(card);
+  }
+}
+
+async function loadAnswer(filename) {
+  const res = await fetch('/api/answers/' + encodeURIComponent(filename));
+  if (!res.ok) return;
+  const data = await res.json();
+  _lastQuestion = data.question || '';
+  document.getElementById('query-question').value = _lastQuestion;
+  _renderAnswer({
+    answer: data.answer,
+    sources: data.sources,
+    saved_path: 'outputs/answers/' + filename,
+  });
+}
+
+function copyAnswer() {
+  if (_lastAnswer) navigator.clipboard.writeText(_lastAnswer);
+}
+
+function askFollowup() {
+  const prefix = (_lastQuestion || document.getElementById('query-question').value || '').slice(0, 60);
+  document.getElementById('query-question').value = 'Follow up on: ' + prefix;
+  document.getElementById('query-question').focus();
+}
+
+async function loadTopicStatus() {
+  const sel = document.getElementById('manage-topic-select');
+  const status = document.getElementById('topic-status');
+  if (!sel || !sel.value) {
+    if (status) status.textContent = 'Select a topic to view synthesis state.';
+    return;
+  }
+  const res = await fetch('/api/topics/' + encodeURIComponent(sel.value) + '/status');
+  if (!res.ok) {
+    status.textContent = 'Topic note has not been created yet.';
+    return;
+  }
+  const data = await res.json();
+  status.textContent = `Last synthesized: ${data.date_updated || 'unknown'} · Version ${data.synthesis_version} · ${data.source_count} sources (${data.approved_source_count} approved)`;
+}
+
+async function resynthesizeTopic() {
+  const topic = document.getElementById('manage-topic-select').value;
+  const btn = document.getElementById('resynth-submit');
+  const msg = document.getElementById('resynth-msg');
+  if (!topic) {
+    msg.className = 'msg msg-error';
+    msg.textContent = 'Select a topic first.';
+    return;
+  }
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Re-synthesize Topic';
+  msg.className = 'msg msg-success';
+  msg.textContent = 'Re-synthesizing from source summaries…';
+  try {
+    const res = await fetch('/api/resynthesize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic_slug: topic }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      msg.className = 'msg msg-error';
+      msg.textContent = data.message || 'Re-synthesis failed.';
+      return;
+    }
+    msg.className = 'msg msg-success';
+    msg.textContent = `Re-synthesized version ${data.synthesis_version} from ${data.sources_used} sources.`;
+    loadTopicStatus();
+  } catch (_) {
+    msg.className = 'msg msg-error';
+    msg.textContent = 'Re-synthesis failed. Check the dashboard service logs.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Re-synthesize Topic';
   }
 }
 

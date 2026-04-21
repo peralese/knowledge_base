@@ -333,7 +333,59 @@ def run(
     dry_run: bool,
     root: Path,
     top_n: int = 0,
+    topic: str = "",
 ) -> int:
+    # Topic-scoped mode uses query_engine to load context
+    if topic:
+        sys.path.insert(0, str(Path(__file__).parent))
+        from query_engine import (  # noqa: PLC0415
+            build_query_prompt as qe_build_prompt,
+            load_context,
+            parse_sources_from_response,
+            save_answer as qe_save_answer,
+        )
+        context_text, context_paths = load_context(topic, root)
+        if not context_text:
+            print(f"Error: no context found for topic '{topic}'.", file=sys.stderr)
+            return 1
+        prompt = qe_build_prompt(question, context_text)
+        retrieval_label = f"topic-scoped ({topic}, {len(context_paths)} notes)"
+
+        print(f"Model         : {model}")
+        print(f"Retrieval     : {retrieval_label}")
+        print(f"Prompt size   : {len(prompt):,} chars")
+        print(f"Question      : {question.strip()}")
+        print("-" * 60)
+
+        if dry_run:
+            print("\n--- PROMPT PREVIEW ---\n")
+            print(prompt[:3000] + ("\n... [truncated]" if len(prompt) > 3000 else ""))
+            return 0
+
+        try:
+            _check_model_available(model)
+        except (ConnectionError, ValueError) as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+
+        try:
+            answer = call_ollama(prompt, model)
+        except URLError as exc:
+            print(f"Error: Ollama request failed: {exc}", file=sys.stderr)
+            return 1
+
+        print("-" * 60)
+        cited = parse_sources_from_response(answer, context_paths)
+        dest = qe_save_answer(
+            question=question,
+            answer=answer,
+            sources=[p for p in context_paths if Path(p).stem in cited],
+            topic_slug=topic,
+            outputs_dir=root / "outputs",
+        )
+        print(f"Answer filed  : {dest.relative_to(root)}")
+        return 0
+
     all_notes = load_compiled_notes(root)
     if not all_notes:
         print("Error: no compiled notes found. Run compile_notes.py first.", file=sys.stderr)
@@ -420,9 +472,19 @@ def build_parser() -> argparse.ArgumentParser:
         description="Phase 7 Q&A: ask a question against the compiled knowledge base."
     )
     parser.add_argument(
+        "question_arg",
+        nargs="?",
+        help="The question to ask. Positional form is supported for quick CLI use.",
+    )
+    parser.add_argument(
         "--question", "-q",
-        required=True,
+        default="",
         help="The question to ask.",
+    )
+    parser.add_argument(
+        "--topic",
+        default="",
+        help="Optional topic slug to query against compiled/topics/<slug>.md and linked summaries.",
     )
     parser.add_argument(
         "--title",
@@ -460,14 +522,18 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    question = args.question or args.question_arg or ""
+    if not question.strip():
+        parser.error("question is required")
     return run(
-        question=args.question,
+        question=question,
         title=args.title,
         model=args.model,
         force=args.force,
         dry_run=args.dry_run,
         root=ROOT,
         top_n=args.top_n,
+        topic=args.topic,
     )
 
 

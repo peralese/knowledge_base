@@ -651,5 +651,102 @@ class TagsEndpointTests(unittest.TestCase):
         self.assertEqual(response.json()["tags"], ["local-ai", "ollama", "topic"])
 
 
+# ---------------------------------------------------------------------------
+# Phase 12 query and re-synthesis endpoints
+# ---------------------------------------------------------------------------
+
+class QueryEndpointTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.client = TestClient(app)
+        (self.root / "outputs" / "answers").mkdir(parents=True)
+        (self.root / "compiled" / "topics").mkdir(parents=True)
+        (self.root / "compiled" / "source_summaries").mkdir(parents=True)
+        (self.root / "compiled" / "topics" / "openclaw-security.md").write_text(
+            "---\ntitle: OpenClaw Security\ncompiled_from:\n  - hardening-openclaw-synthesis\n---\n\nTopic body [[hardening-openclaw-synthesis]].",
+            encoding="utf-8",
+        )
+        (self.root / "compiled" / "source_summaries" / "hardening-openclaw-synthesis.md").write_text(
+            "---\ntitle: Hardening\napproved: true\n---\n\nSummary body.",
+            encoding="utf-8",
+        )
+        (self.root / "compiled" / "index.md").write_text("- [[openclaw-security]] — OpenClaw\n", encoding="utf-8")
+        self.original_root = dashboard.ROOT
+        dashboard.ROOT = self.root
+
+    def tearDown(self) -> None:
+        dashboard.ROOT = self.original_root
+        self.tmp.cleanup()
+
+    def test_post_query_with_topic_saves_answer(self) -> None:
+        with patch("dashboard.call_query_ollama", return_value="Use [[hardening-openclaw-synthesis]]."):
+            res = self.client.post(
+                "/api/query",
+                json={"question": "What are risks?", "topic_slug": "openclaw-security"},
+            )
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertIn("hardening-openclaw-synthesis", data["sources"])
+        self.assertTrue((self.root / data["saved_path"]).exists())
+
+    def test_post_query_without_topic_uses_full_wiki(self) -> None:
+        captured: list[str] = []
+
+        def fake_call(prompt: str, model: str, timeout: int) -> str:
+            captured.append(prompt)
+            return "OpenClaw Security"
+
+        with patch("dashboard.call_query_ollama", side_effect=fake_call):
+            res = self.client.post("/api/query", json={"question": "What is known?"})
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(any("Topic body" in p for p in captured))
+        self.assertFalse(any("Summary body" in p for p in captured))
+
+    def test_post_query_ollama_unavailable_returns_specific_error(self) -> None:
+        with patch("dashboard.call_query_ollama", side_effect=OSError("down")):
+            res = self.client.post("/api/query", json={"question": "Q?"})
+        self.assertEqual(res.status_code, 503)
+        self.assertEqual(res.json()["error"], "ollama_unavailable")
+
+    def test_recent_and_answer_detail(self) -> None:
+        with patch("dashboard.call_query_ollama", return_value="Answer."):
+            first = self.client.post("/api/query", json={"question": "Q1?"})
+        filename = Path(first.json()["saved_path"]).name
+
+        recent = self.client.get("/api/answers/recent")
+        self.assertEqual(recent.status_code, 200)
+        self.assertLessEqual(len(recent.json()["answers"]), 5)
+
+        detail = self.client.get(f"/api/answers/{filename}")
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(detail.json()["question"], "Q1?")
+
+
+class ResynthesizeEndpointTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.client = TestClient(app)
+
+    def test_post_resynthesize_success(self) -> None:
+        fake_result = MagicMock()
+        fake_result.topic_slug = "openclaw-security"
+        fake_result.synthesis_version = 2
+        fake_result.sources_used = 3
+        fake_result.committed = True
+        with patch("dashboard.resynthesize_topic", return_value=fake_result):
+            res = self.client.post("/api/resynthesize", json={"topic_slug": "openclaw-security"})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json()["synthesis_version"], 2)
+
+    def test_post_resynthesize_insufficient_sources(self) -> None:
+        with patch(
+            "dashboard.resynthesize_topic",
+            side_effect=dashboard.InsufficientSourcesError("Only 1 approved source summary found."),
+        ):
+            res = self.client.post("/api/resynthesize", json={"topic_slug": "openclaw-security"})
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(res.json()["error"], "insufficient_sources")
+
+
 if __name__ == "__main__":
     unittest.main()

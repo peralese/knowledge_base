@@ -32,8 +32,9 @@ import httpx
 import uvicorn
 from bs4 import BeautifulSoup
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from pydantic import BaseModel
+from urllib.error import URLError
 
 ROOT = Path(__file__).resolve().parent
 DASHBOARD_DIR = ROOT / "dashboard"
@@ -55,6 +56,25 @@ from review import (  # noqa: E402
     load_queue,
     reject,
     save_queue,
+)
+from query_engine import (  # noqa: E402
+    DEFAULT_MODEL as QUERY_MODEL,
+    build_query_prompt,
+    call_ollama as call_query_ollama,
+    load_context,
+    parse_sources_from_response,
+    read_answer,
+    recent_answers,
+    save_answer,
+)
+from resynthesize_topic import (  # noqa: E402
+    DEFAULT_MODEL as RESYNTH_MODEL,
+    InsufficientSourcesError,
+    OllamaUnavailableError,
+    ResynthesisError,
+    TopicNotFoundError,
+    resynthesize_topic,
+    topic_status,
 )
 
 # ---------------------------------------------------------------------------
@@ -441,6 +461,14 @@ def get_topics():
     return {"topics": topics}
 
 
+@app.get("/api/topics/{slug}/status")
+def get_topic_status(slug: str):
+    try:
+        return topic_status(slug, ROOT)
+    except TopicNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
 @app.get("/api/tags")
 def get_tags():
     return {"tags": _used_tags()}
@@ -474,6 +502,103 @@ def add_topic(body: NewTopicRequest):
     topics.append(new_topic)
     _save_registry(registry)
     return {"topic": {"slug": slug, "display_name": body.display_name.strip()}}
+
+
+# ---------------------------------------------------------------------------
+# Query
+# ---------------------------------------------------------------------------
+
+class QueryRequest(BaseModel):
+    question: str
+    topic_slug: Optional[str] = None
+
+
+@app.post("/api/query")
+def query_wiki(body: QueryRequest):
+    question = body.question.strip()
+    if not question:
+        raise HTTPException(status_code=400, detail="question is required.")
+
+    topic_slug = body.topic_slug.strip() if body.topic_slug else None
+    context, context_paths = load_context(topic_slug, ROOT)
+    if not context:
+        raise HTTPException(status_code=404, detail="No compiled context found for this query.")
+
+    prompt = build_query_prompt(question, context)
+    try:
+        answer = call_query_ollama(prompt, model=QUERY_MODEL, timeout=120)
+    except (URLError, TimeoutError, OSError, ConnectionError):
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "ollama_unavailable",
+                "message": "Ollama is not responding. Ensure it is running with: ollama serve",
+            },
+        )
+
+    cited = parse_sources_from_response(answer, context_paths)
+    used_paths = [path for path in context_paths if Path(path).stem in cited]
+    if not used_paths:
+        used_paths = context_paths
+    saved = save_answer(question, answer, used_paths, topic_slug, ROOT / "outputs")
+    return {
+        "answer": answer,
+        "sources": [Path(path).stem for path in used_paths],
+        "saved_path": str(saved.relative_to(ROOT)),
+    }
+
+
+@app.get("/api/answers/recent")
+def get_recent_answers():
+    return {"answers": recent_answers(ROOT / "outputs", limit=5)}
+
+
+@app.get("/api/answers/{filename}")
+def get_answer(filename: str):
+    try:
+        return read_answer(ROOT / "outputs", filename)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Answer not found.")
+
+
+class ResynthesizeRequest(BaseModel):
+    topic_slug: str
+
+
+@app.post("/api/resynthesize")
+def post_resynthesize(body: ResynthesizeRequest):
+    topic_slug = body.topic_slug.strip()
+    if not topic_slug:
+        raise HTTPException(status_code=400, detail="topic_slug is required.")
+    try:
+        result = resynthesize_topic(topic_slug, model=RESYNTH_MODEL, root=ROOT)
+    except InsufficientSourcesError as exc:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "insufficient_sources", "message": str(exc)},
+        )
+    except OllamaUnavailableError as exc:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "ollama_unavailable", "message": str(exc)},
+        )
+    except TopicNotFoundError as exc:
+        return JSONResponse(
+            status_code=404,
+            content={"error": "topic_not_found", "message": str(exc)},
+        )
+    except ResynthesisError as exc:
+        return JSONResponse(
+            status_code=500,
+            content={"error": exc.error_code, "message": str(exc)},
+        )
+    return {
+        "status": "ok",
+        "topic_slug": result.topic_slug,
+        "synthesis_version": result.synthesis_version,
+        "sources_used": result.sources_used,
+        "committed": result.committed,
+    }
 
 
 # ---------------------------------------------------------------------------
