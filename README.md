@@ -25,8 +25,9 @@ pipeline_run.py -> synthesize.py -> score_synthesis.py -> review.py
         v
 topic_aggregator.py -> compiled/topics/ -> index_notes.py -> compiled/index.md
         |
+        +-> concept_aggregator.py -> compiled/concepts/ + compiled/entities/
         +-> query.py / Query tab -> outputs/answers/
-        +-> resynthesize_topic.py / Topic Management -> refreshed topic note
+        +-> resynthesize_topic.py -> refreshed topic note
         |
         v
 Obsidian vault at compiled/
@@ -75,6 +76,7 @@ Open in Obsidian: point a vault at `compiled/`
 | Script | What it does |
 |--------|-------------|
 | `apply_synthesis.py` | Applies raw LLM output to durable compiled notes or answer artifacts. |
+| `concept_aggregator.py` | Extracts concepts and entities from approved source summaries into `compiled/concepts/` and `compiled/entities/`. |
 | `compile_notes.py` | Builds prompt packs from source notes for synthesis. |
 | `feed_poller.py` | Polls RSS/Atom feeds from `metadata/feeds.json` into `raw/inbox/feeds/`. |
 | `git_ops.py` | Shared helper for pipeline auto-commits. |
@@ -108,8 +110,77 @@ Open in Obsidian: point a vault at `compiled/`
 | `kb-lint.timer` | Schedules `kb-lint.service` weekly. |
 | `kb-pipeline.service` | Runs `pipeline_run.py --watch --interval 30` for continuous processing. |
 
-## Roadmap
+## Phase 2 Roadmap
 
-- Concept & Entity pages
-- Backfill cleanup for generic-named legacy articles
-- Two-machine sync with a git remote
+Phase 1–13 delivered a fully operational pipeline. Phase 2 focuses on making the knowledge graph richer, more trustworthy, and faster to query — in that order.
+
+**Sequencing principle:** enrich graph → measure integrity → reduce capture friction → add retrieval layer. No managed cloud services at any phase.
+
+---
+
+### Phase 2A — Knowledge Usability
+
+Make the existing graph denser and traversable before investing in UI.
+
+| Step | Task | Notes |
+|------|------|-------|
+| 2A-1 | **Graph Health Baseline** | Script measuring wikilink density, stub ratio, orphan count. Run before/after as benchmark. |
+| 2A-2 | **Concept Definitions** | Second LLM pass to write actual definitions for stub notes, sourced from approved content. |
+| 2A-3 | **Wikilink Injection** | Back-annotate source/topic notes with `[[concept]]` links. Converts flat text to graph. |
+| 2A-4 | **Concepts/Entities Browser** | Dashboard tab for browsing concept/entity notes. Build after 2A-2 and 2A-3 are complete. |
+
+---
+
+### Phase 2B — Knowledge Integrity
+
+Detect drift, gaps, and contradictions as the corpus grows.
+
+| Step | Task | Notes |
+|------|------|-------|
+| 2B-1 | **Query Feedback Loop** | Mark answers good/bad via CLI or dashboard. Builds ground truth. Cheapest item on the roadmap. |
+| 2B-2 | **Cross-topic Contradiction Detection** | Extend lint to flag conflicting claims across topics. Candidates for human review only — never auto-resolved. |
+| 2B-3 | **Gap Ranking** | Score topics by density vs. orphan concept ratio. Surfaces where ingestion effort should focus. |
+| 2B-4 | **Staleness Lint** | Flag topic notes with newer nearby sources that haven't been re-synthesized. |
+
+---
+
+### Phase 2C — Capture Ergonomics
+
+Reduce friction on daily ingestion and review.
+
+| Step | Task | Notes |
+|------|------|-------|
+| 2C-1 | **Mobile Share-to-Inbox** | iOS/Android share-sheet → inbox watcher. |
+| 2C-2 | **Review Workflow Improvements** | Spec the bottleneck (context, steps, batching) before building. |
+| 2C-3 | **Saved Searches / Pinned Topics** | Persist frequent queries and surface recent entity activity. |
+
+---
+
+### Phase 2D — Vector Retrieval Layer
+
+Complement BM25 for semantic queries at scale. Sequenced last so embeddings are generated over high-quality, well-linked notes.
+
+| Step | Task | Notes |
+|------|------|-------|
+| 2D-1 | **Latency Benchmarking** | Measure current and projected 3× corpus query latency before building. |
+| 2D-2 | **sqlite-vec or FAISS Index** | Lightweight local vector index. Embed compiled notes at ingest time. |
+| 2D-3 | **Hybrid Retrieval** | Combine BM25 + vector scores. BM25 primary for precision; vector handles semantic drift. |
+
+---
+
+### What to avoid in Phase 2
+
+- Managed vector databases (cloud)
+- Complex agent frameworks
+- Model fine-tuning
+- Auto-merge or auto-rewrite of contradictions
+- Heavy dashboard UI before the graph is richer
+- Auto-rewrite of notes
+
+---
+
+### Phase 2 success signals
+
+- Graph health baseline script shows measurable wikilink density and stub ratio improvement after 2A
+- Query feedback scores trend upward as 2B integrity work lands
+- Latency benchmarks remain acceptable through 2D without cloud dependency
