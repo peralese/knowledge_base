@@ -348,6 +348,23 @@ def _run_topic_aggregation(item: dict[str, object], *, model: str, root: Path, n
         print(f"  Warning: topic aggregation failed: {exc}")
 
 
+def _run_concept_extraction(item: dict[str, object], *, model: str, root: Path, no_commit: bool = False) -> None:
+    """Extract concepts and entities from a synthesized source summary."""
+    try:
+        from concept_aggregator import extract_for_source  # noqa: PLC0415
+        from score_synthesis import _find_compiled_note  # noqa: PLC0415
+        compiled_path = _find_compiled_note(item, root)
+        if compiled_path is None:
+            return
+        result = extract_for_source(item, compiled_path, model=model, root=root, no_commit=no_commit)
+        nc = len(result.get("concepts_written", []))
+        ne = len(result.get("entities_written", []))
+        if not result.get("skipped"):
+            print(f"  Concepts    : {nc} concept(s), {ne} entity/entities extracted")
+    except Exception as exc:  # noqa: BLE001
+        print(f"  Warning: concept extraction failed: {exc}")
+
+
 # ---------------------------------------------------------------------------
 # Command dispatch
 # ---------------------------------------------------------------------------
@@ -392,8 +409,15 @@ def cmd_synthesize(
         )
         _run_scoring(item, model=model, root=root, no_commit=no_commit)
         _run_topic_aggregation(item, model=model, root=root, no_commit=no_commit)
+        _run_concept_extraction(item, model=model, root=root, no_commit=no_commit)
 
     return 0 if success else 1
+
+
+def cmd_concepts_only(*, model: str, root: Path, no_commit: bool = False) -> int:
+    """Re-run concept/entity extraction against all approved source summaries."""
+    from concept_aggregator import cmd_extract_all  # noqa: PLC0415
+    return cmd_extract_all(model=model, root=root, dry_run=False, no_commit=no_commit)
 
 
 def cmd_all(*, title_override: str, model: str, force: bool, root: Path, no_commit: bool = False) -> int:
@@ -441,6 +465,7 @@ def cmd_all(*, title_override: str, model: str, force: bool, root: Path, no_comm
         if str(item.get("source_id", "")) not in failed_ids:
             _run_scoring(item, model=model, root=root, no_commit=no_commit)
             _run_topic_aggregation(item, model=model, root=root, no_commit=no_commit)
+            _run_concept_extraction(item, model=model, root=root, no_commit=no_commit)
 
     passed = len(items) - failed
     print(f"Done: {passed}/{len(items)} synthesized successfully.")
@@ -496,12 +521,21 @@ def build_parser() -> argparse.ArgumentParser:
         dest="no_commit",
         help="Skip git auto-commit after synthesis.",
     )
+    parser.add_argument(
+        "--concepts-only",
+        action="store_true",
+        dest="concepts_only",
+        help="Re-run concept/entity extraction on all approved source summaries; skip re-synthesis.",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    if args.concepts_only:
+        return cmd_concepts_only(model=args.model, root=ROOT, no_commit=args.no_commit)
 
     queue = load_queue()
 

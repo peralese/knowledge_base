@@ -8,7 +8,8 @@
     "readme.md",
     "metadata/",
     "outputs/reports/",
-    "backup/"
+    "backup/",
+    "INSTALL"
   ],
   "alwaysUpdateLinks": true
 }

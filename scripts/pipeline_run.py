@@ -39,6 +39,7 @@ from synthesize import (  # noqa: E402
     save_queue,
     synthesize_item,
 )
+from concept_aggregator import extract_for_source as extract_concepts  # noqa: E402
 from topic_aggregator import _find_source_summary, aggregate_for_source  # noqa: E402
 
 DEFAULT_THRESHOLD = 0.85
@@ -140,6 +141,23 @@ def run_for_item(
             _log(source_id, "topic_aggregate", "OK")
         except Exception as exc:
             _log(source_id, "topic_aggregate", f"ERROR  {exc}")
+            # Non-fatal
+
+    # ---- 4. Concept/entity extraction ----------------------------------------
+    if source_summary_path is None:
+        _log(source_id, "concept_extract", "SKIP   source summary not found")
+    else:
+        try:
+            result = extract_concepts(updated_item, source_summary_path, model=model, root=root, no_commit=no_commit)
+            nc = len(result.get("concepts_written", []))
+            ne = len(result.get("entities_written", []))
+            skipped = result.get("skipped")
+            if skipped:
+                _log(source_id, "concept_extract", f"SKIP   {skipped}")
+            else:
+                _log(source_id, "concept_extract", f"OK     ({nc} concepts, {ne} entities)")
+        except Exception as exc:
+            _log(source_id, "concept_extract", f"ERROR  {exc}")
             # Non-fatal
 
     return True

@@ -37,16 +37,17 @@ from git_ops import commit_pipeline_stage  # noqa: E402
 
 INDEX_PATH = ROOT / "compiled" / "index.md"
 
-CATEGORY_ORDER = ["topics", "concepts", "source_summaries"]
+CATEGORY_ORDER = ["topics", "concepts", "entities", "source_summaries"]
 
 # Only these categories get wikilinks in the index.
 # source_summaries are linked from their parent topic note — not from the index.
 # This keeps the Obsidian graph hierarchy: index → topic → source summary → raw article.
-INDEX_LINK_CATEGORIES = ["topics", "concepts"]
+INDEX_LINK_CATEGORIES = ["topics", "concepts", "entities"]
 
 CATEGORY_HEADINGS = {
     "topics":   "Topics",
     "concepts": "Concepts",
+    "entities": "Entities",
 }
 
 SUMMARY_MAX_LEN = 120

@@ -407,15 +407,18 @@ def _build_concept_stub(slug: str, today: str) -> str:
     return (
         "---\n"
         f'title: "{title}"\n'
-        'note_type: "concept"\n'
-        "compiled_from: []\n"
+        "note_type: concept\n"
+        f"slug: {slug}\n"
         f'date_compiled: "{today}"\n'
-        "tags:\n"
-        '  - "concept"\n'
+        f'date_updated: "{today}"\n'
+        "sources: []\n"
+        "approved: true\n"
         'generation_method: "stub"\n'
         "---\n\n"
         f"# {title}\n\n"
-        "_Stub page — created by `lint --fix`. Add content from relevant source summaries._\n"
+        "_Stub page — created by `lint --fix`. Add content from relevant source summaries._\n\n"
+        "## Mentioned In\n\n"
+        "## Related Concepts\n"
     )
 
 

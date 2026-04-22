@@ -505,9 +505,11 @@ class BuildConceptStubTests(unittest.TestCase):
 
     def test_required_frontmatter_fields(self) -> None:
         stub = _build_concept_stub("patch-cadence", "2026-04-17")
-        self.assertIn('note_type: "concept"', stub)
+        self.assertIn("note_type: concept", stub)
         self.assertIn('generation_method: "stub"', stub)
         self.assertIn('date_compiled: "2026-04-17"', stub)
+        self.assertIn("slug: patch-cadence", stub)
+        self.assertIn("sources: []", stub)
 
     def test_body_references_lint_fix(self) -> None:
         stub = _build_concept_stub("zero-trust", "2026-04-17")
@@ -785,7 +787,7 @@ class CheckMissingConceptsTests(unittest.TestCase):
         self.assertTrue(stub.exists())
         content = stub.read_text(encoding="utf-8")
         self.assertIn('title: "Zero Trust"', content)
-        self.assertIn('note_type: "concept"', content)
+        self.assertIn("note_type: concept", content)
         self.assertIn('generation_method: "stub"', content)
 
     @patch("scripts.lint.call_ollama")
