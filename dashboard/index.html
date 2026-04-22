@@ -602,18 +602,6 @@
       </div>
     </div>
 
-    <div class="form-card" style="margin-top:18px">
-      <h2>Topic Management</h2>
-      <div class="topic-row">
-        <div class="field">
-          <label>Topic</label>
-          <select id="manage-topic-select" onchange="loadTopicStatus()"></select>
-        </div>
-        <button class="btn btn-primary" id="resynth-submit" onclick="resynthesizeTopic()">Re-synthesize Topic</button>
-      </div>
-      <div class="muted" id="topic-status">Select a topic to view synthesis state.</div>
-      <div id="resynth-msg" class="msg"></div>
-    </div>
   </div>
 
 </main>
@@ -630,7 +618,6 @@ function showTab(name) {
   if (name === 'queue') loadQueue();
   if (name === 'query') {
     loadRecentAnswers();
-    loadTopicStatus();
   }
 }
 
@@ -726,8 +713,6 @@ async function loadTopics() {
   sel.innerHTML = '<option value="">— Select a topic —</option>';
   const querySel = document.getElementById('query-topic-select');
   querySel.innerHTML = '<option value="">All topics</option>';
-  const manageSel = document.getElementById('manage-topic-select');
-  manageSel.innerHTML = '';
   for (const t of data.topics) {
     const opt = document.createElement('option');
     opt.value = t.slug;
@@ -738,17 +723,11 @@ async function loadTopics() {
     qOpt.value = t.slug;
     qOpt.textContent = t.display_name;
     querySel.appendChild(qOpt);
-
-    const mOpt = document.createElement('option');
-    mOpt.value = t.slug;
-    mOpt.textContent = t.display_name;
-    manageSel.appendChild(mOpt);
   }
   const addOpt = document.createElement('option');
   addOpt.value = '__new__';
   addOpt.textContent = '+ Add new topic…';
   sel.appendChild(addOpt);
-  loadTopicStatus();
 }
 
 function onTopicSelectChange() {
@@ -979,59 +958,6 @@ function askFollowup() {
   const prefix = (_lastQuestion || document.getElementById('query-question').value || '').slice(0, 60);
   document.getElementById('query-question').value = 'Follow up on: ' + prefix;
   document.getElementById('query-question').focus();
-}
-
-async function loadTopicStatus() {
-  const sel = document.getElementById('manage-topic-select');
-  const status = document.getElementById('topic-status');
-  if (!sel || !sel.value) {
-    if (status) status.textContent = 'Select a topic to view synthesis state.';
-    return;
-  }
-  const res = await fetch('/api/topics/' + encodeURIComponent(sel.value) + '/status');
-  if (!res.ok) {
-    status.textContent = 'Topic note has not been created yet.';
-    return;
-  }
-  const data = await res.json();
-  status.textContent = `Last synthesized: ${data.date_updated || 'unknown'} · Version ${data.synthesis_version} · ${data.source_count} sources (${data.approved_source_count} approved)`;
-}
-
-async function resynthesizeTopic() {
-  const topic = document.getElementById('manage-topic-select').value;
-  const btn = document.getElementById('resynth-submit');
-  const msg = document.getElementById('resynth-msg');
-  if (!topic) {
-    msg.className = 'msg msg-error';
-    msg.textContent = 'Select a topic first.';
-    return;
-  }
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Re-synthesize Topic';
-  msg.className = 'msg msg-success';
-  msg.textContent = 'Re-synthesizing from source summaries…';
-  try {
-    const res = await fetch('/api/resynthesize', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ topic_slug: topic }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      msg.className = 'msg msg-error';
-      msg.textContent = data.message || 'Re-synthesis failed.';
-      return;
-    }
-    msg.className = 'msg msg-success';
-    msg.textContent = `Re-synthesized version ${data.synthesis_version} from ${data.sources_used} sources.`;
-    loadTopicStatus();
-  } catch (_) {
-    msg.className = 'msg msg-error';
-    msg.textContent = 'Re-synthesis failed. Check the dashboard service logs.';
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Re-synthesize Topic';
-  }
 }
 
 // ---------------------------------------------------------------------------
