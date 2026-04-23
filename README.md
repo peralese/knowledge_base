@@ -137,10 +137,10 @@ Detect drift, gaps, and contradictions as the corpus grows.
 
 | Step | Task | Notes |
 |------|------|-------|
-| 2B-1 | **Query Feedback Loop** | Mark answers good/bad via CLI or dashboard. Builds ground truth. Cheapest item on the roadmap. |
-| 2B-2 | **Cross-topic Contradiction Detection** | Extend lint to flag conflicting claims across topics. Candidates for human review only — never auto-resolved. |
-| 2B-3 | **Gap Ranking** | Score topics by density vs. orphan concept ratio. Surfaces where ingestion effort should focus. |
-| 2B-4 | **Staleness Lint** | Flag topic notes with newer nearby sources that haven't been re-synthesized. |
+| 2B-1 | **Query Feedback Loop** | Complete. `scripts/feedback.py` marks saved answers good/bad, stores feedback in answer frontmatter, reports feedback stats, and the dashboard Query tab exposes thumbs up/down controls via `POST /api/feedback`. |
+| 2B-2 | **Cross-topic Contradiction Detection** | Complete. `scripts/lint.py --contradictions` extracts topic claims, compares topic pairs with Ollama, prints human-review candidates only, and saves JSON reports under `outputs/contradictions/`. |
+| 2B-3 | **Gap Ranking** | Complete. `scripts/graph_health.py --gaps [--top N]` ranks under-covered topics using orphan concept ratio, inverse approved-source density, and stub ratio; gap data is included in graph-health snapshots and comparison output. |
+| 2B-4 | **Staleness Lint** | Complete. `scripts/lint.py --staleness [--days N]` flags topic notes with newer approved related source summaries, writes reports under `outputs/staleness/`, and `--fix` prints the re-synthesis commands to queue. |
 
 ---
 

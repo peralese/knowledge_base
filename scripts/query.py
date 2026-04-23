@@ -252,6 +252,9 @@ def build_answer_frontmatter(
         f"compiled_notes_used: {fmt_list(note_stems)}\n"
         f'generation_method: "ollama_local"\n'
         f'model: "{model}"\n'
+        "feedback: null\n"
+        "feedback_note: null\n"
+        "feedback_at: null\n"
         "---"
     )
 

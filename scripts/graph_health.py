@@ -147,6 +147,10 @@ def _extract_wikilinks(body: str) -> list[str]:
     return [m.group(1).strip() for m in WIKILINK_RE.finditer(body)]
 
 
+def _approved_source_stems(summaries: dict[str, str]) -> set[str]:
+    return {stem for stem, text in summaries.items() if _parse_yaml_bool(text, "approved")}
+
+
 def _count_wikilinks(text: str) -> int:
     body = _strip_frontmatter(text)
     return len(_extract_wikilinks(body))
@@ -248,9 +252,8 @@ def compute_metrics(root: Path) -> dict:
     top_orphans = sorted(orphaned_concepts + orphaned_entities)[:20]
 
     # --- source coverage ---
-    approved_summaries = [
-        stem for stem, text in summaries.items() if _parse_yaml_bool(text, "approved")
-    ]
+    approved_summary_set = _approved_source_stems(summaries)
+    approved_summaries = sorted(approved_summary_set)
     total_approved = len(approved_summaries)
 
     # Which approved summaries appear in at least one topic's compiled_from?
@@ -264,7 +267,7 @@ def compute_metrics(root: Path) -> dict:
 
     # Average approved sources per topic
     topic_source_counts = [
-        len([s for s in _parse_compiled_from(t) if s in set(approved_summaries)])
+        len([s for s in _parse_compiled_from(t) if s in approved_summary_set])
         for t in topics.values()
     ]
     avg_approved_per_topic = (
@@ -289,7 +292,90 @@ def compute_metrics(root: Path) -> dict:
         "covered_approved_sources": covered,
         "total_approved_sources": total_approved,
         "avg_approved_sources_per_topic": avg_approved_per_topic,
+        "gaps": compute_gap_ranking_from_notes(topics, concepts, summaries),
     }
+
+
+def compute_gap_score(
+    orphan_concept_ratio: float,
+    inverse_source_density: float,
+    stub_ratio_for_topic: float,
+) -> float:
+    """Return the Phase 2B gap score. Higher means more under-covered."""
+    return round(
+        (orphan_concept_ratio * 0.5)
+        + (inverse_source_density * 0.3)
+        + (stub_ratio_for_topic * 0.2),
+        2,
+    )
+
+
+def compute_gap_ranking_from_notes(
+    topics: dict[str, str],
+    concepts: dict[str, str],
+    summaries: dict[str, str],
+) -> list[dict[str, object]]:
+    """Score each topic by orphan concepts, source density, and stub ratio."""
+    approved_summaries = _approved_source_stems(summaries)
+    topic_concepts: dict[str, list[str]] = {}
+    topic_source_counts: dict[str, int] = {}
+
+    for topic, text in topics.items():
+        body = _strip_frontmatter(text)
+        concepts_in_topic: list[str] = []
+        seen: set[str] = set()
+        for link in _extract_wikilinks(body):
+            stem = Path(link).stem
+            if stem in concepts and stem not in seen:
+                concepts_in_topic.append(stem)
+                seen.add(stem)
+        topic_concepts[topic] = concepts_in_topic
+        topic_source_counts[topic] = len([
+            stem for stem in _parse_compiled_from(text) if stem in approved_summaries
+        ])
+
+    max_sources = max(topic_source_counts.values(), default=0)
+
+    incoming_from_other_topics: dict[str, set[str]] = {}
+    for topic, concepts_in_topic in topic_concepts.items():
+        for concept in concepts_in_topic:
+            incoming_from_other_topics.setdefault(concept, set()).add(topic)
+
+    rows: list[dict[str, object]] = []
+    for topic in sorted(topics):
+        concepts_in_topic = topic_concepts.get(topic, [])
+        total_concepts = len(concepts_in_topic)
+        if total_concepts:
+            orphan_count = sum(
+                1 for concept in concepts_in_topic
+                if len(incoming_from_other_topics.get(concept, set()) - {topic}) == 0
+            )
+            stub_count = sum(1 for concept in concepts_in_topic if is_stub(concepts[concept]))
+            orphan_ratio = orphan_count / total_concepts
+            stub_ratio = stub_count / total_concepts
+        else:
+            orphan_count = 0
+            stub_count = 0
+            orphan_ratio = 1.0
+            stub_ratio = 1.0
+
+        sources = topic_source_counts.get(topic, 0)
+        inverse_source_density = 1 - (sources / max_sources) if max_sources else 1.0
+        gap_score = compute_gap_score(orphan_ratio, inverse_source_density, stub_ratio)
+        rows.append({
+            "topic": topic,
+            "gap_score": gap_score,
+            "orphan_concept_ratio": round(orphan_ratio, 4),
+            "orphan_pct": round(orphan_ratio * 100),
+            "approved_sources": sources,
+            "stub_ratio": round(stub_ratio, 4),
+            "stub_pct": round(stub_ratio * 100),
+            "concepts_mentioned": total_concepts,
+            "orphan_concepts": orphan_count,
+            "stub_concepts": stub_count,
+        })
+
+    return sorted(rows, key=lambda row: (-float(row["gap_score"]), str(row["topic"])))
 
 
 # ---------------------------------------------------------------------------
@@ -351,6 +437,38 @@ def format_report(m: dict) -> str:
         f"  Avg approved sources/topic: {m['avg_approved_sources_per_topic']:.2f}",
         "",
     ]
+    return "\n".join(lines)
+
+
+def format_gap_report(metrics: dict, top: int | None = None) -> str:
+    gaps = list(metrics.get("gaps", []))
+    if top and top > 0:
+        gaps = gaps[:top]
+
+    lines = [
+        "Gap Ranking — Topics Most in Need of Ingestion",
+        "=" * 48,
+        f"{'Rank':<4}  {'Topic':<23}  {'Gap Score':<10}  {'Orphan %':<9}  {'Sources':<8}  {'Stub %':<6}",
+        f"{'----':<4}  {'-' * 23}  {'-' * 10}  {'-' * 9}  {'-' * 8}  {'-' * 6}",
+    ]
+    for idx, row in enumerate(gaps, start=1):
+        lines.append(
+            f"{idx:<4}  {str(row['topic'])[:23]:<23}  "
+            f"{float(row['gap_score']):<10.2f}  "
+            f"{int(row['orphan_pct'])}%{'':<7}  "
+            f"{int(row['approved_sources']):<8}  "
+            f"{int(row['stub_pct'])}%"
+        )
+
+    if len(gaps) >= 2:
+        lines += [
+            "",
+            f"Recommendation: prioritize ingesting sources for '{gaps[0]['topic']}' and '{gaps[1]['topic']}'",
+        ]
+    elif len(gaps) == 1:
+        lines += ["", f"Recommendation: prioritize ingesting sources for '{gaps[0]['topic']}'"]
+    else:
+        lines += ["", "Recommendation: no topics available for gap ranking."]
     return "\n".join(lines)
 
 
@@ -433,9 +551,26 @@ def format_diff(before: dict, after: dict, snap_a: str = "", snap_b: str = "") -
         _row("Approved sources", before.get("total_approved_sources"), after.get("total_approved_sources"), improvement="none"),
         _row("Source coverage", before.get("source_coverage_pct"), after.get("source_coverage_pct"), fmt="pct", improvement="up"),
         _row("Avg sources/topic", before.get("avg_approved_sources_per_topic"), after.get("avg_approved_sources_per_topic"), fmt="float2", improvement="up"),
+        "  " + "-" * 55,
+        _row("Max gap score", _max_gap(before), _max_gap(after), fmt="float2", improvement="down"),
+        _row("Avg gap score", _avg_gap(before), _avg_gap(after), fmt="float2", improvement="down"),
         "",
     ]
     return "\n".join(rows)
+
+
+def _max_gap(metrics: dict) -> float | None:
+    gaps = [row for row in metrics.get("gaps", []) if isinstance(row, dict)]
+    if not gaps:
+        return None
+    return max(float(row.get("gap_score", 0.0)) for row in gaps if isinstance(row, dict))
+
+
+def _avg_gap(metrics: dict) -> float | None:
+    gaps = [row for row in metrics.get("gaps", []) if isinstance(row, dict)]
+    if not gaps:
+        return None
+    return round(sum(float(row.get("gap_score", 0.0)) for row in gaps) / len(gaps), 2)
 
 
 def _flatten(m: dict) -> dict:
@@ -522,7 +657,7 @@ def load_most_recent_snapshot(exclude_timestamp: str | None = None) -> dict | No
 # Main
 # ---------------------------------------------------------------------------
 
-def run(root: Path, json_only: bool, compare: bool) -> int:
+def run(root: Path, json_only: bool, compare: bool, gaps: bool = False, top: int | None = None) -> int:
     metrics = compute_metrics(root)
     current_ts = metrics["timestamp"]
 
@@ -539,6 +674,11 @@ def run(root: Path, json_only: bool, compare: bool) -> int:
             return 0
         prior, prior_stem = result
         print(format_diff(prior, metrics, snap_a=prior_stem + ".json", snap_b=snap_path.name))
+        print(f"\nSnapshot saved: {snap_path.relative_to(root)}")
+        return 0
+
+    if gaps:
+        print(format_gap_report(metrics, top=top))
         print(f"\nSnapshot saved: {snap_path.relative_to(root)}")
         return 0
 
@@ -563,13 +703,24 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Diff today vs most recent prior snapshot.",
     )
+    parser.add_argument(
+        "--gaps",
+        action="store_true",
+        help="Show Phase 2B topic gap ranking table.",
+    )
+    parser.add_argument(
+        "--top",
+        type=int,
+        default=None,
+        help="With --gaps, show only the top N under-covered topics.",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    return run(root=ROOT, json_only=args.json_only, compare=args.compare)
+    return run(root=ROOT, json_only=args.json_only, compare=args.compare, gaps=args.gaps, top=args.top)
 
 
 if __name__ == "__main__":

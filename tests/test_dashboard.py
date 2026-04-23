@@ -722,6 +722,20 @@ class QueryEndpointTests(unittest.TestCase):
         self.assertEqual(detail.status_code, 200)
         self.assertEqual(detail.json()["question"], "Q1?")
 
+    def test_feedback_endpoint_marks_answer(self) -> None:
+        with patch("dashboard.call_query_ollama", return_value="Answer."):
+            first = self.client.post("/api/query", json={"question": "Q1?"})
+        filename = Path(first.json()["saved_path"]).name
+
+        res = self.client.post(
+            "/api/feedback",
+            json={"answer_id": filename, "rating": "bad", "note": "too generic"},
+        )
+        self.assertEqual(res.status_code, 200)
+        detail = self.client.get(f"/api/answers/{filename}")
+        self.assertEqual(detail.json()["feedback"], "bad")
+        self.assertEqual(detail.json()["feedback_note"], "too generic")
+
 
 class ResynthesizeEndpointTests(unittest.TestCase):
     def setUp(self) -> None:

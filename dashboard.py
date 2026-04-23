@@ -67,6 +67,7 @@ from query_engine import (  # noqa: E402
     recent_answers,
     save_answer,
 )
+from feedback import write_feedback  # noqa: E402
 from resynthesize_topic import (  # noqa: E402
     DEFAULT_MODEL as RESYNTH_MODEL,
     InsufficientSourcesError,
@@ -632,6 +633,28 @@ def get_answer(filename: str):
         return read_answer(ROOT / "outputs", filename)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Answer not found.")
+
+
+class FeedbackRequest(BaseModel):
+    answer_id: str
+    rating: str
+    note: str = ""
+
+
+@app.post("/api/feedback")
+def post_feedback(body: FeedbackRequest):
+    rating = body.rating.strip()
+    if rating not in ("good", "bad"):
+        raise HTTPException(status_code=400, detail="rating must be 'good' or 'bad'.")
+    answer_id = body.answer_id.strip()
+    if not answer_id:
+        raise HTTPException(status_code=400, detail="answer_id is required.")
+    stem = answer_id.removesuffix(".md")
+    path = ROOT / "outputs" / "answers" / f"{stem}.md"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail=f"Answer not found: {answer_id}")
+    write_feedback(path, rating, note=body.note)
+    return {"ok": True, "answer_id": answer_id, "rating": rating}
 
 
 class ResynthesizeRequest(BaseModel):

@@ -13,16 +13,19 @@ from scripts.lint import (
     LintIssue,
     _all_known_stems,
     _build_concept_stub,
+    _extract_claim_sentences,
     _parse_compiled_from,
     _parse_json_array,
     _parse_title,
     _strip_frontmatter,
     build_report,
     check_contradictions,
+    check_cross_topic_contradictions,
     check_dangling_wikilinks,
     check_missing_concepts,
     check_orphan_summaries,
     check_orphaned_raw_notes,
+    check_staleness,
     check_unapproved,
     file_report,
     run,
@@ -433,6 +436,18 @@ def _source_summary_text(body: str = "Source body content.") -> str:
     )
 
 
+def _dated_source_summary_text(body: str, approved: bool = True, date_updated: str = "2026-04-20") -> str:
+    return (
+        "---\n"
+        'title: "Source Summary"\n'
+        'note_type: "source_summary"\n'
+        f"approved: {'true' if approved else 'false'}\n"
+        f'date_updated: "{date_updated}"\n'
+        "---\n\n"
+        f"{body}\n"
+    )
+
+
 def _queue_entry_dict(
     source_id: str = "SRC-20260417-0001",
     confidence_band: str = "high",
@@ -729,6 +744,121 @@ class CheckContradictionsTests(unittest.TestCase):
         self._make_summary("s1")
         self._make_summary("s2")
         self.assertEqual(len(check_contradictions(self.root, "test-model")), 2)
+
+
+class CrossTopicContradictionTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def _topic(self, slug: str, body: str) -> None:
+        _write_file(
+            self.root / "compiled" / "topics" / f"{slug}.md",
+            f'---\ntitle: "{slug}"\n---\n\n{body}\n',
+        )
+
+    def test_claim_extraction_excludes_heading_question_and_short_fragment(self) -> None:
+        body = "\n".join([
+            "# Heading",
+            "Is this a question?",
+            "Short fragment.",
+            "Agent permissions must be scoped to the minimum required for each task.",
+        ])
+        self.assertEqual(
+            _extract_claim_sentences(body),
+            ["Agent permissions must be scoped to the minimum required for each task."],
+        )
+
+    @patch("scripts.lint.call_ollama")
+    def test_confidence_threshold_filters_low_candidates(self, mock_ollama: MagicMock) -> None:
+        mock_ollama.return_value = json.dumps([
+            {
+                "topic_a": "a",
+                "topic_b": "b",
+                "claim_a": "A says the control is always enabled.",
+                "claim_b": "B says the control is never enabled.",
+                "confidence": 0.59,
+                "reasoning": "Below threshold.",
+            }
+        ])
+        claim_block = "\n".join([
+            "The system requires authentication for every privileged administrative request.",
+            "Agent permissions must be scoped to the minimum required for each task.",
+            "Every source summary provides enough context to support the topic.",
+        ])
+        self._topic("a", claim_block)
+        self._topic("b", claim_block)
+        issues = check_cross_topic_contradictions(self.root, "test-model")
+        self.assertEqual(issues, [])
+
+    @patch("scripts.lint.call_ollama")
+    def test_output_file_written_to_contradictions_dir(self, mock_ollama: MagicMock) -> None:
+        mock_ollama.return_value = "[]"
+        claim_block = "\n".join([
+            "The system requires authentication for every privileged administrative request.",
+            "Agent permissions must be scoped to the minimum required for each task.",
+            "Every source summary provides enough context to support the topic.",
+        ])
+        self._topic("a", claim_block)
+        self._topic("b", claim_block)
+        import scripts.lint as lint_mod
+        orig_dir = lint_mod.CONTRADICTIONS_DIR
+        lint_mod.CONTRADICTIONS_DIR = self.root / "outputs" / "contradictions"
+        try:
+            check_cross_topic_contradictions(self.root, "test-model")
+            files = list((self.root / "outputs" / "contradictions").glob("*.json"))
+            self.assertEqual(len(files), 1)
+        finally:
+            lint_mod.CONTRADICTIONS_DIR = orig_dir
+
+
+class StalenessTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def _topic(self, slug: str, last_synthesized: str) -> None:
+        _write_file(
+            self.root / "compiled" / "topics" / f"{slug}.md",
+            (
+                "---\n"
+                f'title: "{slug}"\n'
+                f'last_synthesized: "{last_synthesized}"\n'
+                "compiled_from:\n"
+                '  - "old-source"\n'
+                "---\n\n"
+                "This topic mentions [[shared-concept]].\n"
+            ),
+        )
+
+    def _source(self, stem: str, date_updated: str) -> None:
+        _write_file(
+            self.root / "compiled" / "source_summaries" / f"{stem}.md",
+            _dated_source_summary_text("New material about [[shared-concept]].", True, date_updated),
+        )
+
+    def test_topic_older_than_related_source_is_stale(self) -> None:
+        self._topic("agents", "2026-03-10")
+        self._source("new-source", "2026-04-01")
+        issues = check_staleness(self.root)
+        self.assertEqual(len(issues), 1)
+        self.assertEqual(issues[0].check, "staleness")
+
+    def test_sources_before_topic_are_not_stale(self) -> None:
+        self._topic("agents", "2026-04-10")
+        self._source("old-related-source", "2026-04-01")
+        self.assertEqual(check_staleness(self.root), [])
+
+    def test_days_threshold_filters_small_date_gaps(self) -> None:
+        self._topic("agents", "2026-04-01")
+        self._source("new-source", "2026-04-10")
+        self.assertEqual(check_staleness(self.root, days=30), [])
 
 
 # ---------------------------------------------------------------------------

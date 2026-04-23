@@ -230,6 +230,9 @@ def save_answer(
         f'question: "{question.strip().replace(chr(34), chr(39))}"\n'
         f"topic: {topic}\n"
         f"date: {today}\n"
+        "feedback: null\n"
+        "feedback_note: null\n"
+        "feedback_at: null\n"
         "sources:\n"
         f"{source_lines if source_lines else '  []'}\n"
         "---"
@@ -252,11 +255,15 @@ def recent_answers(outputs_dir: Path, limit: int = 5) -> list[dict[str, object]]
     for path in answers_dir.glob("*.md"):
         text = path.read_text(encoding="utf-8", errors="replace")
         fm, _ = _split_frontmatter(text)
+        feedback = str(fm.get("feedback", ""))
+        if feedback == "null":
+            feedback = ""
         rows.append({
             "filename": path.name,
             "question": str(fm.get("question", path.stem)),
             "topic": str(fm.get("topic", "all")),
             "date": str(fm.get("date", "")),
+            "feedback": feedback,
             "path": f"outputs/answers/{path.name}",
             "_mtime": path.stat().st_mtime,
         })
@@ -273,10 +280,18 @@ def read_answer(outputs_dir: Path, filename: str) -> dict[str, object]:
     sources = fm.get("sources", [])
     if not isinstance(sources, list):
         sources = [str(sources)]
+    feedback = str(fm.get("feedback", ""))
+    if feedback == "null":
+        feedback = ""
+    feedback_note = str(fm.get("feedback_note", ""))
+    if feedback_note == "null":
+        feedback_note = ""
     return {
         "question": str(fm.get("question", "")),
         "topic": str(fm.get("topic", "all")),
         "date": str(fm.get("date", "")),
         "answer": body,
         "sources": [Path(str(source)).stem for source in sources],
+        "feedback": feedback,
+        "feedback_note": feedback_note,
     }

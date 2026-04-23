@@ -15,8 +15,11 @@ from scripts.graph_health import (
     _parse_compiled_from,
     _parse_frontmatter_field,
     _strip_frontmatter,
+    compute_gap_ranking_from_notes,
+    compute_gap_score,
     compute_metrics,
     format_diff,
+    format_gap_report,
     format_report,
     is_stub,
     load_most_recent_snapshot,
@@ -58,6 +61,13 @@ def _summary(root: Path, stem: str, approved: bool = True) -> Path:
         f'approved: {"true" if approved else "false"}\n---\n\nSummary body.\n'
     )
     return _write(root, f"compiled/source_summaries/{stem}.md", content)
+
+
+def _summary_text(approved: bool = True) -> str:
+    return (
+        f'---\ntitle: "src"\nnote_type: source_summary\n'
+        f'approved: {"true" if approved else "false"}\n---\n\nSummary body.\n'
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -335,6 +345,46 @@ class ComputeMetricsTests(unittest.TestCase):
         m = compute_metrics(self.root)
         # t1 has 2, t2 has 1 → avg 1.5
         self.assertEqual(m["avg_approved_sources_per_topic"], 1.5)
+
+    def test_snapshot_metrics_include_gap_data(self) -> None:
+        _concept(self.root, "alpha", "Real definition.")
+        _topic(self.root, "t1", [], body="This topic mentions [[alpha]].")
+        m = compute_metrics(self.root)
+        self.assertIn("gaps", m)
+        self.assertEqual(m["gaps"][0]["topic"], "t1")
+
+
+class GapRankingTests(unittest.TestCase):
+    def test_gap_score_formula(self) -> None:
+        self.assertEqual(compute_gap_score(0.9, 0.5, 1.0), 0.8)
+
+    def test_gap_ranking_sorted_descending(self) -> None:
+        topics = {
+            "thin": '---\ncompiled_from:\n  - "s1"\n---\n\n[[stub-concept]] only.',
+            "rich": '---\ncompiled_from:\n  - "s1"\n  - "s2"\n---\n\n[[rich-concept]] and [[shared-concept]].',
+            "other": '---\ncompiled_from:\n  - "s2"\n---\n\n[[shared-concept]].',
+        }
+        concepts = {
+            "stub-concept": "---\ngeneration_method: stub\n---\n\n",
+            "rich-concept": "---\n---\n\nReal definition.",
+            "shared-concept": "---\n---\n\nReal definition.",
+        }
+        summaries = {"s1": _summary_text(True), "s2": _summary_text(True)}
+        ranking = compute_gap_ranking_from_notes(topics, concepts, summaries)
+        self.assertEqual(ranking[0]["topic"], "thin")
+        self.assertGreaterEqual(ranking[0]["gap_score"], ranking[1]["gap_score"])
+
+    def test_format_gap_report_includes_recommendation(self) -> None:
+        metrics = {
+            "gaps": [
+                {"topic": "thin", "gap_score": 0.9, "orphan_pct": 100, "approved_sources": 1, "stub_pct": 100},
+                {"topic": "next", "gap_score": 0.7, "orphan_pct": 50, "approved_sources": 1, "stub_pct": 50},
+            ]
+        }
+        report = format_gap_report(metrics, top=2)
+        self.assertIn("Gap Ranking", report)
+        self.assertIn("thin", report)
+        self.assertIn("prioritize", report)
 
 
 # ---------------------------------------------------------------------------

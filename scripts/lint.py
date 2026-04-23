@@ -8,11 +8,17 @@ Pure-Python checks (always run, no Ollama required):
   orphans          — find raw notes not referenced by any compiled note
   orphan_summaries — find source summaries not linked to any topic note
   unapproved       — find low/medium-confidence queue items never manually reviewed
+  staleness        — flag topic notes with newer approved sources not yet synthesized
 
 LLM-assisted checks (require --llm flag and a running Ollama instance):
   coverage          — ask the model to identify topic gaps based on the wiki index
   contradictions    — find conflicting claims across source summaries within a topic
   missing_concepts  — identify terms referenced across notes with no concept page
+
+Phase 2B checks (dedicated flags):
+  --contradictions  — cross-topic contradiction detection between topic notes (LLM)
+  --staleness       — staleness detection: newer approved sources not synthesized (pure)
+  --all             — run all checks including 2B checks
 
 Usage:
     # Run all pure checks, print report to terminal
@@ -32,6 +38,15 @@ Usage:
 
     # Preview without filing
     python3 scripts/lint.py --llm --report --dry-run
+
+    # 2B: cross-topic contradiction detection
+    python3 scripts/lint.py --contradictions
+
+    # 2B: staleness detection (only flag topics where newer source is >30 days newer)
+    python3 scripts/lint.py --staleness --days 30
+
+    # 2B: run everything
+    python3 scripts/lint.py --all
 """
 from __future__ import annotations
 
@@ -40,7 +55,7 @@ import json
 import re
 import sys
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from urllib.error import URLError
 
@@ -54,9 +69,18 @@ DEFAULT_MODEL = "qwen2.5:14b"
 
 PURE_CHECKS = ["wikilinks", "orphans", "orphan_summaries", "unapproved"]
 LLM_CHECKS  = ["coverage", "contradictions", "missing_concepts"]
-ALL_CHECKS  = PURE_CHECKS + LLM_CHECKS
+PHASE_2B_CHECKS = ["cross_contradictions", "staleness"]
+ALL_CHECKS  = PURE_CHECKS + LLM_CHECKS + PHASE_2B_CHECKS
 
 WIKILINK_RE = re.compile(r"\[\[([^\]|#]+?)(?:[|#][^\]]+)?\]\]")
+
+CONTRADICTIONS_DIR = ROOT / "outputs" / "contradictions"
+STALENESS_DIR = ROOT / "outputs" / "staleness"
+
+# Minimum claim sentences in a topic before including it in cross-topic comparison
+MIN_CLAIMS_FOR_COMPARISON = 3
+# Minimum confidence to surface a contradiction candidate
+CONTRADICTION_CONFIDENCE_THRESHOLD = 0.60
 
 
 # ---------------------------------------------------------------------------
@@ -136,6 +160,13 @@ def _parse_json_array(text: str) -> list:
         return result if isinstance(result, list) else []
     except json.JSONDecodeError:
         return []
+
+
+def _safe_float(value: object, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
 
 
 # ---------------------------------------------------------------------------
@@ -401,6 +432,374 @@ def check_contradictions(root: Path, model: str) -> list[LintIssue]:
     return issues
 
 
+# ---------------------------------------------------------------------------
+# 2B-2 Cross-topic contradiction detection
+# ---------------------------------------------------------------------------
+
+def _extract_claim_sentences(body: str) -> list[str]:
+    """Extract claim sentences from a note body.
+
+    A claim sentence: non-question, non-heading, non-placeholder, > 8 words.
+    Strips markdown markup before evaluating.
+    """
+    verb_re = re.compile(
+        r"\b(is|are|was|were|be|being|been|has|have|had|must|should|can|cannot|"
+        r"will|requires?|supports?|uses?|provides?|allows?|prevents?|includes?|"
+        r"means|depends|contains|stores|runs|scopes?|grants?)\b",
+        re.IGNORECASE,
+    )
+    claims: list[str] = []
+    for line in body.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or stripped == "---":
+            continue
+        if stripped.startswith("_") and stripped.endswith("_"):
+            continue
+        # Strip markup
+        text = re.sub(r"\*+", "", stripped)
+        text = re.sub(r"`[^`]+`", "", text)
+        text = re.sub(r"\[\[([^\]|]+)(?:\|[^\]]+)?\]\]", r"\1", text)
+        text = re.sub(r"\[([^\]]+)\]\([^\)]+\)", r"\1", text)
+        text = text.strip()
+        # Strip list prefix
+        m = re.match(r"^[-*]\s+(.+)$", text)
+        if m:
+            text = m.group(1).strip()
+        m = re.match(r"^\d+\.\s+(.+)$", text)
+        if m:
+            text = m.group(1).strip()
+        # Apply claim filters
+        if text.endswith("?"):
+            continue
+        if len(text.split()) <= 8:
+            continue
+        if not verb_re.search(text):
+            continue
+        claims.append(text)
+    return claims
+
+
+def check_cross_topic_contradictions(
+    root: Path,
+    model: str,
+    since: str | None = None,
+) -> list[LintIssue]:
+    """Compare topic note claims pairwise to find cross-topic contradictions.
+
+    Uses Ollama to compare claim sets. Returns candidate LintIssues and saves
+    a JSON report to outputs/contradictions/YYYY-MM-DD-HHMMSS.json.
+    Only compares topic notes (not concept or entity notes).
+    Topics with fewer than MIN_CLAIMS_FOR_COMPARISON claims are skipped.
+    Only surfaces candidates with confidence >= CONTRADICTION_CONFIDENCE_THRESHOLD.
+    """
+    topics_dir = root / "compiled" / "topics"
+    if not topics_dir.exists():
+        return []
+
+    topic_files = sorted(topics_dir.glob("*.md"))
+    topics: list[tuple[str, str, list[str]]] = []  # (stem, path_rel, claims)
+
+    for path in topic_files:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        body = _strip_frontmatter(text)
+        claims = _extract_claim_sentences(body)
+        if len(claims) >= MIN_CLAIMS_FOR_COMPARISON:
+            topics.append((path.stem, str(path.relative_to(root)), claims))
+
+    if len(topics) < 2:
+        return []
+
+    all_candidates: list[dict] = []
+    now_ts = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+
+    print(f"Cross-topic contradiction check: {len(topics)} topics with sufficient claims")
+
+    for i in range(len(topics)):
+        for j in range(i + 1, len(topics)):
+            stem_a, rel_a, claims_a = topics[i]
+            stem_b, rel_b, claims_b = topics[j]
+
+            claims_a_text = "\n".join(f"  - {c}" for c in claims_a[:20])
+            claims_b_text = "\n".join(f"  - {c}" for c in claims_b[:20])
+
+            prompt = (
+                "You are a knowledge integrity reviewer.\n"
+                "Find claims that DIRECTLY CONTRADICT each other — claims that CANNOT BOTH BE TRUE.\n"
+                "Surface tension, different levels of detail, or complementary perspectives are NOT contradictions.\n\n"
+                f"Topic A: {stem_a}\nClaims:\n{claims_a_text}\n\n"
+                f"Topic B: {stem_b}\nClaims:\n{claims_b_text}\n\n"
+                "Return ONLY a JSON array. Each element must have exactly these fields:\n"
+                f'  "topic_a": "{stem_a}",\n'
+                f'  "topic_b": "{stem_b}",\n'
+                '  "claim_a": <exact claim text from Topic A>,\n'
+                '  "claim_b": <contradicting claim text from Topic B>,\n'
+                '  "confidence": <float 0.0-1.0, where 1.0 = definitely a real contradiction>,\n'
+                '  "reasoning": <one sentence explaining why these contradict>\n\n'
+                "Return [] if no contradictions found. No prose outside the JSON array."
+            )
+
+            print(f"  Comparing: {stem_a} × {stem_b}...")
+            try:
+                response = call_ollama(prompt, model)
+            except URLError as exc:
+                issues.append(LintIssue(
+                    check="cross_contradictions",
+                    severity="info",
+                    message=f"LLM call failed for {stem_a} × {stem_b}: {exc}",
+                ))
+                continue
+
+            for item in _parse_json_array(response):
+                if not isinstance(item, dict):
+                    continue
+                confidence = _safe_float(item.get("confidence"), 0.0)
+                if confidence < CONTRADICTION_CONFIDENCE_THRESHOLD:
+                    continue
+                claim_a = str(item.get("claim_a", "")).strip()
+                claim_b = str(item.get("claim_b", "")).strip()
+                reasoning = str(item.get("reasoning", "")).strip()
+                if not claim_a or not claim_b:
+                    continue
+
+                level = "HIGH" if confidence >= 0.85 else "MED" if confidence >= 0.70 else "LOW"
+                candidate = {
+                    "topic_a": stem_a,
+                    "topic_b": stem_b,
+                    "file_a": rel_a,
+                    "file_b": rel_b,
+                    "claim_a": claim_a,
+                    "claim_b": claim_b,
+                    "confidence": confidence,
+                    "reasoning": reasoning,
+                    "timestamp": now_ts,
+                    "date": now_ts[:10],
+                }
+                all_candidates.append(candidate)
+
+    # Save JSON report
+    contradictions_dir = root / "outputs" / "contradictions"
+    contradictions_dir.mkdir(parents=True, exist_ok=True)
+    report = {
+        "timestamp": now_ts,
+        "date": now_ts[:10],
+        "topics_compared": len(topics),
+        "candidates": all_candidates,
+    }
+    snap_path = contradictions_dir / f"{now_ts}.json"
+    snap_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+
+    display_candidates = all_candidates
+    if since:
+        display_candidates = [c for c in all_candidates if str(c.get("date", "")) >= since]
+
+    issues: list[LintIssue] = []
+    header = f"CONTRADICTION CANDIDATES ({len(display_candidates)} found — human review required)"
+    print(f"\n{header}")
+    if display_candidates:
+        print()
+
+    for candidate in display_candidates:
+        confidence = _safe_float(candidate.get("confidence"), 0.0)
+        level = "HIGH" if confidence >= 0.85 else "MED" if confidence >= 0.70 else "LOW"
+        print(f"[{level} {confidence:.2f}] {candidate['file_a']} × {candidate['file_b']}")
+        print(f'  Claim A : "{candidate["claim_a"]}"')
+        print(f'  Claim B : "{candidate["claim_b"]}"')
+        print("  → Flag for review: do these conflict or describe different contexts?")
+        print()
+        issues.append(LintIssue(
+            check="cross_contradictions",
+            severity="warning",
+            message=f'[{level} {confidence:.2f}] "{candidate["claim_a"]}" vs "{candidate["claim_b"]}"',
+            detail=f"{candidate['file_a']} × {candidate['file_b']}",
+        ))
+    return issues
+
+
+# ---------------------------------------------------------------------------
+# 2B-4 Staleness detection
+# ---------------------------------------------------------------------------
+
+def _parse_date_field(text: str, field: str) -> date | None:
+    """Parse a date field from frontmatter. Returns None if absent or unparseable."""
+    normalized = text.replace("\r\n", "\n")
+    if not normalized.startswith("---\n"):
+        return None
+    end = normalized.find("\n---\n", 4)
+    if end == -1:
+        return None
+    for line in normalized[4:end].splitlines():
+        m = re.match(rf"^{re.escape(field)}:\s*[\"']?(\d{{4}}-\d{{2}}-\d{{2}})[\"']?", line)
+        if m:
+            try:
+                return date.fromisoformat(m.group(1))
+            except ValueError:
+                return None
+    return None
+
+
+def _parse_yaml_bool_local(text: str, field: str) -> bool:
+    """Parse a boolean frontmatter field."""
+    normalized = text.replace("\r\n", "\n")
+    if not normalized.startswith("---\n"):
+        return False
+    end = normalized.find("\n---\n", 4)
+    if end == -1:
+        return False
+    for line in normalized[4:end].splitlines():
+        m = re.match(rf"^{re.escape(field)}:\s*(.+)$", line)
+        if m:
+            return m.group(1).strip().lower() in {"true", "yes", "1"}
+    return False
+
+
+def _get_topic_date(text: str, path: Path) -> date | None:
+    """Get the effective 'last synthesized' date for a topic note.
+
+    Checks last_synthesized, then date_updated, then date_compiled, then file mtime.
+    """
+    for field in ("last_synthesized", "date_updated", "date_compiled"):
+        d = _parse_date_field(text, field)
+        if d is not None:
+            return d
+    # Fall back to file modification time
+    try:
+        mtime = path.stat().st_mtime
+        return date.fromtimestamp(mtime)
+    except OSError:
+        return None
+
+
+def check_staleness(
+    root: Path,
+    days: int = 0,
+    fix: bool = False,
+) -> list[LintIssue]:
+    """Flag topic notes that have newer approved sources not yet synthesized.
+
+    A topic is stale if:
+    1. It has a resolvable last-synthesized date
+    2. At least one approved source summary sharing wikilinks with the topic
+       was created/updated AFTER that date (and more than `days` days after)
+    3. That source is not already in the topic's compiled_from list
+
+    No LLM calls — pure date and metadata comparison.
+    Saves a JSON report to outputs/staleness/YYYY-MM-DD-HHMMSS.json.
+    """
+    topics_dir = root / "compiled" / "topics"
+    summaries_dir = root / "compiled" / "source_summaries"
+    if not topics_dir.exists():
+        return []
+
+    # Load all approved source summaries with their dates
+    approved_sources: list[tuple[str, date, set[str]]] = []  # (stem, date, wikilink_stems)
+    if summaries_dir.exists():
+        for path in sorted(summaries_dir.glob("*.md")):
+            text = path.read_text(encoding="utf-8", errors="replace")
+            if not _parse_yaml_bool_local(text, "approved"):
+                continue
+            src_date = (
+                _parse_date_field(text, "approved_at")
+                or _parse_date_field(text, "date_approved")
+                or _parse_date_field(text, "date_updated")
+                or _parse_date_field(text, "date_compiled")
+                or _parse_date_field(text, "generated_on")
+                or _parse_date_field(text, "date")
+            )
+            if src_date is None:
+                continue
+            body = _strip_frontmatter(text)
+            link_stems = {m.group(1).strip() for m in WIKILINK_RE.finditer(body)}
+            approved_sources.append((path.stem, src_date, link_stems))
+
+    issues: list[LintIssue] = []
+    now_ts = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+    stale_topics: list[dict] = []
+
+    for topic_path in sorted(topics_dir.glob("*.md")):
+        text = topic_path.read_text(encoding="utf-8", errors="replace")
+        topic_date = _get_topic_date(text, topic_path)
+        if topic_date is None:
+            continue
+
+        # Stems already synthesized into this topic
+        compiled_from: set[str] = set(_parse_compiled_from(text))
+
+        # Wikilinks in this topic body
+        body = _strip_frontmatter(text)
+        topic_links = {m.group(1).strip() for m in WIKILINK_RE.finditer(body)}
+
+        # Find newer approved sources not yet in compiled_from that share wikilinks
+        newer_sources: list[tuple[str, date]] = []
+        for src_stem, src_date, src_links in approved_sources:
+            if src_stem in compiled_from:
+                continue
+            if src_date <= topic_date:
+                continue
+            delta_days = (src_date - topic_date).days
+            if days > 0 and delta_days < days:
+                continue
+            # Must share at least one wikilink with the topic
+            if not (topic_links & src_links):
+                continue
+            newer_sources.append((src_stem, src_date))
+
+        if not newer_sources:
+            continue
+
+        rel = str(topic_path.relative_to(root))
+        newer_sources.sort(key=lambda x: x[1], reverse=True)
+
+        resynth_cmd = f"python3 scripts/resynthesize_topic.py {topic_path.stem}"
+
+        issues.append(LintIssue(
+            check="staleness",
+            severity="warning",
+            message=f"`{rel}` — {len(newer_sources)} newer approved source(s) since {topic_date}",
+            detail=f"run: {resynth_cmd}",
+        ))
+        stale_topics.append({
+            "topic": topic_path.stem,
+            "file": rel,
+            "last_synthesized": str(topic_date),
+            "newer_sources": [{"stem": s, "date": str(d)} for s, d in newer_sources],
+            "resynthesize_command": resynth_cmd,
+        })
+
+    print(f"\nSTALENESS WARNING ({len(stale_topics)} topic{'s' if len(stale_topics) != 1 else ''})")
+    for stale in stale_topics:
+        print()
+        print(f"  {stale['file']}")
+        print(f"    Last synthesized : {stale['last_synthesized']}")
+        print(
+            f"    Newer sources    : {len(stale['newer_sources'])} "
+            f"approved sources since {stale['last_synthesized']}"
+        )
+        for source in stale["newer_sources"][:5]:
+            print(f"      - {source['stem']}.md ({source['date']})")
+        print(f"    Action           : run `{stale['resynthesize_command']}`")
+
+    if fix and stale_topics:
+        print()
+        print("Queued re-synthesis commands:")
+        for stale in stale_topics:
+            print(f"  {stale['resynthesize_command']}")
+
+    # Save JSON report
+    staleness_dir = root / "outputs" / "staleness"
+    staleness_dir.mkdir(parents=True, exist_ok=True)
+    report = {
+        "timestamp": now_ts,
+        "date": now_ts[:10],
+        "days_threshold": days,
+        "fix": fix,
+        "stale_topics": stale_topics,
+    }
+    snap_path = staleness_dir / f"{now_ts}.json"
+    snap_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+
+    return issues
+
+
 def _build_concept_stub(slug: str, today: str) -> str:
     """Build the content of a concept stub page."""
     title = slug.replace("-", " ").title()
@@ -570,16 +969,37 @@ def run(
     force: bool,
     dry_run: bool,
     fix: bool = False,
+    cross_contradictions: bool = False,
+    staleness: bool = False,
+    all_checks: bool = False,
+    since: str | None = None,
+    days: int = 0,
 ) -> int:
     today = date.today().isoformat()
 
-    checks_to_run = checks if checks else PURE_CHECKS
-    if use_llm:
+    dedicated_cross_only = cross_contradictions and not checks and not staleness and not all_checks
+    if all_checks:
+        checks_to_run = ALL_CHECKS.copy()
+        use_llm = True
+    elif dedicated_cross_only:
+        checks_to_run = ["cross_contradictions"]
+        use_llm = True
+    elif staleness and not checks and not cross_contradictions:
+        checks_to_run = ["staleness"]
+    else:
+        checks_to_run = checks if checks else PURE_CHECKS
+        if cross_contradictions and "cross_contradictions" not in checks_to_run:
+            checks_to_run = checks_to_run + ["cross_contradictions"]
+            use_llm = True
+        if staleness and "staleness" not in checks_to_run:
+            checks_to_run = checks_to_run + ["staleness"]
+
+    if use_llm and not dedicated_cross_only:
         for c in LLM_CHECKS:
             if c not in checks_to_run:
                 checks_to_run = checks_to_run + [c]
 
-    if use_llm and any(c in LLM_CHECKS for c in checks_to_run):
+    if use_llm and any(c in LLM_CHECKS + ["cross_contradictions"] for c in checks_to_run):
         try:
             _check_model_available(model)
         except (ConnectionError, ValueError) as exc:
@@ -625,6 +1045,16 @@ def run(
         found = check_missing_concepts(root, model, fix=fix)
         issues.extend(found)
         print(f"missing_concepts : {len(found)} issue{'s' if len(found) != 1 else ''}")
+
+    if "cross_contradictions" in checks_to_run:
+        found = check_cross_topic_contradictions(root, model, since=since)
+        issues.extend(found)
+        print(f"cross_contradictions: {len(found)} candidate{'s' if len(found) != 1 else ''}")
+
+    if "staleness" in checks_to_run:
+        found = check_staleness(root, days=days, fix=fix)
+        issues.extend(found)
+        print(f"staleness        : {len(found)} topic{'s' if len(found) != 1 else ''}")
 
     print("-" * 60)
     errors = sum(1 for i in issues if i.severity == "error")
@@ -686,7 +1116,33 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--fix",
         action="store_true",
-        help="Auto-create stub pages for missing concepts (applies to missing_concepts check).",
+        help="Auto-create missing concept stubs, or print re-synthesis commands for staleness.",
+    )
+    parser.add_argument(
+        "--contradictions",
+        action="store_true",
+        help="Run Phase 2B cross-topic contradiction detection only unless combined with other checks.",
+    )
+    parser.add_argument(
+        "--staleness",
+        action="store_true",
+        help="Run Phase 2B staleness detection only unless combined with other checks.",
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Run all pure, LLM-assisted, and Phase 2B checks.",
+    )
+    parser.add_argument(
+        "--since",
+        default=None,
+        help="For --contradictions, show candidates dated on or after YYYY-MM-DD.",
+    )
+    parser.add_argument(
+        "--days",
+        type=int,
+        default=0,
+        help="For --staleness, require newer sources to be at least this many days newer.",
     )
     parser.add_argument(
         "--report",
@@ -718,6 +1174,11 @@ def main(argv: list[str] | None = None) -> int:
         force=args.force,
         dry_run=args.dry_run,
         fix=args.fix,
+        cross_contradictions=args.contradictions,
+        staleness=args.staleness,
+        all_checks=args.all,
+        since=args.since,
+        days=args.days,
     )
 
 

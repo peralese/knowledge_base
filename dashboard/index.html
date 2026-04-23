@@ -415,6 +415,15 @@
     .recent-answer { cursor: pointer; }
     .recent-answer:hover { border-color: #4f6ef7; }
     .muted { color: #64748b; font-size: 12px; margin-top: 8px; }
+    .feedback-row { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
+    .feedback-btn {
+      background: none; border: 1px solid #2d3148; border-radius: 4px;
+      color: #64748b; padding: 2px 8px; font-size: 12px; cursor: pointer;
+      transition: all 0.15s;
+    }
+    .feedback-btn:hover { border-color: #4f6ef7; color: #f8fafc; }
+    .feedback-btn.active-good { border-color: #22c55e; color: #22c55e; }
+    .feedback-btn.active-bad  { border-color: #ef4444; color: #ef4444; }
   </style>
 </head>
 <body>
@@ -960,12 +969,42 @@ async function loadRecentAnswers() {
     card.onclick = () => loadAnswer(answer.filename);
     const q = answer.question || answer.filename;
     const question = q.length > 80 ? q.slice(0, 77) + '...' : q;
+    const fb = answer.feedback || '';
+    const answerId = answer.filename || '';
     card.innerHTML = `
       <div class="card-title">${escHtml(question)}</div>
       <div class="muted">${escHtml(answer.date || '')} · ${escHtml(answer.topic || 'all')}</div>
+      <div class="feedback-row" onclick="event.stopPropagation()">
+        <span class="muted" style="margin-top:0">Rate:</span>
+        <button class="feedback-btn ${fb === 'good' ? 'active-good' : ''}"
+                onclick="submitFeedback('${escHtml(answerId)}', 'good', this.closest('.feedback-row'))">👍</button>
+        <button class="feedback-btn ${fb === 'bad' ? 'active-bad' : ''}"
+                onclick="submitFeedback('${escHtml(answerId)}', 'bad', this.closest('.feedback-row'))">👎</button>
+      </div>
     `;
     container.appendChild(card);
   }
+}
+
+async function submitFeedback(answerId, rating, rowEl) {
+  const note = rating === 'bad' ? (prompt('Optional: why was this answer bad? (leave blank to skip)') || '') : '';
+  try {
+    const res = await fetch('/api/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ answer_id: answerId, rating, note }),
+    });
+    if (!res.ok) return;
+    // Update button states in place
+    rowEl.querySelectorAll('.feedback-btn').forEach(btn => {
+      btn.classList.remove('active-good', 'active-bad');
+    });
+    const btns = rowEl.querySelectorAll('.feedback-btn');
+    if (btns.length === 2) {
+      btns[0].classList.toggle('active-good', rating === 'good');
+      btns[1].classList.toggle('active-bad', rating === 'bad');
+    }
+  } catch (_) {}
 }
 
 async function loadAnswer(filename) {
