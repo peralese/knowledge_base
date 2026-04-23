@@ -17,7 +17,7 @@ approved: true
 
 # Summary
 
-The article details the creation of a self-hosted AI stack consisting of five Docker containers, designed to run large language models (LLMs) locally. The setup includes Ollama for managing LLMs, SearXNG for private web searches, Agentic Seek for data collection, ComfyUI for user-friendly interaction with image-based tasks, and a Docker Compose file to tie everything together. Benefits highlighted include enhanced privacy, control over model behavior, and scalability as needs grow. The setup demonstrates the feasibility of running complex AI models locally without relying on cloud services.
+The article details the creation of a self-hosted AI stack consisting of five Docker containers, designed to run large language models (LLMs) locally. The setup includes [[ollama]] for managing LLMs, SearXNG for private web searches, Agentic Seek for data collection, ComfyUI for user-friendly interaction with image-based tasks, and a Docker Compose file to tie everything together. Benefits highlighted include enhanced privacy, control over model behavior, and scalability as needs grow. The setup demonstrates the feasibility of running complex AI models locally without relying on cloud services.
 
 # Key Insights
 

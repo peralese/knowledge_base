@@ -17,7 +17,7 @@ approved: true
 
 # Summary
 
-The Auto Research project, initiated by Andrej Karpathy, aims to explore how autonomous AI agents can be used to conduct research on machine learning model training. The core of this initiative involves an AI agent that modifies a Python script (`train.py`), which contains the GPT model architecture and training loop. This modified script is then executed autonomously overnight with strict time constraints (5 minutes per experiment) to ensure consistency in experimental conditions.
+The Auto Research project, initiated by Andrej [[karpathy]], aims to explore how autonomous AI agents can be used to conduct research on machine learning model training. The core of this initiative involves an AI agent that modifies a Python script (`train.py`), which contains the GPT model architecture and training loop. This modified script is then executed autonomously overnight with strict time constraints (5 minutes per experiment) to ensure consistency in experimental conditions.
 
 Key aspects of the project include:
 - **Prepare Script**: A `prepare.py` script handles data preparation and provides runtime utilities.
