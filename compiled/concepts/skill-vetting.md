@@ -8,14 +8,14 @@ sources:
   - how-to-harden-openclaw-security-best-practices-for-2026-synthesis
 approved: true
 generation_method: "ollama_local"
+generated_by: "ollama-concept-definition"
+definition_sources:
+  - how-to-harden-openclaw-security-best-practices-for-2026-synthesis
+  - how-to-harden-openclaw-security-best-practices-for-2026
 ---
 
-# Skill Vetting
-
-_Definition not yet written. Update this stub with content from the sources below._
+Skill vetting in the context of AI/ML security involves assessing and validating third-party skills or models to ensure they do not contain malicious code, thereby preventing unauthorized access and financial risks associated with their deployment. This process typically includes checking for known vulnerabilities and restricting permissions through configuration tools like SOUL.md files to maintain system integrity.
 
 ## Mentioned In
-
-- [[how-to-harden-openclaw-security-best-practices-for-2026-synthesis]] — The process of reviewing and checking skill files to prevent malicious code installation is described as an essential security measure.
 
 ## Related Concepts

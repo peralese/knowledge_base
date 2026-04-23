@@ -8,14 +8,14 @@ sources:
   - how-to-harden-openclaw-security-best-practices-for-2026-synthesis
 approved: true
 generation_method: "ollama_local"
+generated_by: "ollama-concept-definition"
+definition_sources:
+  - how-to-harden-openclaw-security-best-practices-for-2026-synthesis
+  - how-to-harden-openclaw-security-best-practices-for-2026
 ---
 
-# Docker Isolation
-
-_Definition not yet written. Update this stub with content from the sources below._
+Docker isolation refers to the security feature of Docker containers that restricts container access to system resources, such as files and network interfaces, through mechanisms like read-only file systems and privilege restrictions, thereby preventing unauthorized operations and enhancing overall system security.
 
 ## Mentioned In
-
-- [[how-to-harden-openclaw-security-best-practices-for-2026-synthesis]] — Running OpenClaw in a Docker container with strict volume mounts ensures isolation and security, aligning with the concept of Docker isolation.
 
 ## Related Concepts

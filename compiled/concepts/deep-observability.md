@@ -8,14 +8,14 @@ sources:
   - how-to-build-an-ai-agent-a-complete-guide-synthesis
 approved: true
 generation_method: "ollama_local"
+generated_by: "ollama-concept-definition"
+definition_sources:
+  - how-to-build-an-ai-agent-a-complete-guide-synthesis
+  - how-to-build-an-ai-agent-a-complete-guide
 ---
 
-# Deep Observability
-
-_Definition not yet written. Update this stub with content from the sources below._
+Deep observability refers to the comprehensive monitoring and analysis framework used in AI systems, encompassing logs, traces, and metrics to ensure effectiveness, robustness, safety, and efficiency by providing detailed insights into system performance and behavior.
 
 ## Mentioned In
-
-- [[how-to-build-an-ai-agent-a-complete-guide-synthesis]] — The guide mentions the importance of logs, traces, and metrics for deep observability in quality assurance.
 
 ## Related Concepts
