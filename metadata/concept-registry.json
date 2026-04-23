@@ -1,1 +1,94 @@
-{"concepts": []}
+{
+  "concepts": [
+    {
+      "slug": "zero-trust",
+      "title": "Zero Trust",
+      "sources": [
+        "how-to-build-an-ai-agent-a-complete-guide-synthesis"
+      ],
+      "date_first_seen": "2026-04-22",
+      "date_updated": "2026-04-22"
+    },
+    {
+      "slug": "retrieval-augmented-generation",
+      "title": "Retrieval-Augmented Generation",
+      "sources": [
+        "how-to-build-an-ai-agent-a-complete-guide-synthesis"
+      ],
+      "date_first_seen": "2026-04-22",
+      "date_updated": "2026-04-22"
+    },
+    {
+      "slug": "bm25-scoring",
+      "title": "BM25 Scoring",
+      "sources": [
+        "how-to-build-an-ai-agent-a-complete-guide-synthesis"
+      ],
+      "date_first_seen": "2026-04-22",
+      "date_updated": "2026-04-22"
+    },
+    {
+      "slug": "agent-quality-framework",
+      "title": "Agent Quality Framework",
+      "sources": [
+        "how-to-build-an-ai-agent-a-complete-guide-synthesis"
+      ],
+      "date_first_seen": "2026-04-22",
+      "date_updated": "2026-04-22"
+    },
+    {
+      "slug": "model-context-protocol-mcp",
+      "title": "Model Context Protocol (MCP)",
+      "sources": [
+        "how-to-build-an-ai-agent-a-complete-guide-synthesis"
+      ],
+      "date_first_seen": "2026-04-22",
+      "date_updated": "2026-04-22"
+    },
+    {
+      "slug": "context-engineering",
+      "title": "Context Engineering",
+      "sources": [
+        "how-to-build-an-ai-agent-a-complete-guide-synthesis"
+      ],
+      "date_first_seen": "2026-04-22",
+      "date_updated": "2026-04-22"
+    },
+    {
+      "slug": "large-language-models-llms",
+      "title": "Large Language Models (LLMs)",
+      "sources": [
+        "how-to-build-an-ai-agent-a-complete-guide-synthesis"
+      ],
+      "date_first_seen": "2026-04-22",
+      "date_updated": "2026-04-22"
+    },
+    {
+      "slug": "ci-cd-pipelines",
+      "title": "CI/CD Pipelines",
+      "sources": [
+        "how-to-build-an-ai-agent-a-complete-guide-synthesis"
+      ],
+      "date_first_seen": "2026-04-22",
+      "date_updated": "2026-04-22"
+    },
+    {
+      "slug": "agent-architecture",
+      "title": "Agent Architecture",
+      "sources": [
+        "how-to-build-an-ai-agent-a-complete-guide-synthesis"
+      ],
+      "date_first_seen": "2026-04-22",
+      "date_updated": "2026-04-22"
+    },
+    {
+      "slug": "deep-observability",
+      "title": "Deep Observability",
+      "sources": [
+        "how-to-build-an-ai-agent-a-complete-guide-synthesis"
+      ],
+      "date_first_seen": "2026-04-22",
+      "date_updated": "2026-04-22"
+    }
+  ]
+}

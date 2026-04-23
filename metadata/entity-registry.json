@@ -1,1 +1,44 @@
-{"entities": []}
+{
+  "entities": [
+    {
+      "slug": "ollama",
+      "title": "Ollama",
+      "sources": [
+        "how-to-build-an-ai-agent-a-complete-guide-synthesis"
+      ],
+      "date_first_seen": "2026-04-22",
+      "date_updated": "2026-04-22",
+      "entity_type": "tool"
+    },
+    {
+      "slug": "anthropic",
+      "title": "Anthropic",
+      "sources": [
+        "how-to-build-an-ai-agent-a-complete-guide-synthesis"
+      ],
+      "date_first_seen": "2026-04-22",
+      "date_updated": "2026-04-22",
+      "entity_type": "company"
+    },
+    {
+      "slug": "llamaindex",
+      "title": "Llamaindex",
+      "sources": [
+        "how-to-build-an-ai-agent-a-complete-guide-synthesis"
+      ],
+      "date_first_seen": "2026-04-22",
+      "date_updated": "2026-04-22",
+      "entity_type": "framework"
+    },
+    {
+      "slug": "karpathy",
+      "title": "Karpathy",
+      "sources": [
+        "how-to-build-an-ai-agent-a-complete-guide-synthesis"
+      ],
+      "date_first_seen": "2026-04-22",
+      "date_updated": "2026-04-22",
+      "entity_type": "person"
+    }
+  ]
+}
