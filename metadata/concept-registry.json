@@ -4,7 +4,8 @@
       "slug": "zero-trust",
       "title": "Zero Trust",
       "sources": [
-        "how-to-build-an-ai-agent-a-complete-guide-synthesis"
+        "how-to-build-an-ai-agent-a-complete-guide-synthesis",
+        "how-to-harden-openclaw-security-best-practices-for-2026-synthesis"
       ],
       "date_first_seen": "2026-04-22",
       "date_updated": "2026-04-22"
@@ -86,6 +87,42 @@
       "title": "Deep Observability",
       "sources": [
         "how-to-build-an-ai-agent-a-complete-guide-synthesis"
+      ],
+      "date_first_seen": "2026-04-22",
+      "date_updated": "2026-04-22"
+    },
+    {
+      "slug": "docker-isolation",
+      "title": "Docker Isolation",
+      "sources": [
+        "how-to-harden-openclaw-security-best-practices-for-2026-synthesis"
+      ],
+      "date_first_seen": "2026-04-22",
+      "date_updated": "2026-04-22"
+    },
+    {
+      "slug": "api-key-management",
+      "title": "API Key Management",
+      "sources": [
+        "how-to-harden-openclaw-security-best-practices-for-2026-synthesis"
+      ],
+      "date_first_seen": "2026-04-22",
+      "date_updated": "2026-04-22"
+    },
+    {
+      "slug": "network-hardening",
+      "title": "Network Hardening",
+      "sources": [
+        "how-to-harden-openclaw-security-best-practices-for-2026-synthesis"
+      ],
+      "date_first_seen": "2026-04-22",
+      "date_updated": "2026-04-22"
+    },
+    {
+      "slug": "skill-vetting",
+      "title": "Skill Vetting",
+      "sources": [
+        "how-to-harden-openclaw-security-best-practices-for-2026-synthesis"
       ],
       "date_first_seen": "2026-04-22",
       "date_updated": "2026-04-22"
