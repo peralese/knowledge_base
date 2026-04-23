@@ -27,7 +27,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 WIKILINK_RE = re.compile(r"\[\[([^\]|#]+?)(?:[|#][^\]]+)?\]\]")
-STUB_THRESHOLD = 3  # fewer than this many meaningful body lines → stub
+# A stub has zero meaningful body lines (only headings and placeholders).
+# Threshold of 1 means any single line of real definition text is sufficient.
+# The previous value of 3 incorrectly flagged notes whose definition is a
+# single paragraph (which write_definition renders as one unwrapped line).
+STUB_THRESHOLD = 1  # fewer than this many meaningful body lines → stub
 
 
 # ---------------------------------------------------------------------------
@@ -92,7 +96,17 @@ def _parse_compiled_from(text: str) -> list[str]:
 # ---------------------------------------------------------------------------
 
 def _meaningful_body_lines(body: str) -> list[str]:
-    """Return lines from body that carry actual content (not headings/blanks/placeholders)."""
+    """Return lines from body that carry actual content (not headings/blanks/placeholders).
+
+    Excluded:
+      - empty / whitespace-only lines
+      - headings (start with #)
+      - italic placeholder lines (_..._)
+      - horizontal rules (---)
+      - wikilink list entries (- [[...]]) — these are "Mentioned In" cross-references,
+        not definition content; concept_aggregator writes them before define_concepts
+        writes the actual definition
+    """
     lines = []
     for line in body.splitlines():
         stripped = line.strip()
@@ -103,6 +117,9 @@ def _meaningful_body_lines(body: str) -> list[str]:
         if stripped.startswith("_") and stripped.endswith("_"):
             continue
         if stripped == "---":
+            continue
+        # Wikilink cross-reference list items are metadata, not definition prose
+        if stripped.startswith("- [["):
             continue
         lines.append(stripped)
     return lines

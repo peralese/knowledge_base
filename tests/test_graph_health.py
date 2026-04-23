@@ -121,6 +121,18 @@ class MeaningfulBodyLinesTests(unittest.TestCase):
         body = "Line one.\nLine two.\nLine three.\nLine four."
         self.assertEqual(len(_meaningful_body_lines(body)), 4)
 
+    def test_wikilink_list_entries_excluded(self) -> None:
+        # "Mentioned In" cross-reference entries are not definition content.
+        body = "## Mentioned In\n\n- [[source-synthesis]] — context here.\n"
+        result = _meaningful_body_lines(body)
+        self.assertEqual(result, [])
+
+    def test_prose_with_wikilinks_included(self) -> None:
+        # Inline wikilinks in prose lines are NOT excluded — only list items.
+        body = "The [[transformer]] model is the key architecture.\n"
+        result = _meaningful_body_lines(body)
+        self.assertEqual(len(result), 1)
+
 
 # ---------------------------------------------------------------------------
 # is_stub
@@ -150,6 +162,38 @@ class IsStubTests(unittest.TestCase):
         text = (
             "---\ntitle: T\ngeneration_method: stub\n---\n\n"
             "_Stub page — created by lint._\n\n## Mentioned In\n\n## Related Concepts\n"
+        )
+        self.assertTrue(is_stub(text))
+
+    def test_not_stub_single_paragraph_definition(self) -> None:
+        # Mirrors the output format of define_concepts.py: a one-paragraph
+        # definition followed by section headers. Must be classified as NOT stub.
+        text = (
+            "---\ntitle: Context Engineering\nnote_type: concept\n"
+            "generation_method: ollama_local\ngenerated_by: ollama-concept-definition\n---\n\n"
+            "Context engineering is the practice of assembling relevant information "
+            "for an AI agent's operations. It enhances both short-term session management "
+            "and long-term memory retention.\n\n"
+            "## Mentioned In\n\n## Related Concepts\n"
+        )
+        self.assertFalse(is_stub(text))
+
+    def test_stub_frontmatter_only_no_body(self) -> None:
+        # Note with frontmatter block but no body content at all.
+        text = "---\ntitle: Empty\nnote_type: concept\ngeneration_method: ollama_local\n---\n\n"
+        self.assertTrue(is_stub(text))
+
+    def test_stub_with_only_wikilink_mentioned_in_entries(self) -> None:
+        # A concept note that has a "Mentioned In" wikilink list but no definition
+        # prose is still a stub — wikilink cross-references are not definition content.
+        text = (
+            "---\ntitle: Agent Architecture\nnote_type: concept\n"
+            "generation_method: ollama_local\n---\n\n"
+            "# Agent Architecture\n\n"
+            "_Definition not yet written._\n\n"
+            "## Mentioned In\n\n"
+            "- [[some-source-synthesis]] — Provides context about the concept.\n\n"
+            "## Related Concepts\n"
         )
         self.assertTrue(is_stub(text))
 
