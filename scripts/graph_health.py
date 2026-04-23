@@ -22,7 +22,7 @@ import argparse
 import json
 import re
 import sys
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -272,8 +272,10 @@ def compute_metrics(root: Path) -> dict:
         if topic_source_counts else 0.0
     )
 
+    now = datetime.now()
     return {
-        "date": date.today().isoformat(),
+        "date": now.strftime("%Y-%m-%d"),
+        "timestamp": now.strftime("%Y-%m-%d-%H%M%S"),
         "note_counts": counts,
         "wikilink_density": wikilink_density,
         "stub_ratio_pct": stub_ratio,
@@ -352,66 +354,88 @@ def format_report(m: dict) -> str:
     return "\n".join(lines)
 
 
-def format_diff(before: dict, after: dict) -> str:
-    def _delta(key: str, fmt: str = ".2f") -> str:
-        a = before.get(key)
-        b = after.get(key)
-        if a is None or b is None:
-            return "N/A → N/A"
-        delta = b - a
-        sign = "+" if delta >= 0 else ""
-        return f"{a:{fmt}} → {b:{fmt}} ({sign}{delta:{fmt}})"
+def format_diff(before: dict, after: dict, snap_a: str = "", snap_b: str = "") -> str:
+    """Render a before/after diff table with ✓ (improvement), ✗ (regression), — (no change)."""
 
-    def _pct_delta(key: str) -> str:
-        a = before.get(key)
-        b = after.get(key)
-        if a is None and b is None:
-            return "N/A → N/A"
-        if a is None:
-            a = 0.0
-        if b is None:
-            b = 0.0
-        delta = b - a
-        sign = "+" if delta >= 0 else ""
-        return f"{a:.1f}% → {b:.1f}% ({sign}{delta:.1f}pp)"
+    COL_METRIC = 30
+    COL_VAL = 10
 
-    def _int_delta(key: str) -> str:
-        a = before.get(key, 0)
-        b = after.get(key, 0)
-        delta = b - a
-        sign = "+" if delta >= 0 else ""
-        return f"{a} → {b} ({sign}{delta})"
+    def _header() -> list[str]:
+        lines = [
+            "Graph Health Comparison",
+            f"  Snapshot A : {snap_a or before.get('timestamp', before.get('date', '?')) + '.json'}",
+            f"  Snapshot B : {snap_b or after.get('timestamp', after.get('date', '?')) + '.json'} (current)",
+            "",
+            f"  {'Metric':<{COL_METRIC}} {'Before':<{COL_VAL}} {'After':<{COL_VAL}} Delta",
+            "  " + "-" * 55,
+        ]
+        return lines
 
-    lines = [
-        f"Graph Health Comparison",
-        f"  Before: {before.get('date', '?')}",
-        f"  After : {after.get('date', '?')}",
-        "=" * 50,
-        "",
-        "Note Counts",
-        f"  Topics          : {_int_delta('note_counts_topics')}",
-        f"  Concepts        : {_int_delta('note_counts_concepts')}",
-        f"  Entities        : {_int_delta('note_counts_entities')}",
-        f"  Source summaries: {_int_delta('note_counts_source_summaries')}",
-        "",
-        "Wikilink Density",
-        f"  Topics          : {_delta('wikilink_density_topics')}",
-        f"  Concepts        : {_delta('wikilink_density_concepts')}",
-        f"  Entities        : {_delta('wikilink_density_entities')}",
-        "",
-        "Stubs",
-        f"  Stub ratio      : {_pct_delta('stub_ratio_pct')}",
-        f"  Stub count      : {_int_delta('stub_count')}",
-        "",
-        "Orphans",
-        f"  Total orphans   : {_int_delta('orphan_count')}",
-        "",
-        "Source Coverage",
-        f"  Coverage        : {_pct_delta('source_coverage_pct')}",
-        f"  Avg sources/topic: {_delta('avg_approved_sources_per_topic')}",
+    def _row(
+        label: str,
+        a_val: float | int | None,
+        b_val: float | int | None,
+        fmt: str = "int",       # "int" | "float2" | "pct"
+        improvement: str = "down",  # "down" | "up" | "none"
+    ) -> str:
+        if a_val is None and b_val is None:
+            a_str = b_str = "N/A"
+            delta_str = "—"
+        elif a_val is None or b_val is None:
+            a_str = "N/A" if a_val is None else _fmt(a_val, fmt)
+            b_str = "N/A" if b_val is None else _fmt(b_val, fmt)
+            delta_str = "—"
+        else:
+            a_str = _fmt(a_val, fmt)
+            b_str = _fmt(b_val, fmt)
+            delta = b_val - a_val
+            if abs(delta) < 1e-9:
+                delta_str = "—"
+            else:
+                sign = "+" if delta > 0 else ""
+                d_str = _fmt(delta, fmt, signed=True)
+                if improvement == "none" or abs(delta) < 1e-9:
+                    marker = "—"
+                elif (improvement == "down" and delta < 0) or (improvement == "up" and delta > 0):
+                    marker = "✓"
+                else:
+                    marker = "✗"
+                delta_str = f"{sign}{d_str} {marker}" if delta != 0 else "—"
+        return f"  {label:<{COL_METRIC}} {a_str:<{COL_VAL}} {b_str:<{COL_VAL}} {delta_str}"
+
+    def _fmt(v: float | int, fmt: str, signed: bool = False) -> str:
+        if fmt == "pct":
+            return f"{v:.1f}%"
+        if fmt == "float2":
+            return f"{v:.2f}"
+        return str(int(round(v)))
+
+    nc_a = before.get("note_counts", {})
+    nc_b = after.get("note_counts", {})
+    wd_a = before.get("wikilink_density", {})
+    wd_b = after.get("wikilink_density", {})
+
+    rows = _header() + [
+        _row("Topics", nc_a.get("topics"), nc_b.get("topics"), improvement="none"),
+        _row("Concepts", nc_a.get("concepts"), nc_b.get("concepts"), improvement="none"),
+        _row("Entities", nc_a.get("entities"), nc_b.get("entities"), improvement="none"),
+        _row("Source summaries", nc_a.get("source_summaries"), nc_b.get("source_summaries"), improvement="none"),
+        "  " + "-" * 55,
+        _row("Stubs", before.get("stub_count"), after.get("stub_count"), improvement="down"),
+        _row("Stub ratio", before.get("stub_ratio_pct"), after.get("stub_ratio_pct"), fmt="pct", improvement="down"),
+        _row("Orphaned concepts", before.get("orphaned_concepts"), after.get("orphaned_concepts"), improvement="down"),
+        _row("Orphaned entities", before.get("orphaned_entities"), after.get("orphaned_entities"), improvement="down"),
+        "  " + "-" * 55,
+        _row("Wikilink density (topics)", wd_a.get("topics"), wd_b.get("topics"), fmt="float2", improvement="up"),
+        _row("Wikilink density (concepts)", wd_a.get("concepts"), wd_b.get("concepts"), fmt="float2", improvement="up"),
+        _row("Wikilink density (entities)", wd_a.get("entities"), wd_b.get("entities"), fmt="float2", improvement="up"),
+        "  " + "-" * 55,
+        _row("Approved sources", before.get("total_approved_sources"), after.get("total_approved_sources"), improvement="none"),
+        _row("Source coverage", before.get("source_coverage_pct"), after.get("source_coverage_pct"), fmt="pct", improvement="up"),
+        _row("Avg sources/topic", before.get("avg_approved_sources_per_topic"), after.get("avg_approved_sources_per_topic"), fmt="float2", improvement="up"),
         "",
     ]
-    return "\n".join(lines)
+    return "\n".join(rows)
 
 
 def _flatten(m: dict) -> dict:
@@ -432,20 +456,60 @@ def _flatten(m: dict) -> dict:
 
 SNAPSHOTS_DIR = ROOT / "outputs" / "graph_health"
 
+# Filename pattern: YYYY-MM-DD-HHMMSS.json
+# Lexicographic sort on this format is chronological.
+_SNAPSHOT_GLOB = "[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9].json"
+
 
 def save_snapshot(metrics: dict) -> Path:
     SNAPSHOTS_DIR.mkdir(parents=True, exist_ok=True)
-    dest = SNAPSHOTS_DIR / f"{metrics['date']}.json"
+    ts = metrics.get("timestamp", metrics["date"] + "-000000")
+    dest = SNAPSHOTS_DIR / f"{ts}.json"
     dest.write_text(json.dumps(metrics, indent=2) + "\n", encoding="utf-8")
     return dest
 
 
-def load_most_recent_snapshot(exclude_date: str | None = None) -> dict | None:
+def load_prior_snapshot(current_timestamp: str) -> tuple[dict, str] | None:
+    """Return (snapshot_data, filename_stem) of the most recent snapshot
+    whose timestamp is strictly earlier than current_timestamp, or None.
+
+    Snapshots with the legacy YYYY-MM-DD.json format are treated as having
+    timestamp YYYY-MM-DD-000000 for ordering purposes.
+    """
+    if not SNAPSHOTS_DIR.exists():
+        return None
+
+    def _stem_to_ts(stem: str) -> str:
+        # Normalize legacy date-only stems to timestamped form
+        if len(stem) == 10:  # YYYY-MM-DD
+            return stem + "-000000"
+        return stem
+
+    candidates: list[tuple[str, Path]] = []
+    for path in SNAPSHOTS_DIR.glob("*.json"):
+        ts = _stem_to_ts(path.stem)
+        if ts < current_timestamp:
+            candidates.append((ts, path))
+
+    if not candidates:
+        return None
+
+    candidates.sort(key=lambda x: x[0], reverse=True)
+    _, best_path = candidates[0]
+    try:
+        data = json.loads(best_path.read_text(encoding="utf-8"))
+        return data, best_path.stem
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def load_most_recent_snapshot(exclude_timestamp: str | None = None) -> dict | None:
+    """Return the most recent snapshot, optionally excluding a specific timestamp stem."""
     if not SNAPSHOTS_DIR.exists():
         return None
     candidates = sorted(SNAPSHOTS_DIR.glob("*.json"), reverse=True)
     for path in candidates:
-        if exclude_date and path.stem == exclude_date:
+        if exclude_timestamp and path.stem == exclude_timestamp:
             continue
         try:
             return json.loads(path.read_text(encoding="utf-8"))
@@ -460,21 +524,23 @@ def load_most_recent_snapshot(exclude_date: str | None = None) -> dict | None:
 
 def run(root: Path, json_only: bool, compare: bool) -> int:
     metrics = compute_metrics(root)
+    current_ts = metrics["timestamp"]
+
+    # Always save the new snapshot first so it anchors future comparisons
+    snap_path = save_snapshot(metrics)
 
     if compare:
-        prior = load_most_recent_snapshot(exclude_date=metrics["date"])
-        if prior is None:
-            print("No prior snapshot found for comparison.", file=sys.stderr)
-            return 1
-        before_flat = _flatten(prior)
-        after_flat = _flatten(metrics)
-        print(format_diff(before_flat, after_flat))
-        # Still save today's snapshot
-        snap_path = save_snapshot(metrics)
-        print(f"Snapshot saved: {snap_path.relative_to(root)}")
+        result = load_prior_snapshot(current_ts)
+        if result is None:
+            print(
+                "No prior snapshot to compare against — this is the first recorded baseline.\n"
+                f"Snapshot saved: {snap_path.relative_to(root)}"
+            )
+            return 0
+        prior, prior_stem = result
+        print(format_diff(prior, metrics, snap_a=prior_stem + ".json", snap_b=snap_path.name))
+        print(f"\nSnapshot saved: {snap_path.relative_to(root)}")
         return 0
-
-    snap_path = save_snapshot(metrics)
 
     if not json_only:
         print(format_report(metrics))

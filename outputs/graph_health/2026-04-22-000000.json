@@ -1,0 +1,38 @@
+{
+  "date": "2026-04-22",
+  "note_counts": {
+    "topics": 6,
+    "concepts": 14,
+    "entities": 6,
+    "source_summaries": 7
+  },
+  "wikilink_density": {
+    "topics": 4.0,
+    "concepts": 0.71,
+    "entities": 1.0,
+    "source_summaries": 2.14
+  },
+  "stub_ratio_pct": 64.3,
+  "stub_count": 9,
+  "total_concept_notes": 14,
+  "orphan_count": 11,
+  "orphaned_concepts": 7,
+  "orphaned_entities": 4,
+  "top_orphans": [
+    "anthropic",
+    "api-key-management",
+    "bm25-scoring",
+    "ci-cd-pipelines",
+    "large-language-models-llms",
+    "llamaindex",
+    "model-context-protocol-mcp",
+    "ollama",
+    "retrieval-augmented-generation",
+    "soul-md",
+    "zero-trust"
+  ],
+  "source_coverage_pct": 100.0,
+  "covered_approved_sources": 2,
+  "total_approved_sources": 2,
+  "avg_approved_sources_per_topic": 0.33
+}

@@ -20,6 +20,7 @@ from scripts.graph_health import (
     format_report,
     is_stub,
     load_most_recent_snapshot,
+    load_prior_snapshot,
     save_snapshot,
 )
 
@@ -348,27 +349,92 @@ class SnapshotTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.tmp.cleanup()
 
-    def test_save_and_load_snapshot(self) -> None:
-        metrics = compute_metrics(self.root)
+    def _patch_dir(self, gh):
+        gh.SNAPSHOTS_DIR = self.root / "outputs" / "graph_health"
 
+    def test_save_uses_timestamp_filename(self) -> None:
+        metrics = compute_metrics(self.root)
         import scripts.graph_health as gh
         orig_dir = gh.SNAPSHOTS_DIR
-        gh.SNAPSHOTS_DIR = self.root / "outputs" / "graph_health"
+        self._patch_dir(gh)
         try:
             path = save_snapshot(metrics)
             self.assertTrue(path.exists())
+            # Filename must be timestamp-based: YYYY-MM-DD-HHMMSS.json
+            self.assertRegex(path.name, r"^\d{4}-\d{2}-\d{2}-\d{6}\.json$")
             loaded = json.loads(path.read_text())
             self.assertEqual(loaded["date"], metrics["date"])
+            self.assertIn("timestamp", loaded)
         finally:
             gh.SNAPSHOTS_DIR = orig_dir
 
     def test_load_most_recent_returns_none_when_empty(self) -> None:
         import scripts.graph_health as gh
         orig_dir = gh.SNAPSHOTS_DIR
-        gh.SNAPSHOTS_DIR = self.root / "outputs" / "graph_health"
+        self._patch_dir(gh)
         try:
             result = load_most_recent_snapshot()
             self.assertIsNone(result)
+        finally:
+            gh.SNAPSHOTS_DIR = orig_dir
+
+    def test_load_prior_snapshot_finds_earlier(self) -> None:
+        import scripts.graph_health as gh
+        orig_dir = gh.SNAPSHOTS_DIR
+        snap_dir = self.root / "outputs" / "graph_health"
+        snap_dir.mkdir(parents=True, exist_ok=True)
+        gh.SNAPSHOTS_DIR = snap_dir
+        try:
+            # Write two snapshots with different timestamps
+            snap_a = {"date": "2026-01-01", "timestamp": "2026-01-01-090000",
+                      "stub_count": 10, "stub_ratio_pct": 100.0}
+            snap_b = {"date": "2026-01-01", "timestamp": "2026-01-01-120000",
+                      "stub_count": 5, "stub_ratio_pct": 50.0}
+            (snap_dir / "2026-01-01-090000.json").write_text(json.dumps(snap_a))
+            (snap_dir / "2026-01-01-120000.json").write_text(json.dumps(snap_b))
+
+            # Ask for prior to 120000 → should get 090000
+            result = load_prior_snapshot("2026-01-01-120000")
+            self.assertIsNotNone(result)
+            data, stem = result
+            self.assertEqual(stem, "2026-01-01-090000")
+            self.assertEqual(data["stub_count"], 10)
+        finally:
+            gh.SNAPSHOTS_DIR = orig_dir
+
+    def test_load_prior_snapshot_returns_none_when_only_one(self) -> None:
+        import scripts.graph_health as gh
+        orig_dir = gh.SNAPSHOTS_DIR
+        snap_dir = self.root / "outputs" / "graph_health"
+        snap_dir.mkdir(parents=True, exist_ok=True)
+        gh.SNAPSHOTS_DIR = snap_dir
+        try:
+            snap = {"date": "2026-01-01", "timestamp": "2026-01-01-090000",
+                    "stub_count": 10}
+            (snap_dir / "2026-01-01-090000.json").write_text(json.dumps(snap))
+
+            # Only one snapshot — nothing prior to it
+            result = load_prior_snapshot("2026-01-01-090000")
+            self.assertIsNone(result)
+        finally:
+            gh.SNAPSHOTS_DIR = orig_dir
+
+    def test_load_prior_snapshot_normalises_legacy_date_filenames(self) -> None:
+        import scripts.graph_health as gh
+        orig_dir = gh.SNAPSHOTS_DIR
+        snap_dir = self.root / "outputs" / "graph_health"
+        snap_dir.mkdir(parents=True, exist_ok=True)
+        gh.SNAPSHOTS_DIR = snap_dir
+        try:
+            # Legacy date-only filename (YYYY-MM-DD.json) treated as 000000 timestamp
+            legacy = {"date": "2026-01-01", "stub_count": 14}
+            (snap_dir / "2026-01-01.json").write_text(json.dumps(legacy))
+
+            # Any later timestamp should find it as a prior
+            result = load_prior_snapshot("2026-01-01-100000")
+            self.assertIsNotNone(result)
+            data, stem = result
+            self.assertEqual(data["stub_count"], 14)
         finally:
             gh.SNAPSHOTS_DIR = orig_dir
 
@@ -377,23 +443,63 @@ class SnapshotTests(unittest.TestCase):
 # format_diff
 # ---------------------------------------------------------------------------
 
+def _make_metrics(stub_count: int, stub_ratio: float, orphans: int,
+                  wikilink_topics: float = 2.33, wikilink_concepts: float = 0.0,
+                  source_coverage: float = 100.0, timestamp: str = "2026-01-01-000000") -> dict:
+    return {
+        "date": timestamp[:10],
+        "timestamp": timestamp,
+        "note_counts": {"topics": 6, "concepts": 14, "entities": 0, "source_summaries": 7},
+        "wikilink_density": {"topics": wikilink_topics, "concepts": wikilink_concepts,
+                             "entities": 0.0, "source_summaries": 2.14},
+        "stub_ratio_pct": stub_ratio,
+        "stub_count": stub_count,
+        "total_concept_notes": 14,
+        "orphan_count": orphans,
+        "orphaned_concepts": orphans,
+        "orphaned_entities": 0,
+        "top_orphans": [],
+        "source_coverage_pct": source_coverage,
+        "covered_approved_sources": 2,
+        "total_approved_sources": 2,
+        "avg_approved_sources_per_topic": 0.33,
+    }
+
+
 class FormatDiffTests(unittest.TestCase):
-    def test_diff_shows_delta(self) -> None:
-        before = {"date": "2026-01-01", "stub_ratio_pct": 80.0, "orphan_count": 10,
-                  "stub_count": 8, "source_coverage_pct": 50.0,
-                  "avg_approved_sources_per_topic": 1.0,
-                  "note_counts": {"topics": 5, "concepts": 10, "entities": 0, "source_summaries": 7},
-                  "wikilink_density": {"topics": 1.0, "concepts": 0.0, "entities": 0.0,
-                                       "source_summaries": 0.5}}
-        after = {"date": "2026-01-02", "stub_ratio_pct": 40.0, "orphan_count": 5,
-                 "stub_count": 4, "source_coverage_pct": 80.0,
-                 "avg_approved_sources_per_topic": 2.0,
-                 "note_counts": {"topics": 5, "concepts": 10, "entities": 0, "source_summaries": 7},
-                 "wikilink_density": {"topics": 2.0, "concepts": 1.0, "entities": 0.0,
-                                      "source_summaries": 0.5}}
-        report = format_diff(_flatten(before), _flatten(after))
-        self.assertIn("80.0% → 40.0%", report)
-        self.assertIn("10 → 5", report)
+    def test_diff_shows_stub_improvement_marker(self) -> None:
+        before = _make_metrics(14, 100.0, 14, timestamp="2026-01-01-000000")
+        after = _make_metrics(9, 64.3, 9, timestamp="2026-01-01-100000")
+        report = format_diff(before, after,
+                             snap_a="2026-01-01-000000.json",
+                             snap_b="2026-01-01-100000.json")
+        # Stub ratio improved (down) → ✓
+        self.assertIn("✓", report)
+        self.assertIn("64.3%", report)
+        self.assertIn("100.0%", report)
+
+    def test_diff_shows_regression_marker(self) -> None:
+        before = _make_metrics(9, 64.3, 9, wikilink_topics=3.0, timestamp="2026-01-01-000000")
+        after = _make_metrics(12, 85.7, 12, wikilink_topics=2.0, timestamp="2026-01-01-100000")
+        report = format_diff(before, after)
+        # Wikilink density went down — that's a regression (✗)
+        self.assertIn("✗", report)
+
+    def test_diff_no_change_shows_dash(self) -> None:
+        before = _make_metrics(14, 100.0, 14, timestamp="2026-01-01-000000")
+        after = _make_metrics(14, 100.0, 14, timestamp="2026-01-01-100000")
+        report = format_diff(before, after)
+        # No change in topics → should show — for that row
+        self.assertIn("—", report)
+
+    def test_diff_includes_snapshot_names(self) -> None:
+        before = _make_metrics(14, 100.0, 14, timestamp="2026-01-01-000000")
+        after = _make_metrics(9, 64.3, 9, timestamp="2026-01-01-100000")
+        report = format_diff(before, after,
+                             snap_a="2026-01-01-000000.json",
+                             snap_b="2026-01-01-100000.json")
+        self.assertIn("2026-01-01-000000.json", report)
+        self.assertIn("2026-01-01-100000.json", report)
 
 
 if __name__ == "__main__":
