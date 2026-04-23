@@ -474,6 +474,79 @@ def get_tags():
     return {"tags": _used_tags()}
 
 
+# ---------------------------------------------------------------------------
+# Concepts / Entities
+# ---------------------------------------------------------------------------
+
+def _build_concepts_index(root: Path) -> list[dict]:
+    """Build a fast static index of all concept and entity notes.
+
+    Each entry: {slug, name, type, is_stub, source_count, incoming_links}
+    No LLM calls. Completes in well under 500ms for typical corpus sizes.
+    """
+    from graph_health import (  # noqa: PLC0415
+        _all_wikilink_targets,
+        _parse_compiled_from,
+        _read_notes,
+        is_stub,
+    )
+
+    concepts = _read_notes(root / "compiled" / "concepts")
+    entities = _read_notes(root / "compiled" / "entities")
+    summaries = _read_notes(root / "compiled" / "source_summaries")
+    topics = _read_notes(root / "compiled" / "topics")
+
+    # Build incoming-link count for each concept/entity slug
+    all_collections = {
+        "topics": topics,
+        "source_summaries": summaries,
+    }
+    incoming = _all_wikilink_targets(all_collections)
+
+    # Approved summary stems for source_count calculation
+    approved_stems = {
+        stem for stem, text in summaries.items() if "approved: true" in text
+    }
+
+    def _source_count(name: str) -> int:
+        """Number of approved source summaries whose body mentions this name."""
+        from inject_wikilinks import _slug_to_display  # noqa: PLC0415
+        display = _slug_to_display(name)
+        count = 0
+        for stem, text in summaries.items():
+            if stem not in approved_stems:
+                continue
+            body_lower = text.lower()
+            if display in body_lower or name.lower() in body_lower:
+                count += 1
+        return count
+
+    results: list[dict] = []
+
+    for note_type, collection in [("concept", concepts), ("entity", entities)]:
+        for slug, text in collection.items():
+            name = slug.replace("-", " ").replace("_", " ").title()
+            stub = is_stub(text)
+            inc_count = len(incoming.get(slug, set()) - {slug})
+            results.append({
+                "slug": slug,
+                "name": name,
+                "type": note_type,
+                "is_stub": stub,
+                "source_count": _source_count(slug),
+                "incoming_links": inc_count,
+            })
+
+    return results
+
+
+@app.get("/api/concepts")
+def get_concepts():
+    """Return the concept/entity index as JSON. Fast static scan, no LLM calls."""
+    items = _build_concepts_index(ROOT)
+    return {"concepts": items, "total": len(items)}
+
+
 class NewTopicRequest(BaseModel):
     display_name: str
     slug: Optional[str] = None

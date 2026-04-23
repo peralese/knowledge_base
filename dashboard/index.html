@@ -428,6 +428,7 @@
       <span class="badge" id="queue-badge"></span>
     </button>
     <button onclick="showTab('query')">Query</button>
+    <button onclick="showTab('concepts')">Concepts</button>
   </nav>
 </header>
 
@@ -604,6 +605,35 @@
 
   </div>
 
+  <!-- ===================== CONCEPTS TAB ===================== -->
+  <div class="panel" id="panel-concepts">
+    <div class="form-card">
+      <h2>Concepts &amp; Entities</h2>
+
+      <div class="field" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+        <input type="text" id="concepts-search" placeholder="Search by name…"
+               oninput="filterConcepts()" style="flex:1;min-width:180px;" />
+        <select id="concepts-sort" onchange="filterConcepts()" style="width:200px;">
+          <option value="name">Sort: Name (A–Z)</option>
+          <option value="source_count">Sort: Most Referenced</option>
+          <option value="incoming_links">Sort: Most Linked</option>
+          <option value="stubs_last">Sort: Stubs Last</option>
+        </select>
+        <select id="concepts-type-filter" onchange="filterConcepts()" style="width:160px;">
+          <option value="">All types</option>
+          <option value="concept">Concepts only</option>
+          <option value="entity">Entities only</option>
+        </select>
+      </div>
+
+      <div id="concepts-summary" class="muted" style="margin-bottom:12px;"></div>
+
+      <div id="concepts-container">
+        <div class="queue-empty">Loading…</div>
+      </div>
+    </div>
+  </div>
+
 </main>
 
 <script>
@@ -619,6 +649,7 @@ function showTab(name) {
   if (name === 'query') {
     loadRecentAnswers();
   }
+  if (name === 'concepts') loadConcepts();
 }
 
 // ---------------------------------------------------------------------------
@@ -1206,6 +1237,80 @@ function escHtml(str) {
 
 // ---------------------------------------------------------------------------
 // Init
+// ---------------------------------------------------------------------------
+// Concepts / Entities Browser
+// ---------------------------------------------------------------------------
+let _conceptsData = [];
+
+async function loadConcepts() {
+  if (_conceptsData.length > 0) { filterConcepts(); return; }
+  const container = document.getElementById('concepts-container');
+  container.innerHTML = '<div class="queue-empty">Loading…</div>';
+  try {
+    const res = await fetch('/api/concepts');
+    if (!res.ok) throw new Error('Server error ' + res.status);
+    const data = await res.json();
+    _conceptsData = data.concepts || [];
+    filterConcepts();
+  } catch (e) {
+    container.innerHTML = '<div class="queue-empty" style="color:#ef4444;">Failed to load: ' + e.message + '</div>';
+  }
+}
+
+function filterConcepts() {
+  const query = (document.getElementById('concepts-search').value || '').toLowerCase();
+  const sortBy = document.getElementById('concepts-sort').value;
+  const typeFilter = document.getElementById('concepts-type-filter').value;
+
+  let items = _conceptsData.filter(c => {
+    if (typeFilter && c.type !== typeFilter) return false;
+    if (query && !c.name.toLowerCase().includes(query) && !c.slug.toLowerCase().includes(query)) return false;
+    return true;
+  });
+
+  items = [...items].sort((a, b) => {
+    if (sortBy === 'name') return a.name.localeCompare(b.name);
+    if (sortBy === 'source_count') return b.source_count - a.source_count;
+    if (sortBy === 'incoming_links') return b.incoming_links - a.incoming_links;
+    if (sortBy === 'stubs_last') {
+      if (a.is_stub !== b.is_stub) return a.is_stub ? 1 : -1;
+      return a.name.localeCompare(b.name);
+    }
+    return 0;
+  });
+
+  const summary = document.getElementById('concepts-summary');
+  const stubs = items.filter(c => c.is_stub).length;
+  summary.textContent = items.length + ' result' + (items.length !== 1 ? 's' : '') +
+    (stubs > 0 ? ' · ' + stubs + ' stub' + (stubs !== 1 ? 's' : '') : '');
+
+  const container = document.getElementById('concepts-container');
+  if (items.length === 0) {
+    container.innerHTML = '<div class="queue-empty">No concepts or entities found.</div>';
+    return;
+  }
+
+  const rows = items.map(c => {
+    const typeLabel = c.type === 'entity'
+      ? '<span style="color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">entity</span>'
+      : '<span style="color:#7dd3fc;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">concept</span>';
+    const stubBadge = c.is_stub
+      ? '<span style="color:#f59e0b;font-size:11px;font-weight:600;margin-left:6px;">stub</span>'
+      : '';
+    const obsidianUri = 'obsidian://open?vault=compiled&file=' + encodeURIComponent(c.slug);
+    return `<div class="queue-item" style="display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:default;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:500;margin-bottom:2px;">
+          <a href="${obsidianUri}" style="color:#e2e8f0;text-decoration:none;" title="Open in Obsidian">${c.name}</a>
+          ${typeLabel}${stubBadge}
+        </div>
+        <div class="muted" style="margin:0;">${c.incoming_links} incoming link${c.incoming_links !== 1 ? 's' : ''} · ${c.source_count} source${c.source_count !== 1 ? 's' : ''}</div>
+      </div>
+    </div>`;
+  });
+  container.innerHTML = rows.join('');
+}
+
 // ---------------------------------------------------------------------------
 loadTopics();
 loadTags();
