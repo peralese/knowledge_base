@@ -23,7 +23,7 @@ Building an AI agent involves understanding its core architecture and deployment
 
 - **[[agent-architecture]]**: Essential for building AI agents, it includes the brain (model), hands (tools), and nervous system (orchestration).
 - **Model Context Protocol (MCP)**: Facilitates seamless interaction between AI agents and external tools via JSON schemas.
-- **Context Engineering**: Crucial for managing short-term sessions and long-term memory to maintain context continuity and avoid statelessness.
+- **[[context-engineering]]**: Crucial for managing short-term sessions and long-term memory to maintain context continuity and avoid statelessness.
 - **Quality Assurance Framework**: Ensures effectiveness, efficiency, robustness, and safety of the agent through [[deep-observability]] mechanisms like logs, traces, and metrics.
 - **Deployment Strategies**: Focuses on CI/CD pipelines to facilitate safe transitions from prototype stages to full-scale production environments.
 

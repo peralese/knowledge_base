@@ -21,7 +21,7 @@ approved: true
 [[openclaw]] is an AI-driven tool designed for automating various business operations but comes with several security risks, including unauthorized access and data leakage. To mitigate these risks, the principle of least privilege should be applied, user inputs rigorously validated, secure integrations maintained using MFA, regular audits conducted, comprehensive logging implemented, environments isolated during testing, sensitive data encrypted, API keys managed securely, and software kept updated with security patches. Additionally, [[docker-isolation]] is recommended to ensure strict volume mounts and prevent privilege escalation, SOUL.md files should enforce permission boundaries, API key hygiene practices like rotation and limited exposure must be enforced, [[network-hardening]] measures restricting outbound access are advised, [[skill-vetting]] procedures to detect malicious code before installation are crucial, and emergency controls such as immediate shutdown capabilities via Docker commands and API key revocation processes are necessary. Monitoring and auditing logs for tracking AI actions, network requests, file operations, and installed skills is also emphasized.
 
 # Key Insights
-- **Least Privilege Principle**: Ensure OpenClaw runs with minimum necessary permissions.
+- **Least Privilege Principle**: Ensure [[openclaw]] runs with minimum necessary permissions.
 - **Input Validation**: Validate all user inputs before execution.
 - **Secure Integrations**: Use short-lived tokens and enable MFA for critical accounts.
 - **Regular Auditing**: Conduct regular security audits to identify vulnerabilities.
@@ -29,11 +29,11 @@ approved: true
 - **Environment Isolation**: Test new configurations in isolated environments.
 - **Data Protection**: Encrypt sensitive data and restrict API keys exposure.
 - **Update Management**: Keep OpenClaw and dependencies up-to-date with security patches.
-- **Docker Isolation**: Running OpenClaw in a Docker container with strict volume mounts ensures it only has access to necessary directories.
+- **[[docker-isolation]]**: Running OpenClaw in a Docker container with strict volume mounts ensures it only has access to necessary directories.
 - **SOUL.md Permissions**: Using SOUL.md files to define hard boundaries for what the AI can do is crucial for securing its actions and preventing unauthorized operations.
 - **API Key Hygiene**: Regularly rotating API keys, setting spending limits, and avoiding key exposure through chat conversations are essential steps in managing API security risks.
-- **Network Hardening**: Restricting outbound network access using Docker network configurations prevents the AI from accessing potentially harmful external services.
-- **Skill Vetting**: Manual reviews and automated checks of skill files help prevent the installation of malicious code that could exploit the system.
+- **[[network-hardening]]**: Restricting outbound network access using Docker network configurations prevents the AI from accessing potentially harmful external services.
+- **[[skill-vetting]]**: Manual reviews and automated checks of skill files help prevent the installation of malicious code that could exploit the system.
 
 # Related Concepts
 - Least Privilege Principle: A strategy that limits users' access rights to only those necessary for performing their daily tasks.
