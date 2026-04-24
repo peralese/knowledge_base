@@ -510,6 +510,7 @@ def check_cross_topic_contradictions(
         return []
 
     all_candidates: list[dict] = []
+    issues: list[LintIssue] = []
     now_ts = datetime.now().strftime("%Y-%m-%d-%H%M%S")
 
     print(f"Cross-topic contradiction check: {len(topics)} topics with sufficient claims")
@@ -592,7 +593,6 @@ def check_cross_topic_contradictions(
     if since:
         display_candidates = [c for c in all_candidates if str(c.get("date", "")) >= since]
 
-    issues: list[LintIssue] = []
     header = f"CONTRADICTION CANDIDATES ({len(display_candidates)} found — human review required)"
     print(f"\n{header}")
     if display_candidates:
