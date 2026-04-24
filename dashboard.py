@@ -24,7 +24,7 @@ import json
 import re
 import sys
 import uuid
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Optional
 
@@ -41,6 +41,8 @@ DASHBOARD_DIR = ROOT / "dashboard"
 TOPIC_REGISTRY_PATH = ROOT / "metadata" / "topic-registry.json"
 TMP_DIR = ROOT / "tmp"
 ARTICLES_DIR = ROOT / "raw" / "articles"
+SAVED_SEARCHES_PATH = ROOT / "outputs" / "saved_searches.json"
+SOURCE_MANIFEST_PATH = ROOT / "metadata" / "source-manifest.json"
 
 # ---------------------------------------------------------------------------
 # Import reusable pipeline modules
@@ -420,6 +422,239 @@ def _reviewable_unscored_or_low(queue: list[dict]) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# 2C-1 Share helpers
+# ---------------------------------------------------------------------------
+
+def _url_is_duplicate(url: str, root: Path) -> tuple[bool, str]:
+    """Return (is_duplicate, existing_id). Checks manifest and staged inbox files."""
+    normalized = url.strip().rstrip("/")
+
+    manifest_path = root / "metadata" / "source-manifest.json"
+    if manifest_path.exists():
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            for src in manifest.get("sources", []):
+                cu = str(src.get("canonical_url", "")).strip().rstrip("/")
+                if cu and cu == normalized:
+                    return True, str(src.get("source_id", src.get("filename", "unknown")))
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    for md_file in (root / "raw" / "inbox" / "browser").glob("*.md") if (root / "raw" / "inbox" / "browser").exists() else []:
+        try:
+            if normalized in md_file.read_text(encoding="utf-8"):
+                return True, md_file.stem
+        except OSError:
+            pass
+
+    for j in (root / "raw" / "inbox" / "feeds").glob("*.json") if (root / "raw" / "inbox" / "feeds").exists() else []:
+        try:
+            data = json.loads(j.read_text(encoding="utf-8"))
+            cu = str(data.get("canonical_url", "")).strip().rstrip("/")
+            if cu and cu == normalized:
+                return True, j.stem
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    return False, ""
+
+
+def _read_raw_article_frontmatter(source_note_path: str, root: Path) -> dict:
+    """Read canonical_url and date_ingested from a raw article's frontmatter."""
+    path = root / source_note_path if source_note_path else None
+    if not path or not path.exists():
+        return {}
+    try:
+        text = path.read_text(encoding="utf-8")
+        if not text.startswith("---\n"):
+            return {}
+        end = text.find("\n---\n", 4)
+        if end == -1:
+            return {}
+        result: dict = {}
+        for line in text[4:end].splitlines():
+            for key in ("canonical_url", "date_ingested"):
+                m = re.match(rf'^{re.escape(key)}:\s*"?([^"]+)"?\s*$', line.strip())
+                if m:
+                    result[key] = m.group(1).strip()
+        return result
+    except OSError:
+        return {}
+
+
+# ---------------------------------------------------------------------------
+# 2C-3 Saved Searches helpers
+# ---------------------------------------------------------------------------
+
+def _load_saved_searches() -> list[dict]:
+    if not SAVED_SEARCHES_PATH.exists():
+        return []
+    try:
+        data = json.loads(SAVED_SEARCHES_PATH.read_text(encoding="utf-8"))
+        return data if isinstance(data, list) else []
+    except (json.JSONDecodeError, OSError):
+        return []
+
+
+def _save_saved_searches(searches: list[dict]) -> None:
+    SAVED_SEARCHES_PATH.parent.mkdir(parents=True, exist_ok=True)
+    SAVED_SEARCHES_PATH.write_text(json.dumps(searches, indent=2) + "\n", encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# 2C-3 Pinned Topics helpers
+# ---------------------------------------------------------------------------
+
+def _get_topic_note_path(slug: str, root: Path) -> Path:
+    return root / "compiled" / "topics" / f"{slug}.md"
+
+
+def _read_pinned_state(slug: str, root: Path) -> bool:
+    path = _get_topic_note_path(slug, root)
+    if not path.exists():
+        return False
+    try:
+        text = path.read_text(encoding="utf-8")
+        m = re.search(r'^pinned:\s*(true|false)\s*$', text, re.MULTILINE)
+        return m.group(1) == "true" if m else False
+    except OSError:
+        return False
+
+
+def _write_pinned_state(slug: str, pinned: bool, root: Path) -> bool:
+    """Write pinned field into topic note frontmatter. Returns True on success."""
+    path = _get_topic_note_path(slug, root)
+    if not path.exists():
+        return False
+    try:
+        text = path.read_text(encoding="utf-8")
+        value_str = "true" if pinned else "false"
+        pattern = r'^pinned:\s*(true|false)\s*$'
+        if re.search(pattern, text, re.MULTILINE):
+            text = re.sub(pattern, f"pinned: {value_str}", text, flags=re.MULTILINE)
+        else:
+            # Insert after the opening ---
+            text = re.sub(r'\n---\n', f'\npinned: {value_str}\n---\n', text, count=1)
+        path.write_text(text, encoding="utf-8")
+        return True
+    except OSError:
+        return False
+
+
+# ---------------------------------------------------------------------------
+# 2C-3 Recent Entity Activity helpers
+# ---------------------------------------------------------------------------
+
+def _recent_entity_activity(root: Path, limit: int = 10) -> list[dict]:
+    """Return the N most recently active entities based on static metadata only.
+
+    Activity date = max(entity date_updated, most recent approved source date mentioning it).
+    No LLM calls. Completes well under 500ms.
+    """
+
+    entities_dir = root / "compiled" / "entities"
+    articles_dir = root / "raw" / "articles"
+    answers_dir = root / "outputs" / "answers"
+
+    # Build entity list with their own dates
+    results: list[dict] = []
+    if not entities_dir.exists():
+        return []
+
+    # Index: approved source stem -> date_ingested (for fast lookup)
+    source_dates: dict[str, str] = {}
+    if articles_dir.exists():
+        for art in articles_dir.glob("*.md"):
+            try:
+                text = art.read_text(encoding="utf-8", errors="replace")
+                if "approved: true" not in text:
+                    continue
+                m = re.search(r'^date_ingested:\s*"?([0-9\-]+)"?\s*$', text, re.MULTILINE)
+                if m:
+                    source_dates[art.stem] = m.group(1).strip()
+            except OSError:
+                continue
+
+    # Most recent answer date
+    answer_dates: list[str] = []
+    if answers_dir.exists():
+        for ans in answers_dir.glob("*.md"):
+            try:
+                text = ans.read_text(encoding="utf-8", errors="replace")
+                m = re.search(r'^date:\s*"?([0-9\-]+)"?\s*$', text, re.MULTILINE)
+                if m:
+                    answer_dates.append(m.group(1).strip())
+            except OSError:
+                continue
+    latest_answer_date = max(answer_dates) if answer_dates else ""
+
+    for ent_file in entities_dir.glob("*.md"):
+        try:
+            text = ent_file.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+
+        slug = ent_file.stem
+        name = slug.replace("-", " ").replace("_", " ").title()
+
+        # Entity's own last-updated date
+        m = re.search(r'^date_updated:\s*"?([0-9\-]+)"?\s*$', text, re.MULTILINE)
+        if not m:
+            m = re.search(r'^date_compiled:\s*"?([0-9\-]+)"?\s*$', text, re.MULTILINE)
+        entity_date = m.group(1).strip() if m else ""
+
+        # Sources listed in entity frontmatter
+        source_stems: list[str] = []
+        in_sources = False
+        for line in text.splitlines():
+            stripped = line.strip()
+            if stripped == "sources:":
+                in_sources = True
+                continue
+            if in_sources:
+                if stripped.startswith("- "):
+                    src = stripped[2:].strip().strip('"').strip("'")
+                    source_stems.append(src)
+                    continue
+                if line and not line.startswith((" ", "\t")):
+                    in_sources = False
+
+        # Most recent source date for this entity
+        source_dates_for_entity = [source_dates[s] for s in source_stems if s in source_dates]
+        latest_source = max(source_dates_for_entity) if source_dates_for_entity else ""
+
+        activity_date = max(filter(None, [entity_date, latest_source])) if any([entity_date, latest_source]) else ""
+        if not activity_date:
+            continue
+
+        last_seen_in = source_stems[0] if source_stems else "entity note"
+        results.append({
+            "slug": slug,
+            "name": name,
+            "last_seen_date": activity_date,
+            "last_seen_in": last_seen_in,
+        })
+
+    results.sort(key=lambda x: x["last_seen_date"], reverse=True)
+    return results[:limit]
+
+
+# ---------------------------------------------------------------------------
+# Pydantic models
+# ---------------------------------------------------------------------------
+
+class ShareURLRequest(BaseModel):
+    url: str
+    note: str = ""
+
+
+class SavedSearchRequest(BaseModel):
+    name: str
+    query: str
+    topic_scope: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
 # Static
 # ---------------------------------------------------------------------------
 
@@ -456,7 +691,11 @@ def serve_index():
 def get_topics():
     registry = _load_registry()
     topics = [
-        {"slug": t.get("slug", ""), "display_name": t.get("title", t.get("slug", ""))}
+        {
+            "slug": t.get("slug", ""),
+            "display_name": t.get("title", t.get("slug", "")),
+            "pinned": _read_pinned_state(t.get("slug", ""), ROOT),
+        }
         for t in registry.get("topics", [])
     ]
     return {"topics": topics}
@@ -829,6 +1068,7 @@ def get_queue():
     items = _reviewable_unscored_or_low(queue)
     result = []
     for e in items:
+        note_meta = _read_raw_article_frontmatter(str(e.get("source_note_path", "")), ROOT)
         result.append({
             "id": e.get("source_id", ""),
             "title": e.get("title", ""),
@@ -836,6 +1076,8 @@ def get_queue():
             "confidence": e.get("confidence_score"),
             "confidence_band": e.get("confidence_band", ""),
             "date_synthesized": str(e.get("scored_at", e.get("queued_at", "")))[:10],
+            "date_ingested": note_meta.get("date_ingested", str(e.get("queued_at", ""))[:10]),
+            "canonical_url": note_meta.get("canonical_url", ""),
             "summary_path": str(e.get("source_note_path", "")),
         })
     return {"items": result}
@@ -879,6 +1121,171 @@ def preview_item(source_id: str):
     if path is None or not path.exists():
         raise HTTPException(status_code=404, detail="Compiled note not found for this item.")
     return PlainTextResponse(path.read_text(encoding="utf-8"))
+
+
+# ---------------------------------------------------------------------------
+# 2C-1 Mobile Share Endpoint
+# ---------------------------------------------------------------------------
+
+@app.post("/api/share")
+def share_url(body: ShareURLRequest):
+    """Accept a URL from a mobile share sheet and queue it to the inbox.
+
+    Returns {"status": "queued", "inbox_id": "INX-..."} on success.
+    Returns 409 {"status": "duplicate", "existing_id": "..."} if already known.
+    Returns 400 for invalid/unreachable URLs.
+    """
+    url = body.url.strip()
+    if not url:
+        raise HTTPException(status_code=400, detail="url is required.")
+    if not url.startswith(("http://", "https://")):
+        raise HTTPException(status_code=400, detail="url must start with http:// or https://")
+
+    is_dup, existing_id = _url_is_duplicate(url, ROOT)
+    if is_dup:
+        return JSONResponse(
+            status_code=409,
+            content={"status": "duplicate", "existing_id": existing_id},
+        )
+
+    # Validate reachability and extract title
+    title = ""
+    try:
+        response = httpx.get(
+            url,
+            follow_redirects=True,
+            timeout=10,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; KBDashboard/1.0)"},
+        )
+        response.raise_for_status()
+        title = _extract_page_title(response.text) or ""
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"URL not reachable: {exc}")
+
+    if not title:
+        try:
+            from urllib.parse import urlparse  # noqa: PLC0415
+            title = urlparse(url).hostname or url
+        except Exception:
+            title = url
+
+    note = body.note.strip()
+    inbox_id = f"INX-{date.today().strftime('%Y%m%d')}-{uuid.uuid4().hex[:8]}"
+    content = note if note else f"[Shared from mobile — {inbox_id}]"
+
+    # Write to inbox using same format as stage_to_inbox.py (feeds adapter)
+    import json as _json  # noqa: PLC0415
+    from stage_to_inbox import StageRequest, stage_feed  # noqa: PLC0415
+
+    req = StageRequest(
+        adapter="feeds",
+        text=_json.dumps({
+            "title": title,
+            "canonical_url": url,
+            "content": content,
+            "inbox_id": inbox_id,
+        }),
+        title=title,
+        canonical_url=url,
+        root=ROOT,
+    )
+    stage_feed(req)
+
+    return {"status": "queued", "inbox_id": inbox_id}
+
+
+# ---------------------------------------------------------------------------
+# 2C-3 Saved Searches Endpoints
+# ---------------------------------------------------------------------------
+
+@app.get("/api/saved-searches")
+def list_saved_searches():
+    return {"searches": _load_saved_searches()}
+
+
+@app.post("/api/saved-searches", status_code=201)
+def create_saved_search(body: SavedSearchRequest):
+    name = body.name.strip()
+    query = body.query.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="name is required.")
+    if not query:
+        raise HTTPException(status_code=400, detail="query is required.")
+
+    searches = _load_saved_searches()
+    search_id = f"SS-{date.today().strftime('%Y%m%d')}-{uuid.uuid4().hex[:8]}"
+    now = datetime.now().isoformat()
+    entry: dict = {
+        "id": search_id,
+        "name": name,
+        "query": query,
+        "topic_scope": body.topic_scope or None,
+        "created_at": now,
+        "last_run_at": None,
+    }
+    searches.append(entry)
+    _save_saved_searches(searches)
+    return {"search": entry}
+
+
+@app.delete("/api/saved-searches/{search_id}")
+def delete_saved_search(search_id: str):
+    searches = _load_saved_searches()
+    updated = [s for s in searches if s.get("id") != search_id]
+    if len(updated) == len(searches):
+        raise HTTPException(status_code=404, detail=f"Saved search '{search_id}' not found.")
+    _save_saved_searches(updated)
+    return {"status": "deleted", "id": search_id}
+
+
+@app.post("/api/saved-searches/{search_id}/run")
+def run_saved_search(search_id: str):
+    """Update last_run_at timestamp and return the search for re-execution by the client."""
+    searches = _load_saved_searches()
+    entry = next((s for s in searches if s.get("id") == search_id), None)
+    if entry is None:
+        raise HTTPException(status_code=404, detail=f"Saved search '{search_id}' not found.")
+    entry["last_run_at"] = datetime.now().isoformat()
+    _save_saved_searches(searches)
+    return {"search": entry}
+
+
+# ---------------------------------------------------------------------------
+# 2C-3 Pinned Topics Endpoints
+# ---------------------------------------------------------------------------
+
+@app.post("/api/topics/{slug}/pin")
+def pin_topic(slug: str):
+    registry = _load_registry()
+    topic = next((t for t in registry.get("topics", []) if t.get("slug") == slug), None)
+    if topic is None:
+        raise HTTPException(status_code=404, detail=f"Topic '{slug}' not found in registry.")
+    success = _write_pinned_state(slug, pinned=True, root=ROOT)
+    return {"status": "pinned", "slug": slug, "note_updated": success}
+
+
+@app.post("/api/topics/{slug}/unpin")
+def unpin_topic(slug: str):
+    registry = _load_registry()
+    topic = next((t for t in registry.get("topics", []) if t.get("slug") == slug), None)
+    if topic is None:
+        raise HTTPException(status_code=404, detail=f"Topic '{slug}' not found in registry.")
+    success = _write_pinned_state(slug, pinned=False, root=ROOT)
+    return {"status": "unpinned", "slug": slug, "note_updated": success}
+
+
+# ---------------------------------------------------------------------------
+# 2C-3 Recent Entity Activity Endpoint
+# ---------------------------------------------------------------------------
+
+@app.get("/api/entities/recent")
+def get_recent_entities():
+    """Return the 10 most recently active entities based on static metadata scan.
+
+    Completes in well under 500ms — no LLM calls.
+    """
+    results = _recent_entity_activity(ROOT, limit=10)
+    return {"entities": results}
 
 
 # ---------------------------------------------------------------------------

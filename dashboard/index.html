@@ -15,6 +15,81 @@
       min-height: 100vh;
     }
 
+    /* ---- 2C additions ---- */
+    .source-url { font-size: 11px; color: #4f5a7a; word-break: break-all; margin-top: 2px; }
+    .source-url a { color: #4f6ef7; text-decoration: none; }
+    .source-url a:hover { text-decoration: underline; }
+
+    .saved-searches-sidebar {
+      background: #1a1d27;
+      border: 1px solid #2d3148;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 18px;
+    }
+    .saved-searches-sidebar h3 {
+      font-size: 12px; font-weight: 600; color: #64748b;
+      text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;
+    }
+    .saved-search-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 0; border-bottom: 1px solid #1e2235;
+    }
+    .saved-search-item:last-child { border-bottom: none; }
+    .saved-search-name { flex: 1; font-size: 13px; color: #cbd5e1; cursor: pointer; }
+    .saved-search-name:hover { color: #f8fafc; }
+    .btn-icon {
+      background: none; border: none; color: #4f5a7a; cursor: pointer;
+      font-size: 12px; padding: 2px 4px; border-radius: 3px;
+    }
+    .btn-icon:hover { color: #ef4444; background: #1e0a0a; }
+    .save-search-row { display: flex; gap: 8px; margin-top: 12px; }
+    .save-search-row input { flex: 1; }
+
+    .topics-grid { display: grid; gap: 10px; }
+    .topic-card {
+      background: #1a1d27; border: 1px solid #2d3148;
+      border-radius: 8px; padding: 14px 16px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .topic-card.pinned { border-color: #4f6ef7; }
+    .topic-name { flex: 1; font-size: 14px; font-weight: 500; color: #e2e8f0; }
+    .topic-slug { font-size: 11px; color: #4f5a7a; font-family: monospace; }
+    .pin-btn {
+      background: none; border: 1px solid #2d3148; border-radius: 4px;
+      color: #64748b; padding: 3px 8px; font-size: 11px; cursor: pointer;
+      transition: all 0.15s;
+    }
+    .pin-btn:hover { border-color: #4f6ef7; color: #4f6ef7; }
+    .pin-btn.pinned { border-color: #4f6ef7; color: #4f6ef7; background: #1e2235; }
+    .pinned-section-label {
+      font-size: 11px; font-weight: 600; color: #4f6ef7;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      margin-bottom: 8px; margin-top: 4px;
+    }
+    .unpinned-section-label {
+      font-size: 11px; font-weight: 600; color: #4f5a7a;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      margin-bottom: 8px; margin-top: 16px;
+    }
+
+    .recent-activity-panel {
+      background: #1a1d27; border: 1px solid #2d3148;
+      border-radius: 10px; padding: 16px; margin-top: 18px;
+    }
+    .recent-activity-panel h3 {
+      font-size: 12px; font-weight: 600; color: #64748b;
+      text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;
+    }
+    .activity-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 8px 0; border-bottom: 1px solid #1e2235;
+    }
+    .activity-row:last-child { border-bottom: none; }
+    .activity-name { flex: 1; font-size: 13px; color: #cbd5e1; font-weight: 500; }
+    .activity-source { font-size: 11px; color: #4f5a7a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+    .activity-date { font-size: 11px; color: #4f5a7a; white-space: nowrap; }
+
     header {
       background: #1a1d27;
       border-bottom: 1px solid #2d3148;
@@ -437,6 +512,7 @@
       <span class="badge" id="queue-badge"></span>
     </button>
     <button onclick="showTab('query')">Query</button>
+    <button onclick="showTab('topics')">Topics</button>
     <button onclick="showTab('concepts')">Concepts</button>
   </nav>
 </header>
@@ -576,6 +652,17 @@
 
   <!-- ===================== QUERY TAB ===================== -->
   <div class="panel" id="panel-query">
+
+    <!-- Saved Searches sidebar -->
+    <div class="saved-searches-sidebar" id="saved-searches-sidebar">
+      <h3>Saved Searches</h3>
+      <div id="saved-searches-list"><div class="muted">Loading…</div></div>
+      <div class="save-search-row">
+        <input type="text" id="new-search-name" placeholder="Search name…" style="font-size:12px;" />
+        <button class="btn btn-sm btn-primary" onclick="saveCurrentSearch()">Save current</button>
+      </div>
+    </div>
+
     <div class="form-card">
       <h2>Query Knowledge Base</h2>
 
@@ -614,6 +701,16 @@
 
   </div>
 
+  <!-- ===================== TOPICS TAB ===================== -->
+  <div class="panel" id="panel-topics">
+    <div class="form-card">
+      <h2>Topics</h2>
+      <div id="topics-container">
+        <div class="queue-empty">Loading…</div>
+      </div>
+    </div>
+  </div>
+
   <!-- ===================== CONCEPTS TAB ===================== -->
   <div class="panel" id="panel-concepts">
     <div class="form-card">
@@ -641,6 +738,12 @@
         <div class="queue-empty">Loading…</div>
       </div>
     </div>
+
+    <!-- Recent Entity Activity panel -->
+    <div class="recent-activity-panel" id="recent-activity-panel">
+      <h3>Recent Entity Activity</h3>
+      <div id="recent-entities-list"><div class="muted">Loading…</div></div>
+    </div>
   </div>
 
 </main>
@@ -655,10 +758,9 @@ function showTab(name) {
   document.getElementById('panel-' + name).classList.add('active');
   event.currentTarget.classList.add('active');
   if (name === 'queue') loadQueue();
-  if (name === 'query') {
-    loadRecentAnswers();
-  }
-  if (name === 'concepts') loadConcepts();
+  if (name === 'query') { loadRecentAnswers(); loadSavedSearches(); }
+  if (name === 'topics') loadTopicsTab();
+  if (name === 'concepts') { loadConcepts(); loadRecentEntities(); }
 }
 
 // ---------------------------------------------------------------------------
@@ -1185,20 +1287,28 @@ function buildCard(item) {
   card.className = 'card';
   card.id = 'card-' + item.id;
 
+  const urlHtml = item.canonical_url
+    ? `<div class="source-url"><a href="${escHtml(item.canonical_url)}" target="_blank" rel="noopener">${escHtml(item.canonical_url)}</a></div>`
+    : '';
+  const dateHtml = item.date_ingested
+    ? `<span class="date-meta">Ingested: ${escHtml(item.date_ingested)}</span>`
+    : (item.date_synthesized ? `<span class="date-meta">${escHtml(item.date_synthesized)}</span>` : '');
+
   card.innerHTML = `
     <div class="card-header">
       <div class="card-title">${escHtml(item.title || item.id)}</div>
       ${item.topic ? `<span class="pill">${escHtml(item.topic)}</span>` : ''}
     </div>
-    <div class="card-meta">
+    ${urlHtml}
+    <div class="card-meta" style="margin-top:10px;">
       <span class="confidence-label">Confidence: ${confLabel}</span>
       <div class="confidence-bar-wrap">
         <div class="confidence-bar ${barClass}" style="width:${confPct ?? 50}%"></div>
       </div>
-      ${item.date_synthesized ? `<span class="date-meta">${escHtml(item.date_synthesized)}</span>` : ''}
+      ${dateHtml}
     </div>
     <div class="card-actions">
-      <button class="btn-expand" onclick="togglePreview('${item.id}')">Preview</button>
+      <button class="btn-expand" onclick="togglePreview('${item.id}')">Preview synthesis</button>
       <button class="btn btn-sm btn-success" onclick="approveItem('${item.id}')">Approve</button>
       <button class="btn btn-sm btn-danger" onclick="showRejectConfirm('${item.id}')">Reject</button>
     </div>
@@ -1272,6 +1382,168 @@ function escHtml(str) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+// ---------------------------------------------------------------------------
+// 2C-3A: Saved Searches
+// ---------------------------------------------------------------------------
+let _savedSearches = [];
+
+async function loadSavedSearches() {
+  try {
+    const res = await fetch('/api/saved-searches');
+    const data = await res.json();
+    _savedSearches = data.searches || [];
+    renderSavedSearches();
+  } catch (_) {}
+}
+
+function renderSavedSearches() {
+  const container = document.getElementById('saved-searches-list');
+  if (!container) return;
+  if (!_savedSearches.length) {
+    container.innerHTML = '<div class="muted">No saved searches yet.</div>';
+    return;
+  }
+  container.innerHTML = _savedSearches.map(s => `
+    <div class="saved-search-item" id="ss-${escHtml(s.id)}">
+      <span class="saved-search-name" onclick="runSavedSearch(${JSON.stringify(s.id)}, ${JSON.stringify(s.query)}, ${JSON.stringify(s.topic_scope || '')})"
+            title="${escHtml(s.query)}">${escHtml(s.name)}</span>
+      <button class="btn-icon" onclick="deleteSavedSearch(${JSON.stringify(s.id)})" title="Delete">✕</button>
+    </div>
+  `).join('');
+}
+
+async function saveCurrentSearch() {
+  const name = document.getElementById('new-search-name').value.trim();
+  const query = document.getElementById('query-question').value.trim();
+  const topic = document.getElementById('query-topic-select').value || null;
+  if (!name) { alert('Enter a name for this search.'); return; }
+  if (!query) { alert('Run a query first, then save it.'); return; }
+  const res = await fetch('/api/saved-searches', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, query, topic_scope: topic }),
+  });
+  if (res.ok) {
+    document.getElementById('new-search-name').value = '';
+    await loadSavedSearches();
+  }
+}
+
+async function runSavedSearch(id, query, topicScope) {
+  // Update last_run_at
+  fetch('/api/saved-searches/' + encodeURIComponent(id) + '/run', { method: 'POST' }).catch(() => {});
+  // Populate and submit query
+  document.getElementById('query-question').value = query;
+  if (topicScope) {
+    const sel = document.getElementById('query-topic-select');
+    if (sel) sel.value = topicScope;
+  }
+  await submitQuery();
+}
+
+async function deleteSavedSearch(id) {
+  const res = await fetch('/api/saved-searches/' + encodeURIComponent(id), { method: 'DELETE' });
+  if (res.ok) {
+    _savedSearches = _savedSearches.filter(s => s.id !== id);
+    renderSavedSearches();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 2C-3B: Topics Tab with Pinning
+// ---------------------------------------------------------------------------
+let _topicsData = [];
+
+async function loadTopicsTab() {
+  const container = document.getElementById('topics-container');
+  if (!container) return;
+  container.innerHTML = '<div class="queue-empty">Loading…</div>';
+  try {
+    const res = await fetch('/api/topics');
+    const data = await res.json();
+    _topicsData = data.topics || [];
+    renderTopicsTab();
+  } catch (e) {
+    container.innerHTML = '<div class="queue-empty" style="color:#ef4444;">Failed to load topics.</div>';
+  }
+}
+
+function renderTopicsTab() {
+  const container = document.getElementById('topics-container');
+  if (!container) return;
+  if (!_topicsData.length) {
+    container.innerHTML = '<div class="queue-empty">No topics defined yet.</div>';
+    return;
+  }
+  const pinned = _topicsData.filter(t => t.pinned);
+  const unpinned = _topicsData.filter(t => !t.pinned);
+
+  let html = '';
+  if (pinned.length) {
+    html += '<div class="pinned-section-label">Pinned</div><div class="topics-grid">';
+    html += pinned.map(t => _topicCardHtml(t)).join('');
+    html += '</div>';
+  }
+  if (unpinned.length) {
+    html += pinned.length
+      ? '<div class="unpinned-section-label">All Topics</div><div class="topics-grid">'
+      : '<div class="topics-grid">';
+    html += unpinned.map(t => _topicCardHtml(t)).join('');
+    html += '</div>';
+  }
+  container.innerHTML = html;
+}
+
+function _topicCardHtml(t) {
+  const pinnedClass = t.pinned ? ' pinned' : '';
+  const btnClass = t.pinned ? ' pinned' : '';
+  const btnLabel = t.pinned ? 'Unpin' : 'Pin';
+  return `<div class="topic-card${pinnedClass}" id="topic-card-${escHtml(t.slug)}">
+    <div style="flex:1;">
+      <div class="topic-name">${escHtml(t.display_name)}</div>
+      <div class="topic-slug">${escHtml(t.slug)}</div>
+    </div>
+    <button class="pin-btn${btnClass}" onclick="togglePin(${JSON.stringify(t.slug)}, ${t.pinned})">${btnLabel}</button>
+  </div>`;
+}
+
+async function togglePin(slug, currentlyPinned) {
+  const endpoint = currentlyPinned ? `/api/topics/${encodeURIComponent(slug)}/unpin` : `/api/topics/${encodeURIComponent(slug)}/pin`;
+  const res = await fetch(endpoint, { method: 'POST' });
+  if (res.ok) {
+    const topic = _topicsData.find(t => t.slug === slug);
+    if (topic) topic.pinned = !currentlyPinned;
+    renderTopicsTab();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 2C-3C: Recent Entity Activity
+// ---------------------------------------------------------------------------
+async function loadRecentEntities() {
+  const container = document.getElementById('recent-entities-list');
+  if (!container) return;
+  container.innerHTML = '<div class="muted">Loading…</div>';
+  try {
+    const res = await fetch('/api/entities/recent');
+    const data = await res.json();
+    const entities = data.entities || [];
+    if (!entities.length) {
+      container.innerHTML = '<div class="muted">No recent entity activity found.</div>';
+      return;
+    }
+    container.innerHTML = entities.map(e => `
+      <div class="activity-row">
+        <div class="activity-name">${escHtml(e.name)}</div>
+        <div class="activity-source" title="${escHtml(e.last_seen_in)}">${escHtml(e.last_seen_in)}</div>
+        <div class="activity-date">${escHtml(e.last_seen_date)}</div>
+      </div>
+    `).join('');
+  } catch (_) {
+    container.innerHTML = '<div class="muted">Could not load entity activity.</div>';
+  }
 }
 
 // ---------------------------------------------------------------------------
