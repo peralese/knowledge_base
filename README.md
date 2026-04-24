@@ -150,9 +150,9 @@ Reduce friction on daily ingestion and review.
 
 | Step | Task | Notes |
 |------|------|-------|
-| 2C-1 | **Mobile Share-to-Inbox** | iOS/Android share-sheet → inbox watcher. |
-| 2C-2 | **Review Workflow Improvements** | Spec the bottleneck (context, steps, batching) before building. |
-| 2C-3 | **Saved Searches / Pinned Topics** | Persist frequent queries and surface recent entity activity. |
+| 2C-1 | **Mobile Share-to-Inbox** | Complete. `POST /api/share` accepts a URL from any iOS/Android share sheet and queues it to `raw/inbox/feeds/` via the same `stage_to_inbox.stage_feed` path. Returns `{status:"queued", inbox_id:"INX-..."}` or `{status:"duplicate", existing_id:"..."}`. `mobile/ios-share-shortcut.md` and `mobile/android-share-intent.md` document exact setup steps for both platforms. Network requirement (same WiFi or Tailscale) is documented; no VPN integration built. |
+| 2C-2 | **Review Workflow Improvements** | Complete. Audit found: CLI `list` showed metadata only (no synthesis), requiring two commands per item with no sequential mode; dashboard had a lazy Preview button but no auto-advance. Added: `review.py show <id>` (full synthesis + URL + confidence), `review.py list --full` (synthesis inline for all queued items), `review.py session` (single-keypress a/r/s/q interactive session with Ctrl-C support and summary). Dashboard review cards now show source URL and ingested date alongside confidence. |
+| 2C-3 | **Saved Searches / Pinned Topics** | Complete. (A) Saved searches: `GET/POST/DELETE /api/saved-searches` persists queries to `outputs/saved_searches.json`; dashboard Query tab has a sidebar with save/run/delete; searches always re-run live. (B) Pinned topics: `POST /api/topics/{slug}/pin` and `/unpin` write `pinned: true/false` to topic note frontmatter; new Topics tab in dashboard shows pinned topics above the rest. (C) Recent entity activity: `GET /api/entities/recent` returns the 10 most recently active entities by static metadata scan (no LLM, under 500ms); "Recent Activity" panel shown in Concepts/Entities tab. |
 
 ---
 
