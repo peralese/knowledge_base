@@ -7,6 +7,15 @@ Usage:
     # List synthesized items with confidence scores
     python3 scripts/review.py list
 
+    # List with full synthesis content shown
+    python3 scripts/review.py list --full
+
+    # Show full detail for a single item
+    python3 scripts/review.py show SRC-20260412-0001
+
+    # Interactive session: walk through queue with single-keypress decisions
+    python3 scripts/review.py session
+
     # Approve one item
     python3 scripts/review.py approve SRC-20260412-0001
 
@@ -245,8 +254,184 @@ def list_pending_review(queue: list[dict[str, object]]) -> int:
 # CLI commands
 # ---------------------------------------------------------------------------
 
-def cmd_list() -> int:
-    return list_pending_review(load_queue())
+def _read_compiled_content(item: dict, root: Path) -> str:
+    """Return the full compiled synthesis text for a queue entry, or an explanatory message."""
+    path = _find_compiled_note(item, root)
+    if path is None:
+        return "[No compiled synthesis path found for this item]"
+    if not path.exists():
+        return f"[Compiled note not found: {path}]"
+    return path.read_text(encoding="utf-8")
+
+
+def _read_canonical_url(item: dict, root: Path) -> str:
+    """Extract canonical_url from the raw article frontmatter for a queue entry."""
+    note_path_str = str(item.get("source_note_path", ""))
+    if not note_path_str:
+        return ""
+    path = root / note_path_str
+    if not path.exists():
+        return ""
+    try:
+        text = path.read_text(encoding="utf-8")
+        m = re.search(r'^canonical_url:\s*"?([^"\n]+)"?\s*$', text, re.MULTILINE)
+        return m.group(1).strip() if m else ""
+    except OSError:
+        return ""
+
+
+_SEP = "─" * 72
+
+
+def _print_item_header(item: dict, root: Path) -> None:
+    score = item.get("confidence_score")
+    band = str(item.get("confidence_band", ""))
+    confidence_str = f"{band} {score:.2f}" if score is not None else "unscored"
+    url = _read_canonical_url(item, root)
+    print(_SEP)
+    print(f"ID:         {item.get('source_id', '')}")
+    print(f"Title:      {item.get('title', '')}")
+    print(f"Confidence: {confidence_str}")
+    print(f"Status:     {item.get('review_action') or item.get('review_status', '')}")
+    if url:
+        print(f"URL:        {url}")
+    print(f"Date:       {str(item.get('queued_at', ''))[:10]}")
+
+
+def cmd_list(*, full: bool = False) -> int:
+    queue = load_queue()
+    items = _reviewable_items(queue)
+    if not items:
+        print("No items awaiting review.")
+        return 0
+
+    if not full:
+        return list_pending_review(queue)
+
+    for item in items:
+        _print_item_header(item, ROOT)
+        print(_SEP)
+        print(_read_compiled_content(item, ROOT))
+        print()
+    print(f"{len(items)} item(s) awaiting review.")
+    return 0
+
+
+def cmd_show(source_id: str, *, root: Path = ROOT) -> int:
+    queue = load_queue()
+    item = next((e for e in queue if e.get("source_id") == source_id), None)
+    if item is None:
+        print(f"Error: '{source_id}' not found in review queue.", file=sys.stderr)
+        return 1
+    _print_item_header(item, root)
+    print(_SEP)
+    print(_read_compiled_content(item, root))
+    print(_SEP)
+    return 0
+
+
+def _getch() -> str:
+    """Read a single keypress from stdin without requiring Enter. Unix only."""
+    import termios  # noqa: PLC0415
+    import tty  # noqa: PLC0415
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    try:
+        tty.setraw(fd)
+        ch = sys.stdin.read(1)
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+    return ch
+
+
+def cmd_session(*, root: Path = ROOT, no_commit: bool = False) -> int:
+    """Interactive review session: walks through synthesized items one at a time.
+
+    Audit findings:
+    - CLI list shows only metadata (ID, title, confidence, status) — no synthesis text.
+    - It takes two separate commands to review one item: list then approve/reject.
+    - No sequential mode exists; user must re-run list after each action.
+    - Dashboard has a Preview button that lazily loads synthesis, but still requires
+      separate clicks per item and does not auto-advance.
+    - 9 items currently in queue at time of 2C implementation.
+    Session addresses: full context per item + single-keypress flow + auto-advance.
+    """
+    queue = load_queue()
+    items = _reviewable_items(queue)
+    if not items:
+        print("No items awaiting review. Queue is empty.")
+        return 0
+
+    total = len(items)
+    approved_ids: list[str] = []
+    rejected_ids: list[str] = []
+    skipped_ids: list[str] = []
+
+    print(f"\nReview session — {total} item(s) queued")
+    print("Controls: [a] approve  [r] reject  [s] skip  [q] quit\n")
+
+    try:
+        for idx, item in enumerate(items, 1):
+            source_id = str(item.get("source_id", ""))
+            print(f"\n[{idx}/{total}]")
+            _print_item_header(item, ROOT)
+            print(_SEP)
+            print(_read_compiled_content(item, ROOT))
+            print()
+            print(f"[{idx}/{total}] Action: [a]pprove / [r]eject / [s]kip / [q]uit  ", end="", flush=True)
+
+            while True:
+                ch = _getch().lower()
+                if ch == "a":
+                    print("approve")
+                    approved_ids.append(source_id)
+                    break
+                if ch == "r":
+                    print("reject")
+                    rejected_ids.append(source_id)
+                    break
+                if ch == "s":
+                    print("skip")
+                    skipped_ids.append(source_id)
+                    break
+                if ch in ("q", "\x03"):  # q or Ctrl-C
+                    print("quit")
+                    raise KeyboardInterrupt
+
+    except KeyboardInterrupt:
+        print()
+
+    # Apply decisions
+    current_queue = load_queue()
+    now = datetime.now().isoformat()
+    updated: list[dict] = []
+    note_paths: list[Path] = []
+    for entry in current_queue:
+        sid = entry.get("source_id")
+        if sid in approved_ids:
+            entry = {**entry, "review_action": "approved", "review_method": "manual", "reviewed_at": now}
+            path = _find_compiled_note(entry, root)
+            if path:
+                _patch_note_approved(path, approved=True)
+                note_paths.append(path)
+        elif sid in rejected_ids:
+            entry = {**entry, "review_action": "rejected", "review_method": "manual", "reviewed_at": now}
+            path = _find_compiled_note(entry, root)
+            if path:
+                _patch_note_approved(path, approved=False)
+                note_paths.append(path)
+        updated.append(entry)
+    save_queue(updated)
+
+    if approved_ids or rejected_ids:
+        commit_pipeline_stage(
+            message=f"review: session — {len(approved_ids)} approved, {len(rejected_ids)} rejected",
+            paths=[REVIEW_QUEUE_PATH, *note_paths],
+            no_commit=no_commit,
+        )
+
+    print(f"\nSession complete — approved: {len(approved_ids)}  rejected: {len(rejected_ids)}  skipped: {len(skipped_ids)}")
+    return 0
 
 
 def cmd_approve(
@@ -340,7 +525,28 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command")
 
     # list
-    subparsers.add_parser("list", help="List synthesized items awaiting review.")
+    list_p = subparsers.add_parser("list", help="List synthesized items awaiting review.")
+    list_p.add_argument(
+        "--full",
+        action="store_true",
+        help="Show full synthesis content for each queued item.",
+    )
+
+    # show
+    show_p = subparsers.add_parser("show", help="Show full detail for a single queue item.")
+    show_p.add_argument("source_id", help="Source ID to display (e.g. SRC-20260412-0001).")
+
+    # session
+    session_p = subparsers.add_parser(
+        "session",
+        help="Interactive review session: walk through queue items with single-keypress decisions.",
+    )
+    session_p.add_argument(
+        "--no-commit",
+        action="store_true",
+        dest="no_commit",
+        help="Skip git auto-commit after the session.",
+    )
 
     # approve
     approve_p = subparsers.add_parser("approve", help="Approve one item or all high-confidence items.")
@@ -373,7 +579,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional reason for rejection.",
     )
 
-    # --no-commit applies to all subcommands
+    # --no-commit applies to approve and reject subcommands
     for sub in (approve_p, reject_p):
         sub.add_argument(
             "--no-commit",
@@ -390,7 +596,13 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "list" or args.command is None:
-        return cmd_list()
+        return cmd_list(full=getattr(args, "full", False))
+
+    if args.command == "show":
+        return cmd_show(args.source_id, root=ROOT)
+
+    if args.command == "session":
+        return cmd_session(root=ROOT, no_commit=getattr(args, "no_commit", False))
 
     if args.command == "approve":
         return cmd_approve(
