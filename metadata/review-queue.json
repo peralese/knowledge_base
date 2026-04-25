@@ -16,9 +16,9 @@
     "confidence_band": "medium",
     "confidence_reasoning": "The synthesis note captures the main points of the article effectively but lacks detailed descriptions and direct quotes from the original text to ensure accuracy. Additionally, while the structure is clear, it could benefit from a more comprehensive breakdown of each key point.",
     "scored_at": "2026-04-25T15:35:38.119673",
-    "review_action": null,
-    "review_method": null,
-    "reviewed_at": null,
+    "review_action": "approved",
+    "review_method": "manual",
+    "reviewed_at": "2026-04-25T15:47:05.311812",
     "synthesized_at": "2026-04-25T15:23:51.645375"
   },
   {
@@ -38,9 +38,9 @@
     "confidence_band": "medium",
     "confidence_reasoning": "The synthesis captures the essence of foundational knowledge and technical depth but lacks detailed key points from each book, impacting completeness.",
     "scored_at": "2026-04-25T15:36:29.261276",
-    "review_action": null,
-    "review_method": null,
-    "reviewed_at": null,
+    "review_action": "approved",
+    "review_method": "manual",
+    "reviewed_at": "2026-04-25T15:47:06.486430",
     "synthesized_at": "2026-04-25T15:25:07.465146"
   },
   {
@@ -82,9 +82,9 @@
     "confidence_band": "medium",
     "confidence_reasoning": "The synthesis captures most of the key points from the source material with a clear structure but lacks detailed examples or specific actions for some best practices, reducing its completeness slightly. Additionally, it could be more accurate if it directly quotes or references specific tools and steps mentioned in the original document.",
     "scored_at": "2026-04-25T15:38:07.535490",
-    "review_action": null,
-    "review_method": null,
-    "reviewed_at": null,
+    "review_action": "approved",
+    "review_method": "manual",
+    "reviewed_at": "2026-04-25T15:47:08.068466",
     "synthesized_at": "2026-04-25T15:28:30.112755"
   },
   {
@@ -126,9 +126,9 @@
     "confidence_band": "medium",
     "confidence_reasoning": "The synthesis note captures many key points and provides a structured overview of the LLM Wiki concept, but lacks detailed examples or specific technical details from the source document which might affect completeness and accuracy. Additionally, there are some formatting issues and missing elements like confidence score that could improve its quality.",
     "scored_at": "2026-04-25T15:42:01.965153",
-    "review_action": null,
-    "review_method": null,
-    "reviewed_at": null,
+    "review_action": "approved",
+    "review_method": "manual",
+    "reviewed_at": "2026-04-25T15:47:10.126437",
     "synthesized_at": "2026-04-25T15:31:12.280546"
   },
   {
@@ -148,9 +148,9 @@
     "confidence_band": "medium",
     "confidence_reasoning": "The synthesis captures key points but lacks detailed explanations and direct quotes which reduce its completeness and accuracy slightly. The structure is clear but could benefit from more explicit connections between insights and highlights.",
     "scored_at": "2026-04-25T15:43:17.385005",
-    "review_action": null,
-    "review_method": null,
-    "reviewed_at": null,
+    "review_action": "approved",
+    "review_method": "manual",
+    "reviewed_at": "2026-04-25T15:47:12.268991",
     "synthesized_at": "2026-04-25T15:32:05.056110"
   },
   {
@@ -192,9 +192,9 @@
     "confidence_band": "medium",
     "confidence_reasoning": "The synthesis note captures many key points and provides a clear structure, but lacks some detailed accuracy and completeness regarding the original source material. The separation of mechanical tasks and LLM responsibilities is well-explained, yet specific benefits and drawbacks of Zettelkasten vs wiki pages are not fully elaborated.",
     "scored_at": "2026-04-25T15:44:50.703462",
-    "review_action": null,
-    "review_method": null,
-    "reviewed_at": null,
+    "review_action": "approved",
+    "review_method": "manual",
+    "reviewed_at": "2026-04-25T15:47:20.152897",
     "synthesized_at": "2026-04-25T15:34:14.969546"
   },
   {
@@ -234,9 +234,9 @@
     "confidence_band": "low",
     "confidence_reasoning": "The synthesis lacks specific key points and detailed content that would make it useful for understanding the source material. It does not accurately represent or provide comprehensive information from the original guide.",
     "scored_at": "2026-04-25T15:46:17.336425",
-    "review_action": null,
-    "review_method": null,
-    "reviewed_at": null,
+    "review_action": "rejected",
+    "review_method": "manual",
+    "reviewed_at": "2026-04-25T15:47:23.868945",
     "synthesized_at": "2026-04-25T15:34:49.285058"
   },
   {
@@ -304,9 +304,9 @@
     "confidence_band": "low",
     "confidence_reasoning": "The synthesis note lacks specific content about Gemma 4 and does not capture any key points from an assumed source document. It is clear in structure but fails on accuracy and completeness.",
     "scored_at": "2026-04-25T15:46:22.870007",
-    "review_action": null,
-    "review_method": null,
-    "reviewed_at": null,
+    "review_action": "rejected",
+    "review_method": "manual",
+    "reviewed_at": "2026-04-25T15:47:25.996804",
     "synthesized_at": "2026-04-25T15:35:29.642815"
   }
 ]

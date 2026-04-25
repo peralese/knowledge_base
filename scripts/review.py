@@ -41,6 +41,7 @@ REVIEW_QUEUE_REPORT_PATH = ROOT / "metadata" / "review-queue.md"
 
 sys.path.insert(0, str(Path(__file__).parent))
 from git_ops import commit_pipeline_stage  # noqa: E402
+from purge_source import purge_source  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -511,6 +512,140 @@ def cmd_reject(source_id: str, *, reason: str, root: Path = ROOT, no_commit: boo
 
 
 # ---------------------------------------------------------------------------
+# Purge command
+# ---------------------------------------------------------------------------
+
+def _load_queue_from_root(root: Path) -> list[dict]:
+    queue_path = root / "metadata" / "review-queue.json"
+    if not queue_path.exists():
+        return []
+    try:
+        data = json.loads(queue_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
+    return data if isinstance(data, list) else []
+
+
+def _purge_one(
+    source_id: str,
+    queue: list[dict],
+    *,
+    dry_run: bool,
+    force: bool,
+    root: Path,
+) -> bool:
+    """Purge a single source.  Returns True if the purge ran (or dry-ran)."""
+    entry = next((e for e in queue if e.get("source_id") == source_id), None)
+
+    if entry is None and not force:
+        print(f"Error: '{source_id}' not found in review queue.", file=sys.stderr)
+        return False
+
+    action = str((entry or {}).get("review_action") or "pending")
+    if action != "rejected" and not force:
+        print(
+            f"Error: {source_id} is not rejected (current state: {action}).\n"
+            "Only rejected items can be purged. Use --force to override.",
+            file=sys.stderr,
+        )
+        return False
+
+    try:
+        result = purge_source(source_id, root, dry_run=dry_run)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return False
+
+    conf = (entry or {}).get("confidence_score")
+    conf_str = f"{conf:.2f}" if conf is not None else "—"
+
+    if dry_run:
+        print(f'\n{source_id}  "{result["title"]}"')
+        print(f"  State            : {action} (confidence: {conf_str})")
+        print("  Will remove:")
+        for item in result["removed"]:
+            print(f"    ✓ {item}")
+        for item in result["skipped"]:
+            print(f"    ✗ {item}")
+    else:
+        print(f'\nPurging {source_id}  "{result["title"]}"')
+        for item in result["removed"]:
+            print(f"  Removed : {item}")
+        for item in result["skipped"]:
+            print(f"  Skipped : {item}")
+
+    return True
+
+
+def cmd_purge(
+    source_id: str | None,
+    *,
+    all_rejected: bool,
+    dry_run: bool,
+    force: bool,
+    root: Path = ROOT,
+    no_commit: bool = False,
+) -> int:
+    queue = _load_queue_from_root(root)
+
+    targets: list[str]
+    if all_rejected:
+        targets = [
+            str(e["source_id"])
+            for e in queue
+            if e.get("review_action") == "rejected"
+        ]
+        if not targets:
+            print("No rejected items found in review queue.")
+            return 0
+    elif source_id:
+        targets = [source_id]
+    else:
+        print("Error: provide a source_id or use --all-rejected.", file=sys.stderr)
+        return 1
+
+    if dry_run:
+        print("Dry run — no files will be deleted.")
+
+    purged: list[str] = []
+    for sid in targets:
+        current_queue = _load_queue_from_root(root)
+        ok = _purge_one(sid, current_queue, dry_run=dry_run, force=force, root=root)
+        if ok and not dry_run:
+            purged.append(sid)
+
+    if dry_run:
+        if targets:
+            print(f"\n  Run without --dry-run to delete {len(targets)} item(s).")
+        return 0
+
+    if not purged:
+        return 1
+
+    n = len(purged)
+    msg = (
+        f"chore(purge): remove rejected source {purged[0]} [purge]"
+        if n == 1
+        else f"chore(purge): remove {n} rejected sources [purge]"
+    )
+
+    print(f"\nPurge complete ({n} source(s)). Run `python3 scripts/lint.py` to verify.")
+
+    try:
+        commit_pipeline_stage(
+            message=msg,
+            paths=["metadata/source-manifest.json", "metadata/review-queue.json",
+                   "metadata/prompts", "compiled/source_summaries", "raw/articles"],
+            no_commit=no_commit,
+            root=root,
+        )
+    except RuntimeError as exc:
+        print(f"Warning: git commit failed — {exc}", file=sys.stderr)
+
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -588,6 +723,40 @@ def build_parser() -> argparse.ArgumentParser:
             help="Skip git auto-commit after the review action.",
         )
 
+    # purge
+    purge_p = subparsers.add_parser(
+        "purge",
+        help="Remove all artifacts for one or all rejected sources.",
+    )
+    purge_p.add_argument(
+        "source_id",
+        nargs="?",
+        help="Source ID to purge (e.g. SRC-20260425-0004).",
+    )
+    purge_p.add_argument(
+        "--all-rejected",
+        action="store_true",
+        dest="all_rejected",
+        help="Purge all sources with review_action='rejected'.",
+    )
+    purge_p.add_argument(
+        "--dry-run",
+        action="store_true",
+        dest="dry_run",
+        help="Show what would be deleted without making any changes.",
+    )
+    purge_p.add_argument(
+        "--force",
+        action="store_true",
+        help="Override the rejected-only guard and purge any source.",
+    )
+    purge_p.add_argument(
+        "--no-commit",
+        action="store_true",
+        dest="no_commit",
+        help="Skip git auto-commit after purge.",
+    )
+
     return parser
 
 
@@ -615,6 +784,16 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "reject":
         return cmd_reject(args.source_id, reason=args.reason, root=ROOT, no_commit=getattr(args, "no_commit", False))
+
+    if args.command == "purge":
+        return cmd_purge(
+            getattr(args, "source_id", None),
+            all_rejected=args.all_rejected,
+            dry_run=args.dry_run,
+            force=args.force,
+            root=ROOT,
+            no_commit=args.no_commit,
+        )
 
     parser.print_help()
     return 1
