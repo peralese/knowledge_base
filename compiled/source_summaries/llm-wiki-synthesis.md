@@ -10,7 +10,7 @@ tags:
   - "source_summary"
   - "llm-wiki"
 confidence: "medium"
-confidence_score: null
+confidence_score: 0.75
 generation_method: "ollama_local"
 approved: false
 ---
