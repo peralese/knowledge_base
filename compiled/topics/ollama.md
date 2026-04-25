@@ -17,7 +17,7 @@ approved: true
 
 # Summary
 
-The article details the creation of a self-hosted AI stack consisting of five Docker containers, designed to run large language models (LLMs) locally. The setup includes Ollama for managing LLMs, SearXNG for private web searches, Agentic Seek for data collection, ComfyUI for user-friendly interaction with image-based tasks, and a Docker Compose file to tie everything together. Benefits highlighted include enhanced privacy, control over model behavior, and scalability as needs grow. The setup demonstrates the feasibility of running complex AI models locally without relying on cloud services.
+The article details the creation of a self-hosted AI stack consisting of five Docker containers designed to run large language models (LLMs) locally. The setup includes Ollama for managing LLMs, SearXNG for private web searches, Agentic Seek for data collection, ComfyUI for user-friendly interaction with image-based tasks, and another instance of ComfyUI for text-related AI tasks. This local stack enhances privacy by ensuring personal data remains secure and under the user's control while offering customization and scalability options. The hardware requirements include a CPU like Intel i7, an NVIDIA RTX 3060 GPU (4GB VRAM), and 16-32 GB of RAM for basic setups.
 
 # Key Insights
 
@@ -25,7 +25,8 @@ The article details the creation of a self-hosted AI stack consisting of five Do
 - **Customization and Control**: Users can experiment freely with different models and configurations without external constraints.
 - **Scalability Options**: The setup allows for easy expansion to accommodate more complex tasks or increased usage demands.
 - **Diverse Use Cases**: From coding automation scripts to handling sophisticated tasks, the local AI stack proves versatile.
-- **GitHub Overview**: Briefly covers what GitHub is and its significance but lacks specific details.
+- **Hardware Requirements**: Basic setups require an Intel i7 CPU, NVIDIA RTX 3060 GPU (4GB VRAM), and 16-32 GB of RAM; more complex models need additional resources like at least 64GB VRAM.
+- **Cost-Efficiency**: Reduces dependency on paid services, leading to significant cost savings over time.
 
 # Related Concepts
 
