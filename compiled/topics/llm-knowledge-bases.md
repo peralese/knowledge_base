@@ -19,6 +19,8 @@ approved: true
 # Summary
 This guide outlines the process of setting up an AI-driven knowledge base system known as LLM Wiki, inspired by Andrej Karpathy's approach. The setup involves using Obsidian for managing and navigating your knowledge base alongside Claude Code for automating tasks such as summarization and indexing. Key steps include preparing a directory structure, configuring Obsidian, creating a schema file (`claudefile.md`), ingesting raw data, processing with Claude code, and maintaining the system through regular linting operations. The guide highlights debates around Zettelkasten vs. mutable wiki page models, emphasizing immutable notes linked explicitly for reducing drift over time. Additionally, it discusses how LLM Wiki reduces cognitive load by automating maintenance tasks but faces limitations in scaling beyond 200K-300K tokens due to context window constraints.
 
+The new source summary emphasizes the importance of separating mechanical plumbing into a Go binary (e.g., Sparks) and focusing on deterministic traversal with human-auditable knowledge graphs. It also highlights potential alternatives for managing standards and regulations, such as OpenProject, ONLYOFFICE Workspace, and TruSpace.
+
 # Key Insights
 - **Directory Structure**: A well-defined directory structure (e.g., `raw`, `processed`, `outbox`) helps manage different stages of knowledge base files efficiently.
 - **Claude Code Integration**: Utilizing Claude Code allows for automation of tasks such as data ingestion, summarization, and indexing, enhancing the efficiency of maintaining a large-scale knowledge base.
@@ -34,7 +36,9 @@ This guide outlines the process of setting up an AI-driven knowledge base system
   - Ingest: Adding new information to the knowledge base.
   - Query: Retrieving information from the knowledge base.
   - Lint: Checking consistency and correctness across the knowledge base.
-- **Maintenance Overhead**: Reduces cognitive load on human users by handling maintenance tasks automatically, but faces limitations as projects scale beyond a certain size.
+- **Mechanical Layer Separation**: Extracting mechanical plumbing into a Go binary (e.g., Sparks) helps streamline agent instructions by reducing them to simple commands, making the vault more versatile and independent of specific Obsidian plugins.
+- **Deterministic Traversal**: Ensuring that LLMs generate synthesis notes referencing individual atoms rather than revising existing content makes reasoning tasks easier to manage.
+- **Memory Management Architecture**: Managing memory becomes crucial as the wiki grows to reduce hallucinations and maintain accuracy.
 
 # Related Concepts
 - **Knowledge Management Systems (KMS)**: Tools and techniques used to capture, organize, store, retrieve, share, enhance, and use collective expertise in an organization.
