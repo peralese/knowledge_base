@@ -1,0 +1,64 @@
+{
+  "date": "2026-04-24",
+  "timestamp": "2026-04-24-221152",
+  "corpus": {
+    "topics": 6,
+    "concepts": 14,
+    "entities": 6,
+    "source_summaries": 11,
+    "total": 37
+  },
+  "model": null,
+  "bm25_only": {
+    "exact_keyword": {
+      "runs": 15,
+      "avg_ms": 0.033,
+      "min_ms": 0.01,
+      "max_ms": 0.055,
+      "p95_ms": 0.055,
+      "avg_results": 7.3
+    },
+    "semantic": {
+      "runs": 15,
+      "avg_ms": 0.04,
+      "min_ms": 0.027,
+      "max_ms": 0.068,
+      "p95_ms": 0.068,
+      "avg_results": 10.0
+    },
+    "broad": {
+      "runs": 15,
+      "avg_ms": 0.015,
+      "min_ms": 0.01,
+      "max_ms": 0.031,
+      "p95_ms": 0.031,
+      "avg_results": 7.0
+    },
+    "scoped": {
+      "runs": 10,
+      "avg_ms": 0.022,
+      "min_ms": 0.014,
+      "max_ms": 0.036,
+      "p95_ms": 0.036,
+      "avg_results": 7.5
+    },
+    "empty": {
+      "runs": 10,
+      "avg_ms": 0.011,
+      "min_ms": 0.003,
+      "max_ms": 0.027,
+      "p95_ms": 0.027,
+      "avg_results": 4.0
+    }
+  },
+  "end_to_end": null,
+  "assessment": {
+    "lines": [
+      "BM25 retrieval is extremely fast (<1ms avg) on a 37-note corpus.",
+      "Bottleneck is Ollama synthesis, not retrieval.",
+      "Corpus is small (37 notes < 100 threshold). Latency case for vector retrieval is weak at this scale.",
+      "Projected BM25 at 3\u00d7 corpus (111 notes): ~0.2ms (p95). Still negligible vs Ollama synthesis.",
+      "Recommendation: implement vector index for semantic recall quality improvement, not latency. sqlite-vec preferred over FAISS at this scale."
+    ]
+  }
+}
