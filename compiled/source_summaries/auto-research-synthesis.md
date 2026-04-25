@@ -16,7 +16,7 @@ tags:
   - "Hyperparameter optimization through autonomous agents"
   - "auto-research"
 confidence: "medium"
-confidence_score: null
+confidence_score: 0.75
 generation_method: "ollama_local"
 approved: false
 ---
