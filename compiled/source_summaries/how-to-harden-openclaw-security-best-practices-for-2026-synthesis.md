@@ -3,37 +3,43 @@ title: "How to Harden OpenClaw Security Best Practices for 2026 Synthesis"
 note_type: "source_summary"
 compiled_from: 
   - "how-to-harden-openclaw-security-best-practices-for-2026"
-date_compiled: "2026-04-19"
-date_updated: "2026-04-19"
-topics: []
+date_compiled: "2026-04-25"
+date_updated: "2026-04-25"
+topics: 
+  - "Docker"
+  - "Security Configuration Management (SCM)"
+  - "Network Security Monitoring (NSM)"
 tags: 
   - "source_summary"
+  - "Docker"
+  - "Security Configuration Management (SCM)"
+  - "Network Security Monitoring (NSM)"
   - "how-to-harden-openclaw-security-best-practices-for-2026"
 confidence: "medium"
-confidence_score: 0.85
+confidence_score: null
 generation_method: "ollama_local"
-approved: true
+approved: false
 ---
 
 # Summary
 
-This article provides a comprehensive guide on how to secure OpenClaw, an AI agent, by implementing various security practices. It emphasizes Docker isolation for containerization and outlines specific configurations to ensure file system read-only access and prevent privilege escalation. The document also introduces the use of SOUL.md files to enforce strict permission boundaries through hard-coded rules that limit what the AI can execute or modify.
-
-Furthermore, it details API key management strategies such as secure storage practices, regular rotation, and scoped limitations to avoid unauthorized usage and financial risks. Network security is discussed with advice on configuring Docker networks for restricted outbound access and applying blocklists for dangerous destinations. The guide also covers skill vetting procedures to detect malicious code before installation.
-
-Emergency controls are suggested including immediate shutdown capabilities via Docker commands, API key revocation processes, and emergency braking within SOUL.md files. Lastly, the article stresses the importance of monitoring and auditing logs to track AI actions, network requests, file operations, and installed skills for potential security issues.
+This article outlines key security practices to enhance the safety and reliability of OpenClaw Desktop in 2026. It emphasizes running OpenClaw in a Docker container, setting strict permission controls via SOUL.md files, maintaining API key hygiene, hardening network configurations, vetting skills before installation, implementing emergency shutdown mechanisms, and monitoring system logs for security incidents.
 
 # Key Insights
 
-- **Docker Isolation**: Running OpenClaw in a Docker container with strict volume mounts ensures that it only has access to necessary directories.
-- **SOUL.md Permissions**: Using SOUL.md files to define hard boundaries for what the AI can do is crucial for securing its actions and preventing unauthorized operations.
-- **API Key Hygiene**: Regularly rotating API keys, setting spending limits, and avoiding key exposure through chat conversations are essential steps in managing API security risks.
-- **Network Hardening**: Restricting outbound network access using Docker network configurations prevents the AI from accessing potentially harmful external services.
-- **Skill Vetting**: Manual reviews and automated checks of skill files help prevent the installation of malicious code that could exploit the system.
+- **Docker Isolation**: Always run OpenClaw in a Docker container to isolate it from the host system and restrict its file access.
+- **SOUL.md Permission Rules**: Implement strict permission rules using SOUL.md files to ensure that OpenClaw operates within predefined limits.
+- **API Key Security**: Secure API keys through proper storage, scope restrictions, regular rotation, and monitoring for unauthorized usage.
+- **Network Hardening**: Prevent unauthorized network access by blocking outbound traffic except for necessary domains and preventing SSRF attacks.
+- **Skill Vetting**: Conduct a thorough review of any new skills before installation to avoid potential security risks.
+- **Emergency Controls**: Establish emergency shutdown procedures such as Docker stop commands, API key revocation, and use of SOUL.md emergency brakes.
+- **Logging and Auditing**: Regularly monitor system logs for unusual activity and enforce daily checks on API usage and file operations.
 
 # Related Concepts
 
--
+- Docker
+- Security Configuration Management (SCM)
+- Network Security Monitoring (NSM)
 
 # Source Notes
 
@@ -43,13 +49,13 @@ Emergency controls are suggested including immediate shutdown capabilities via D
 
 ## [[how-to-harden-openclaw-security-best-practices-for-2026]]
 - Title: How to Harden OpenClaw: Security Best Practices for 2026
-- Source Type: article
-- Origin: web
-- Summary: Comprehensive guide on securing the AI agent, OpenClaw, by implementing strict Docker configurations, permission controls via SOUL.md, API key management practices, network hardening measures, skill vetting processes, and emergency control mechanisms.
+- Source Type: Article
+- Origin: Web (https://openclawdesktop.com/blog/hardening-openclaw-security-best-practices.html)
+- Summary: Provides concrete steps and configurations to secure OpenClaw Desktop, focusing on Docker isolation, permission rules via SOUL.md, API key hygiene, network hardening, skill vetting, emergency controls, and logging.
 - Key excerpt:
-    - "Even if you're the only user on your machine, Docker isolation is non-negotiable for a serious setup. Here's why: without it, OpenClaw runs with your full user permissions."
-    - "SOUL.md permission rules are your most powerful security tool and take 5 minutes to set up."
-    - "A leaked API key can rack up thousands of dollars in charges before you notice."
+    - "Docker creates a boundary. OpenClaw inside the container can only see what you explicitly mount."
+    - "Store keys in .env files, never in SOUL.md, config files, or skill files."
+    - "Set up your kill switches before you need them: Docker stop — the nuclear option."
 
 # Lineage
 
