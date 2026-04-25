@@ -5,10 +5,11 @@
       "title": "Zero Trust",
       "sources": [
         "how-to-build-an-ai-agent-a-complete-guide-synthesis",
-        "how-to-harden-openclaw-security-best-practices-for-2026-synthesis"
+        "how-to-harden-openclaw-security-best-practices-for-2026-synthesis",
+        "karpathy-s-autoresearch-went-viral-here-s-how-it-works-and-one-idea-to-try-synthesis"
       ],
       "date_first_seen": "2026-04-22",
-      "date_updated": "2026-04-22"
+      "date_updated": "2026-04-25"
     },
     {
       "slug": "retrieval-augmented-generation",
@@ -177,6 +178,24 @@
       "title": "Logging and Auditing",
       "sources": [
         "how-to-harden-openclaw-security-best-practices-for-2026-synthesis"
+      ],
+      "date_first_seen": "2026-04-25",
+      "date_updated": "2026-04-25"
+    },
+    {
+      "slug": "auto-ml",
+      "title": "AutoML",
+      "sources": [
+        "karpathy-s-autoresearch-went-viral-here-s-how-it-works-and-one-idea-to-try-synthesis"
+      ],
+      "date_first_seen": "2026-04-25",
+      "date_updated": "2026-04-25"
+    },
+    {
+      "slug": "large-language-models",
+      "title": "Large Language Models (LLMs)",
+      "sources": [
+        "karpathy-s-autoresearch-went-viral-here-s-how-it-works-and-one-idea-to-try-synthesis"
       ],
       "date_first_seen": "2026-04-25",
       "date_updated": "2026-04-25"

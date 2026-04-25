@@ -89,6 +89,26 @@
       "date_first_seen": "2026-04-25",
       "date_updated": "2026-04-25",
       "entity_type": "tool"
+    },
+    {
+      "slug": "karpathy-s-autoresearch",
+      "title": "Karpathy's Autoresearch",
+      "sources": [
+        "karpathy-s-autoresearch-went-viral-here-s-how-it-works-and-one-idea-to-try-synthesis"
+      ],
+      "date_first_seen": "2026-04-25",
+      "date_updated": "2026-04-25",
+      "entity_type": "framework"
+    },
+    {
+      "slug": "andrej-karpathy",
+      "title": "Andrej Karpathy",
+      "sources": [
+        "karpathy-s-autoresearch-went-viral-here-s-how-it-works-and-one-idea-to-try-synthesis"
+      ],
+      "date_first_seen": "2026-04-25",
+      "date_updated": "2026-04-25",
+      "entity_type": "person"
     }
   ]
 }
