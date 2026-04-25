@@ -2,12 +2,12 @@
 title: "Wiki Index"
 note_type: "index"
 generated_on: "2026-04-25"
-note_count: 20
+note_count: 26
 ---
 
 # Wiki Index
 
-_Generated on 2026-04-25 — 20 topics_
+_Generated on 2026-04-25 — 26 topics_
 
 ## Topics
 
@@ -34,3 +34,12 @@ _Generated on 2026-04-25 — 20 topics_
 - [[retrieval-augmented-generation]] — Definition not yet written. Update this stub with content from the sources below.
 - [[skill-vetting]] — Skill vetting in the context of AI/ML security involves assessing and validating third-party skills or models to ensure…
 - [[zero-trust]] — Definition not yet written. Update this stub with content from the sources below.
+
+## Entities
+
+- [[anthropic]] — Description not yet written. Update this stub with content from the sources below.
+- [[karpathy]] — Description not yet written. Update this stub with content from the sources below.
+- [[llamaindex]] — Description not yet written. Update this stub with content from the sources below.
+- [[ollama]] — Description not yet written. Update this stub with content from the sources below.
+- [[openclaw]] — Description not yet written. Update this stub with content from the sources below.
+- [[soul-md]] — Description not yet written. Update this stub with content from the sources below.
