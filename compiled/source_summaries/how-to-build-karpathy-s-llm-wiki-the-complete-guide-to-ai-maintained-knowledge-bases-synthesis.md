@@ -10,7 +10,7 @@ tags:
   - "source_summary"
   - "how-to-build-karpathy-s-llm-wiki-the-complete-guide-to-ai-maintained-knowledge-bases"
 confidence: "medium"
-confidence_score: null
+confidence_score: 0.75
 generation_method: "ollama_local"
 approved: false
 ---
