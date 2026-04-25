@@ -1,7 +1,10 @@
 """Phase 7 Q&A Workflow: ask a natural language question against the compiled wiki.
 
-Loads all compiled notes into context, sends the question to a local Ollama model,
+Loads compiled notes into context, sends the question to a local Ollama model,
 streams the answer to the terminal, and files the result in outputs/answers/.
+
+Phase 2D adds hybrid BM25+vector retrieval when the vector index is available.
+Defaults to hybrid when the index is fresh; falls back to BM25 silently if not.
 
 Usage:
     python3 scripts/query.py --question "What are the security tradeoffs between EKS and Fargate?"
@@ -25,6 +28,14 @@ Usage:
     python3 scripts/query.py \\
         --question "What are Fargate security best practices?" \\
         --top-n 5
+
+    # Explicit retrieval mode (2D-3)
+    python3 scripts/query.py "What is OpenClaw?" --retrieval bm25
+    python3 scripts/query.py "What is OpenClaw?" --retrieval vector
+    python3 scripts/query.py "What is OpenClaw?" --retrieval hybrid
+
+    # Show retrieved notes and scores before answering
+    python3 scripts/query.py "What is OpenClaw?" --show-retrieval
 """
 from __future__ import annotations
 
@@ -303,13 +314,23 @@ def file_answer(
 
 
 # ---------------------------------------------------------------------------
-# Main run
+# Retrieval helpers
 # ---------------------------------------------------------------------------
 
-def _bm25_select_notes(question: str, root: Path, top_n: int) -> list[CompiledNote]:
-    """Use BM25 to select the top_n most relevant compiled notes for the question."""
+_DEFAULT_TOP_N = 10
+_BM25_WEIGHT = 0.6
+_VECTOR_WEIGHT = 0.4
+
+
+def _bm25_select_notes(
+    question: str,
+    root: Path,
+    top_n: int,
+) -> list[tuple[CompiledNote, float]]:
+    """Use BM25 to select notes. Returns list of (note, raw_bm25_score)."""
     sys.path.insert(0, str(Path(__file__).parent))
-    from search import load_documents, build_index, search as bm25_search  # noqa: PLC0415
+    from search import build_index, load_documents  # noqa: PLC0415
+    from search import search as bm25_search  # noqa: PLC0415
 
     docs = load_documents(root, include_raw=False)
     if not docs:
@@ -318,14 +339,153 @@ def _bm25_select_notes(question: str, root: Path, top_n: int) -> list[CompiledNo
     index = build_index(docs)
     results = bm25_search(question, index, top_n=top_n)
 
-    # Convert search Documents back to CompiledNotes
-    notes: list[CompiledNote] = []
+    notes: list[tuple[CompiledNote, float]] = []
     for r in results:
         text = r.document.path.read_text(encoding="utf-8", errors="replace")
         title = _parse_frontmatter_title(text) or r.document.path.stem.replace("-", " ").title()
         body = _strip_frontmatter(text)
-        notes.append(CompiledNote(path=r.document.path, title=title, body=body))
+        notes.append((CompiledNote(path=r.document.path, title=title, body=body), r.score))
     return notes
+
+
+def _vector_select_notes(
+    question: str,
+    root: Path,
+    top_n: int,
+    embedding_model: str = "nomic-embed-text",
+) -> list[tuple[CompiledNote, float]]:
+    """Vector similarity search. Returns list of (note, cosine_similarity)."""
+    sys.path.insert(0, str(Path(__file__).parent))
+    from vector_index import (  # noqa: PLC0415
+        INDEX_DB_PATH,
+        call_ollama_embeddings,
+        vector_search,
+    )
+
+    try:
+        query_embedding = call_ollama_embeddings(question, embedding_model)
+    except Exception as exc:
+        sys.stderr.write(f"Warning: vector embedding failed: {exc}\n")
+        return []
+
+    hits = vector_search(query_embedding, INDEX_DB_PATH, top_n=top_n)
+    notes: list[tuple[CompiledNote, float]] = []
+    for note_id, _, score in hits:
+        path = root / note_id
+        if not path.exists():
+            continue
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        title = _parse_frontmatter_title(text) or path.stem.replace("-", " ").title()
+        body = _strip_frontmatter(text)
+        notes.append((CompiledNote(path=path, title=title, body=body), score))
+    return notes
+
+
+def _normalize_scores(scored: list[tuple[CompiledNote, float]]) -> list[tuple[CompiledNote, float]]:
+    """Normalize scores to [0, 1] by dividing by the max."""
+    if not scored:
+        return []
+    max_s = max(s for _, s in scored)
+    if max_s == 0:
+        return [(n, 0.0) for n, _ in scored]
+    return [(n, s / max_s) for n, s in scored]
+
+
+def _hybrid_select_notes(
+    question: str,
+    root: Path,
+    top_n: int,
+    embedding_model: str = "nomic-embed-text",
+    bm25_weight: float = _BM25_WEIGHT,
+    vector_weight: float = _VECTOR_WEIGHT,
+) -> list[tuple[CompiledNote, float]]:
+    """Combine BM25 and vector results with weighted hybrid scoring.
+
+    hybrid_score = bm25_weight × norm(bm25) + vector_weight × cosine
+    """
+    bm25_results = _bm25_select_notes(question, root, top_n * 2)
+    vector_results = _vector_select_notes(question, root, top_n * 2, embedding_model)
+
+    bm25_norm = _normalize_scores(bm25_results)
+    # Vector scores are already cosine similarity in [0,1]
+
+    # Build merged score map keyed by path
+    merged: dict[Path, tuple[CompiledNote, float]] = {}
+
+    for note, score in bm25_norm:
+        merged[note.path] = (note, bm25_weight * score)
+
+    for note, score in vector_results:
+        if note.path in merged:
+            existing_note, existing_score = merged[note.path]
+            merged[note.path] = (existing_note, existing_score + vector_weight * score)
+        else:
+            merged[note.path] = (note, vector_weight * score)
+
+    ranked = sorted(merged.values(), key=lambda x: x[1], reverse=True)
+    return ranked[:top_n]
+
+
+def _resolve_retrieval_mode(
+    retrieval: str | None,
+    root: Path,
+) -> tuple[str, bool]:
+    """Return (effective_mode, used_fallback). Auto-detects when retrieval is None."""
+    sys.path.insert(0, str(Path(__file__).parent))
+    from vector_index import index_is_fresh  # noqa: PLC0415
+
+    if retrieval is None:
+        if index_is_fresh():
+            return "hybrid", False
+        return "bm25", False
+
+    if retrieval == "hybrid" and not index_is_fresh():
+        sys.stderr.write(
+            "Vector index not found or stale — using BM25 only. "
+            "Run: python3 scripts/vector_index.py update\n"
+        )
+        return "bm25", True
+    if retrieval == "vector" and not index_is_fresh():
+        sys.stderr.write(
+            "Vector index not found or stale — using BM25 only. "
+            "Run: python3 scripts/vector_index.py update\n"
+        )
+        return "bm25", True
+
+    return retrieval, False
+
+
+def _select_notes(
+    question: str,
+    root: Path,
+    retrieval: str,
+    top_n: int,
+) -> list[tuple[CompiledNote, float]]:
+    """Dispatch to the correct retrieval function."""
+    if retrieval == "vector":
+        return _vector_select_notes(question, root, top_n)
+    if retrieval == "hybrid":
+        return _hybrid_select_notes(question, root, top_n)
+    # Default: bm25
+    return _bm25_select_notes(question, root, top_n)
+
+
+def _print_retrieval_debug(
+    scored: list[tuple[CompiledNote, float]],
+    retrieval: str,
+) -> None:
+    print(f"\nRetrieved notes ({retrieval}):")
+    for rank, (note, score) in enumerate(scored, 1):
+        print(f"  {rank:2}. {note.stem:<50} score: {score:.4f}")
+    print()
+
+
+# ---------------------------------------------------------------------------
+# Main run
+# ---------------------------------------------------------------------------
 
 
 def run(
@@ -337,6 +497,8 @@ def run(
     root: Path,
     top_n: int = 0,
     topic: str = "",
+    retrieval: str | None = None,
+    show_retrieval: bool = False,
 ) -> int:
     # Topic-scoped mode uses query_engine to load context
     if topic:
@@ -394,9 +556,16 @@ def run(
         print("Error: no compiled notes found. Run compile_notes.py first.", file=sys.stderr)
         return 1
 
-    if top_n > 0:
-        notes = _bm25_select_notes(question, root, top_n)
-        retrieval_label = f"BM25 top-{top_n} of {len(all_notes)} notes → {len(notes)} selected"
+    effective_retrieval, _ = _resolve_retrieval_mode(retrieval, root)
+    resolve_top_n = top_n if top_n > 0 else _DEFAULT_TOP_N
+
+    if top_n > 0 or retrieval is not None or effective_retrieval != "bm25":
+        # Use new retrieval path (2D-3)
+        scored = _select_notes(question, root, effective_retrieval, resolve_top_n)
+        if show_retrieval:
+            _print_retrieval_debug(scored, effective_retrieval)
+        notes = [note for note, _ in scored] if scored else all_notes
+        retrieval_label = f"{effective_retrieval} top-{resolve_top_n} → {len(notes)} selected"
     else:
         notes = all_notes
         retrieval_label = f"full context ({len(notes)} notes)"
@@ -515,9 +684,24 @@ def build_parser() -> argparse.ArgumentParser:
         default=0,
         dest="top_n",
         help=(
-            "Use BM25 search to select only the top N most relevant notes as context. "
-            "Default: 0 (include all notes up to the token budget)."
+            "Use retrieval to select only the top N most relevant notes as context. "
+            "Default: 0 (use full context when no --retrieval flag is set)."
         ),
+    )
+    parser.add_argument(
+        "--retrieval",
+        choices=["bm25", "vector", "hybrid"],
+        default=None,
+        help=(
+            "Retrieval mode: bm25 (keyword), vector (semantic), or hybrid (default when "
+            "the vector index is fresh). Falls back to bm25 if index is absent or stale."
+        ),
+    )
+    parser.add_argument(
+        "--show-retrieval",
+        action="store_true",
+        dest="show_retrieval",
+        help="Print retrieved notes and their scores before sending to Ollama.",
     )
     return parser
 
@@ -537,6 +721,8 @@ def main(argv: list[str] | None = None) -> int:
         root=ROOT,
         top_n=args.top_n,
         topic=args.topic,
+        retrieval=args.retrieval,
+        show_retrieval=args.show_retrieval,
     )
 
 

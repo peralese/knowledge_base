@@ -90,6 +90,18 @@
     .activity-source { font-size: 11px; color: #4f5a7a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
     .activity-date { font-size: 11px; color: #4f5a7a; white-space: nowrap; }
 
+    /* Retrieval mode toggle (2D-3) */
+    .retrieval-toggle { display: flex; gap: 0; margin-bottom: 18px; }
+    .retrieval-toggle button {
+      background: #1a1d27; border: 1px solid #2d3148;
+      color: #64748b; padding: 6px 14px; font-size: 12px; font-weight: 600;
+      cursor: pointer; transition: all 0.15s; margin-right: -1px;
+    }
+    .retrieval-toggle button:first-child { border-radius: 6px 0 0 6px; }
+    .retrieval-toggle button:last-child { border-radius: 0 6px 6px 0; margin-right: 0; }
+    .retrieval-toggle button.active { background: #1e2235; color: #e2e8f0; border-color: #4f6ef7; z-index: 1; }
+    .retrieval-toggle button:hover:not(.active) { background: #1e2235; color: #94a3b8; }
+
     header {
       background: #1a1d27;
       border-bottom: 1px solid #2d3148;
@@ -667,6 +679,18 @@
       <h2>Query Knowledge Base</h2>
 
       <div class="field">
+        <label>Retrieval mode</label>
+        <div class="retrieval-toggle" id="retrieval-toggle">
+          <button onclick="setRetrieval('bm25')" id="ret-bm25">BM25</button>
+          <button onclick="setRetrieval('hybrid')" id="ret-hybrid" class="active">Hybrid</button>
+          <button onclick="setRetrieval('vector')" id="ret-vector">Vector</button>
+        </div>
+        <div class="muted" id="retrieval-note" style="margin-top:-8px;margin-bottom:8px;">
+          Hybrid = BM25 + semantic. Falls back to BM25 if vector index is absent.
+        </div>
+      </div>
+
+      <div class="field">
         <label>Topic</label>
         <select id="query-topic-select">
           <option value="">All topics</option>
@@ -988,6 +1012,23 @@ async function loadTags() {
 }
 
 // ---------------------------------------------------------------------------
+// 2D-3: Retrieval mode toggle
+// ---------------------------------------------------------------------------
+let _retrievalMode = 'hybrid';
+
+function setRetrieval(mode) {
+  _retrievalMode = mode;
+  document.querySelectorAll('.retrieval-toggle button').forEach(b => b.classList.remove('active'));
+  document.getElementById('ret-' + mode).classList.add('active');
+  const notes = {
+    'bm25': 'BM25 keyword matching only.',
+    'hybrid': 'Hybrid = BM25 + semantic. Falls back to BM25 if vector index is absent.',
+    'vector': 'Semantic similarity only. Requires vector index (vector_index.py build).',
+  };
+  document.getElementById('retrieval-note').textContent = notes[mode] || '';
+}
+
+// ---------------------------------------------------------------------------
 // Query
 // ---------------------------------------------------------------------------
 let _lastQuestion = '';
@@ -1035,7 +1076,7 @@ async function submitQuery() {
     const res = await fetch('/api/query', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: question, topic_slug: topic }),
+      body: JSON.stringify({ question: question, topic_slug: topic, retrieval: _retrievalMode }),
     });
     const data = await res.json();
     if (!res.ok) {

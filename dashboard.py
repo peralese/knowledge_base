@@ -824,6 +824,57 @@ def add_topic(body: NewTopicRequest):
 class QueryRequest(BaseModel):
     question: str
     topic_slug: Optional[str] = None
+    retrieval: Optional[str] = None  # "bm25", "vector", "hybrid", or None (auto)
+
+
+def _dashboard_load_context(
+    question: str,
+    topic_slug: str | None,
+    retrieval: str | None,
+    root: Path,
+) -> tuple[str, list[str]]:
+    """Load query context with optional retrieval mode override.
+
+    When retrieval is None or topic_slug is set, uses the existing load_context
+    behaviour for backward compatibility. When retrieval is specified without a
+    topic, uses BM25/vector/hybrid note selection before building context.
+    """
+    if topic_slug or retrieval is None:
+        return load_context(topic_slug, root)
+
+    # Retrieval-mode context selection (no topic scope)
+    import sys as _sys  # noqa: PLC0415
+    _sys.path.insert(0, str(root / "scripts"))
+    from query import (  # noqa: PLC0415
+        _DEFAULT_TOP_N,
+        _normalize_scores,
+        _parse_frontmatter_title,
+        _resolve_retrieval_mode,
+        _select_notes,
+        _strip_frontmatter,
+    )
+
+    effective_mode, _ = _resolve_retrieval_mode(retrieval, root)
+    scored = _select_notes(question, root, effective_mode, _DEFAULT_TOP_N)
+    if not scored:
+        return load_context(None, root)
+
+    MAX_CHARS = 120_000
+    blocks: list[str] = []
+    paths: list[str] = []
+    total = 0
+    for note, _ in scored:
+        title = _parse_frontmatter_title(note.path.read_text(encoding="utf-8", errors="replace")) or note.stem.replace("-", " ").title()
+        body = _strip_frontmatter(note.path.read_text(encoding="utf-8", errors="replace"))
+        rel = str(note.path.relative_to(root))
+        block = f"### {title}\nSource: {rel}\n\n{body}\n\n---\n\n"
+        if total + len(block) > MAX_CHARS:
+            break
+        blocks.append(block)
+        paths.append(rel)
+        total += len(block)
+
+    return "".join(blocks), paths
 
 
 @app.post("/api/query")
@@ -833,7 +884,11 @@ def query_wiki(body: QueryRequest):
         raise HTTPException(status_code=400, detail="question is required.")
 
     topic_slug = body.topic_slug.strip() if body.topic_slug else None
-    context, context_paths = load_context(topic_slug, ROOT)
+    retrieval = body.retrieval.strip() if body.retrieval else None
+    if retrieval and retrieval not in ("bm25", "vector", "hybrid"):
+        raise HTTPException(status_code=400, detail="retrieval must be 'bm25', 'vector', or 'hybrid'.")
+
+    context, context_paths = _dashboard_load_context(question, topic_slug, retrieval, ROOT)
     if not context:
         raise HTTPException(status_code=404, detail="No compiled context found for this query.")
 
@@ -858,6 +913,7 @@ def query_wiki(body: QueryRequest):
         "answer": answer,
         "sources": [Path(path).stem for path in used_paths],
         "saved_path": str(saved.relative_to(ROOT)),
+        "retrieval_mode": retrieval or "default",
     }
 
 
@@ -1295,7 +1351,8 @@ def get_recent_entities():
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="KB Ingestion & Review Dashboard")
     parser.add_argument("--port", type=int, default=7842, help="Port to listen on. Default: 7842")
-    parser.add_argument("--host", default="127.0.0.1", help="Host to bind. Default: 127.0.0.1")
+    parser.add_argument("--host", default="0.0.0.0", help="Host to bind. Default: 0.0.0.0")
+   # parser.add_argument("--host", default="127.0.0.1", help="Host to bind. Default: 127.0.0.1")
     return parser
 
 
