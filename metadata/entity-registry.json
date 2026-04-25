@@ -79,6 +79,16 @@
       "date_first_seen": "2026-04-25",
       "date_updated": "2026-04-25",
       "entity_type": "product"
+    },
+    {
+      "slug": "docker",
+      "title": "Docker",
+      "sources": [
+        "how-to-harden-openclaw-security-best-practices-for-2026-synthesis"
+      ],
+      "date_first_seen": "2026-04-25",
+      "date_updated": "2026-04-25",
+      "entity_type": "tool"
     }
   ]
 }

@@ -153,6 +153,33 @@
       ],
       "date_first_seen": "2026-04-25",
       "date_updated": "2026-04-25"
+    },
+    {
+      "slug": "api-key-hygiene",
+      "title": "API Key Hygiene",
+      "sources": [
+        "how-to-harden-openclaw-security-best-practices-for-2026-synthesis"
+      ],
+      "date_first_seen": "2026-04-25",
+      "date_updated": "2026-04-25"
+    },
+    {
+      "slug": "emergency-controls",
+      "title": "Emergency Controls",
+      "sources": [
+        "how-to-harden-openclaw-security-best-practices-for-2026-synthesis"
+      ],
+      "date_first_seen": "2026-04-25",
+      "date_updated": "2026-04-25"
+    },
+    {
+      "slug": "logging-and-auditing",
+      "title": "Logging and Auditing",
+      "sources": [
+        "how-to-harden-openclaw-security-best-practices-for-2026-synthesis"
+      ],
+      "date_first_seen": "2026-04-25",
+      "date_updated": "2026-04-25"
     }
   ]
 }
