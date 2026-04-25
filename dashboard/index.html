@@ -511,6 +511,122 @@
     .feedback-btn:hover { border-color: #4f6ef7; color: #f8fafc; }
     .feedback-btn.active-good { border-color: #22c55e; color: #22c55e; }
     .feedback-btn.active-bad  { border-color: #ef4444; color: #ef4444; }
+
+    /* ---- Pipeline Status tab ---- */
+    .pipeline-summary {
+      display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;
+    }
+    .pipeline-stat {
+      background: #1e2235; border: 1px solid #2d3148; border-radius: 6px;
+      padding: 8px 14px; font-size: 12px; color: #94a3b8;
+      cursor: pointer; transition: border-color 0.15s; user-select: none;
+    }
+    .pipeline-stat:hover { border-color: #4f6ef7; }
+    .pipeline-stat.active-filter { border-color: #4f6ef7; color: #4f6ef7; }
+    .pipeline-stat .stat-num { font-size: 20px; font-weight: 700; color: #e2e8f0; display: block; }
+    .pipeline-stat.stat-error .stat-num   { color: #ef4444; }
+    .pipeline-stat.stat-pending .stat-num { color: #f59e0b; }
+    .pipeline-stat.stat-approved .stat-num { color: #22c55e; }
+    .pipeline-stat.stat-aggregated .stat-num { color: #3b82f6; }
+
+    .pipeline-table-header {
+      display: grid;
+      grid-template-columns: 16px 1fr 130px 110px 70px 100px;
+      gap: 8px; padding: 8px 12px;
+      font-size: 10px; font-weight: 600; color: #4f5a7a;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      border-bottom: 1px solid #2d3148;
+    }
+    .pipeline-row-wrap { border-bottom: 1px solid #1e2235; }
+    .pipeline-row-wrap:last-child { border-bottom: none; }
+    .pipeline-row {
+      display: grid;
+      grid-template-columns: 16px 1fr 130px 110px 70px 100px;
+      gap: 8px; padding: 10px 12px;
+      align-items: center; cursor: pointer; transition: background 0.1s;
+    }
+    .pipeline-row:hover { background: #131620; }
+
+    .stage-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      display: inline-block; flex-shrink: 0;
+    }
+    .dot-aggregated  { background: #22c55e; }
+    .dot-approved    { background: #3b82f6; }
+    .dot-scored      { background: #f59e0b; }
+    .dot-synthesized { background: #f97316; }
+    .dot-prompt-packed, .dot-registered { background: #475569; }
+    .dot-error { background: #ef4444; }
+
+    .pipeline-title {
+      font-size: 13px; color: #cbd5e1;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .pipeline-topic {
+      font-size: 12px; color: #64748b;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .pipeline-stage-label { font-size: 12px; color: #94a3b8; }
+    .pipeline-stage-label.sl-error      { color: #ef4444; }
+    .pipeline-stage-label.sl-aggregated { color: #22c55e; }
+    .pipeline-stage-label.sl-approved   { color: #3b82f6; }
+    .pipeline-stage-label.sl-rejected   { color: #ef4444; }
+    .pipeline-stage-label.sl-scored     { color: #f59e0b; }
+    .pipeline-confidence { font-size: 12px; color: #94a3b8; }
+    .pipeline-action-cell {
+      display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+    }
+    .pipeline-action-link {
+      font-size: 11px; color: #4f6ef7; cursor: pointer;
+      text-decoration: underline; background: none; border: none; padding: 0;
+    }
+    .pipeline-action-link:hover { color: #7a9cf8; }
+
+    .pipeline-detail {
+      display: none; background: #0f1117; border: 1px solid #2d3148;
+      border-radius: 8px; padding: 14px 16px; margin: 0 12px 10px;
+      font-size: 12px; color: #94a3b8;
+    }
+    .pipeline-detail.visible { display: block; }
+    .pipeline-detail-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px;
+    }
+    .pdl { font-size: 10px; font-weight: 600; color: #4f5a7a;
+            text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; }
+    .pdv { font-size: 12px; color: #cbd5e1; word-break: break-all; }
+    .file-ok      { color: #22c55e; }
+    .file-missing { color: #ef4444; }
+
+    .cmd-block {
+      background: #1e2235; border: 1px solid #2d3148; border-radius: 4px;
+      padding: 7px 10px; font-family: monospace; font-size: 11px; color: #94a3b8;
+      cursor: pointer; margin-top: 6px; display: inline-block;
+      transition: border-color 0.15s; user-select: all;
+    }
+    .cmd-block:hover { border-color: #4f6ef7; color: #cbd5e1; }
+    .cmd-block::after { content: ' 📋'; font-size: 10px; }
+
+    .pipeline-controls {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px; flex-wrap: wrap; gap: 10px;
+    }
+    .pipeline-controls h2 { margin: 0; }
+    .pipeline-controls-right { display: flex; gap: 8px; align-items: center; }
+    .autorefresh-label {
+      font-size: 12px; color: #64748b; display: flex; align-items: center;
+      gap: 5px; cursor: pointer; text-transform: none; letter-spacing: 0;
+      font-weight: 400;
+    }
+    .pipeline-empty {
+      text-align: center; color: #4f5a7a; padding: 60px 0; font-size: 14px;
+    }
+    .remove-confirm-inline {
+      background: #1e0a0a; border: 1px solid #7f1d1d; border-radius: 6px;
+      padding: 10px 14px; margin-top: 8px; font-size: 12px; color: #fca5a5;
+    }
+    .remove-confirm-inline ul {
+      margin: 6px 0 8px 16px; color: #f87171;
+    }
   </style>
 </head>
 <body>
@@ -523,6 +639,7 @@
       Review Queue
       <span class="badge" id="queue-badge"></span>
     </button>
+    <button onclick="showTab('pipeline')">Pipeline</button>
     <button onclick="showTab('query')">Query</button>
     <button onclick="showTab('topics')">Topics</button>
     <button onclick="showTab('concepts')">Concepts</button>
@@ -735,6 +852,36 @@
     </div>
   </div>
 
+  <!-- ===================== PIPELINE TAB ===================== -->
+  <div class="panel" id="panel-pipeline">
+    <div class="form-card">
+      <div class="pipeline-controls">
+        <h2>Pipeline Status</h2>
+        <div class="pipeline-controls-right">
+          <label class="autorefresh-label">
+            <input type="checkbox" id="pipeline-autorefresh" onchange="togglePipelineAutoRefresh()">
+            Auto-refresh (30s)
+          </label>
+          <select id="pipeline-filter" onchange="filterPipeline()" style="width:160px;font-size:12px;">
+            <option value="">All</option>
+            <option value="error">Errors only</option>
+            <option value="scored">Pending review</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+            <option value="aggregated">Aggregated</option>
+            <option value="early">Early pipeline</option>
+          </select>
+          <button class="btn btn-sm" onclick="loadPipelineStatus()">Refresh</button>
+        </div>
+      </div>
+      <div id="pipeline-summary" class="pipeline-summary"></div>
+      <div id="pipeline-last-refreshed" class="muted" style="font-size:11px;margin-bottom:12px;min-height:16px;"></div>
+      <div id="pipeline-container">
+        <div class="pipeline-empty">Loading…</div>
+      </div>
+    </div>
+  </div>
+
   <!-- ===================== CONCEPTS TAB ===================== -->
   <div class="panel" id="panel-concepts">
     <div class="form-card">
@@ -782,6 +929,7 @@ function showTab(name) {
   document.getElementById('panel-' + name).classList.add('active');
   event.currentTarget.classList.add('active');
   if (name === 'queue') loadQueue();
+  if (name === 'pipeline') loadPipelineStatus();
   if (name === 'query') { loadRecentAnswers(); loadSavedSearches(); }
   if (name === 'topics') loadTopicsTab();
   if (name === 'concepts') { loadConcepts(); loadRecentEntities(); }
@@ -1661,6 +1809,288 @@ function filterConcepts() {
     </div>`;
   });
   container.innerHTML = rows.join('');
+}
+
+// ---------------------------------------------------------------------------
+// Pipeline Status
+// ---------------------------------------------------------------------------
+let _pipelineData = [];
+let _pipelineFilter = '';
+let _pipelineRefreshTimer = null;
+
+const STAGE_LABELS = {
+  error:          'Missing file',
+  registered:     'Registered',
+  'prompt-packed':'Prompt-packed',
+  synthesized:    'Synthesized',
+  scored:         'Scored',
+  approved:       'Approved',
+  rejected:       'Rejected',
+  aggregated:     'Aggregated',
+};
+
+async function loadPipelineStatus() {
+  const container = document.getElementById('pipeline-container');
+  container.innerHTML = '<div class="pipeline-empty">Loading…</div>';
+  try {
+    const res = await fetch('/api/pipeline-status');
+    if (!res.ok) throw new Error('Server error ' + res.status);
+    _pipelineData = await res.json();
+    _renderPipelineSummary();
+    filterPipeline();
+    const ts = document.getElementById('pipeline-last-refreshed');
+    if (ts) ts.textContent = 'Last refreshed: ' + new Date().toLocaleTimeString();
+  } catch (e) {
+    container.innerHTML = '<div class="pipeline-empty" style="color:#ef4444;">Failed to load pipeline status: ' + e.message + '</div>';
+  }
+}
+
+function _renderPipelineSummary() {
+  const summary = document.getElementById('pipeline-summary');
+  if (!summary) return;
+  const total     = _pipelineData.length;
+  const errors    = _pipelineData.filter(s => s.stage === 'error').length;
+  const pending   = _pipelineData.filter(s => s.stage === 'scored').length;
+  const approved  = _pipelineData.filter(s => s.stage === 'approved').length;
+  const rejected  = _pipelineData.filter(s => s.stage === 'rejected').length;
+  const aggregated= _pipelineData.filter(s => s.stage === 'aggregated').length;
+
+  summary.innerHTML = `
+    <div class="pipeline-stat" onclick="setPipelineFilter('')" id="pstat-all">
+      <span class="stat-num">${total}</span>Total sources
+    </div>
+    <div class="pipeline-stat stat-error" onclick="setPipelineFilter('error')" id="pstat-error">
+      <span class="stat-num">${errors}</span>Errors
+    </div>
+    <div class="pipeline-stat stat-pending" onclick="setPipelineFilter('scored')" id="pstat-pending">
+      <span class="stat-num">${pending}</span>Pending review
+    </div>
+    <div class="pipeline-stat stat-approved" onclick="setPipelineFilter('approved')" id="pstat-approved">
+      <span class="stat-num">${approved}</span>Approved
+    </div>
+    <div class="pipeline-stat stat-approved" onclick="setPipelineFilter('rejected')" id="pstat-rejected">
+      <span class="stat-num">${rejected}</span>Rejected
+    </div>
+    <div class="pipeline-stat stat-aggregated" onclick="setPipelineFilter('aggregated')" id="pstat-aggregated">
+      <span class="stat-num">${aggregated}</span>Aggregated
+    </div>
+  `;
+  _updateStatHighlight();
+}
+
+function setPipelineFilter(value) {
+  _pipelineFilter = value;
+  const sel = document.getElementById('pipeline-filter');
+  if (sel) sel.value = value;
+  _updateStatHighlight();
+  _renderPipelineTable(_filteredPipelineData());
+}
+
+function filterPipeline() {
+  const sel = document.getElementById('pipeline-filter');
+  _pipelineFilter = sel ? sel.value : '';
+  _updateStatHighlight();
+  _renderPipelineTable(_filteredPipelineData());
+}
+
+function _updateStatHighlight() {
+  ['all','error','pending','approved','rejected','aggregated'].forEach(k => {
+    const el = document.getElementById('pstat-' + k);
+    if (!el) return;
+    const filterVal = k === 'all' ? '' : k === 'pending' ? 'scored' : k;
+    el.classList.toggle('active-filter', _pipelineFilter === filterVal);
+  });
+}
+
+function _filteredPipelineData() {
+  if (!_pipelineFilter) return _pipelineData;
+  if (_pipelineFilter === 'early') {
+    return _pipelineData.filter(s => ['registered','prompt-packed','synthesized'].includes(s.stage));
+  }
+  return _pipelineData.filter(s => s.stage === _pipelineFilter);
+}
+
+function _renderPipelineTable(items) {
+  const container = document.getElementById('pipeline-container');
+  if (!items.length) {
+    container.innerHTML = '<div class="pipeline-empty">No sources match this filter.</div>';
+    return;
+  }
+  let html = `
+    <div class="pipeline-table-header">
+      <div></div>
+      <div>Source</div>
+      <div>Topic</div>
+      <div>Stage</div>
+      <div>Confidence</div>
+      <div>Action</div>
+    </div>`;
+
+  for (const s of items) {
+    const dotCls = 'stage-dot dot-' + s.stage.replace(/[^a-z-]/g, '');
+    const slCls  = 'pipeline-stage-label sl-' + s.stage.replace(/[^a-z-]/g, '');
+    const stageLabel = STAGE_LABELS[s.stage] || s.stage;
+    const confText = s.confidence != null ? (Math.round(s.confidence * 100) + '%') : '—';
+    const topicText = s.topic || '—';
+    const titleText = s.title || s.source_id;
+
+    const actionHtml = _buildActionHtml(s);
+
+    html += `
+      <div class="pipeline-row-wrap" id="pwrap-${escHtml(s.source_id)}">
+        <div class="pipeline-row" onclick="togglePipelineRow('${escHtml(s.source_id)}')">
+          <span class="${dotCls}"></span>
+          <div class="pipeline-title" title="${escHtml(titleText)}">${escHtml(titleText)}</div>
+          <div class="pipeline-topic" title="${escHtml(topicText)}">${escHtml(topicText)}</div>
+          <div class="${slCls}">${escHtml(stageLabel)}</div>
+          <div class="pipeline-confidence">${confText}</div>
+          <div class="pipeline-action-cell">${actionHtml}</div>
+        </div>
+        <div class="pipeline-detail" id="pdetail-${escHtml(s.source_id)}">
+          ${_buildDetailHtml(s)}
+        </div>
+      </div>`;
+  }
+  container.innerHTML = html;
+}
+
+function _buildActionHtml(s) {
+  if (s.stage === 'scored') {
+    return `<button class="pipeline-action-link" onclick="event.stopPropagation();showTab('queue');document.querySelector('nav button:nth-child(2)').click()">→ Review</button>`;
+  }
+  if (s.stage === 'error' || s.stage === 'rejected') {
+    return `<button class="pipeline-action-link" onclick="event.stopPropagation();showRemoveConfirm('${escHtml(s.source_id)}')">→ Remove</button>`;
+  }
+  if (['registered','prompt-packed','synthesized'].includes(s.stage)) {
+    const cmd = 'python3 scripts/pipeline_run.py ' + s.source_id;
+    return `<button class="pipeline-action-link" onclick="event.stopPropagation();togglePipelineRow('${escHtml(s.source_id)}')">→ Run pipeline</button>`;
+  }
+  return '';
+}
+
+function _buildDetailHtml(s) {
+  const rawOk    = !s.file_missing;
+  const ppOk     = s.has_prompt_pack;
+  const synOk    = s.has_synthesis;
+  const rawIcon  = rawOk  ? '<span class="file-ok">✓</span>' : '<span class="file-missing">✗</span>';
+  const ppIcon   = ppOk   ? '<span class="file-ok">✓</span>' : '<span class="file-missing">–</span>';
+  const synIcon  = synOk  ? '<span class="file-ok">✓</span>' : '<span class="file-missing">–</span>';
+
+  const stem = s.raw_path ? s.raw_path.replace(/^raw\/articles\//, '').replace(/\.md$/, '') : '';
+  const ppPath  = stem ? `metadata/prompts/compile-${stem}-synthesis.md` : '—';
+  const synPath = stem ? `compiled/source_summaries/${stem}-synthesis.md` : '—';
+
+  const aggText = s.aggregated_into.length ? s.aggregated_into.join(', ') : '—';
+  const confLine = s.confidence != null ? Math.round(s.confidence * 100) + '%' : '—';
+  const dispLine = s.disposition || 'pending';
+
+  let extraHtml = '';
+  if (['registered','prompt-packed','synthesized'].includes(s.stage)) {
+    const cmd = `python3 scripts/pipeline_run.py ${s.source_id}`;
+    extraHtml = `<div style="margin-top:10px;grid-column:1/-1;">
+      <div class="pdl">Run pipeline</div>
+      <div class="cmd-block" onclick="copyPipelineCmd(this, '${escHtml(cmd)}')">${escHtml(cmd)}</div>
+    </div>`;
+  }
+  if (s.stage === 'error' || s.stage === 'rejected') {
+    extraHtml = `<div style="margin-top:10px;grid-column:1/-1;">
+      <div id="remove-confirm-${escHtml(s.source_id)}"></div>
+    </div>`;
+  }
+
+  return `<div class="pipeline-detail-grid">
+    <div><div class="pdl">Source ID</div><div class="pdv">${escHtml(s.source_id)}</div></div>
+    <div><div class="pdl">Registered</div><div class="pdv">${escHtml(s.registered_at || '—')}</div></div>
+    <div><div class="pdl">Raw file</div><div class="pdv">${rawIcon} ${escHtml(s.raw_path || '—')}</div></div>
+    <div><div class="pdl">Prompt pack</div><div class="pdv">${ppIcon} ${escHtml(ppPath)}</div></div>
+    <div><div class="pdl">Synthesis</div><div class="pdv">${synIcon} ${escHtml(synPath)}</div></div>
+    <div><div class="pdl">Confidence</div><div class="pdv">${confLine}</div></div>
+    <div><div class="pdl">Disposition</div><div class="pdv">${escHtml(dispLine)}</div></div>
+    <div><div class="pdl">Aggregated into</div><div class="pdv">${escHtml(aggText)}</div></div>
+    ${extraHtml}
+  </div>`;
+}
+
+function togglePipelineRow(sourceId) {
+  const detail = document.getElementById('pdetail-' + sourceId);
+  if (detail) detail.classList.toggle('visible');
+}
+
+function copyPipelineCmd(el, cmd) {
+  navigator.clipboard.writeText(cmd).then(() => {
+    const orig = el.textContent;
+    el.textContent = 'Copied!';
+    setTimeout(() => { el.textContent = orig; }, 1200);
+  });
+}
+
+async function showRemoveConfirm(sourceId) {
+  const confirmDiv = document.getElementById('remove-confirm-' + sourceId);
+  if (!confirmDiv) return;
+
+  // Expand the detail pane so the confirmation UI is visible
+  const detail = document.getElementById('pdetail-' + sourceId);
+  if (detail && !detail.classList.contains('visible')) detail.classList.add('visible');
+
+  if (confirmDiv.innerHTML) { confirmDiv.innerHTML = ''; return; }
+
+  confirmDiv.innerHTML = '<div class="muted">Checking what will be deleted…</div>';
+
+  try {
+    const res = await fetch(`/api/pipeline-status/${encodeURIComponent(sourceId)}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (!res.ok) {
+      confirmDiv.innerHTML = `<div class="msg msg-error">${escHtml(data.detail || 'Error')}</div>`;
+      return;
+    }
+    const items = (data.will_delete || []).map(x => `<li>${escHtml(x)}</li>`).join('');
+    confirmDiv.innerHTML = `
+      <div class="remove-confirm-inline">
+        <strong>This will delete:</strong>
+        <ul>${items}</ul>
+        <button class="btn btn-sm btn-danger" onclick="confirmRemoveSource('${escHtml(sourceId)}', this)">Confirm remove</button>
+        <button class="link-btn" style="margin-left:8px;" onclick="document.getElementById('remove-confirm-${escHtml(sourceId)}').innerHTML=''">Cancel</button>
+      </div>`;
+  } catch (e) {
+    confirmDiv.innerHTML = `<div class="msg msg-error">Error: ${escHtml(e.message)}</div>`;
+  }
+}
+
+async function confirmRemoveSource(sourceId, btn) {
+  btn.disabled = true;
+  btn.textContent = 'Removing…';
+  try {
+    const res = await fetch(`/api/pipeline-status/${encodeURIComponent(sourceId)}?confirm=true`, { method: 'DELETE' });
+    const data = await res.json();
+    if (!res.ok) {
+      alert('Remove failed: ' + (data.detail || 'unknown error'));
+      btn.disabled = false;
+      btn.textContent = 'Confirm remove';
+      return;
+    }
+    // Remove row from data and re-render
+    _pipelineData = _pipelineData.filter(s => s.source_id !== sourceId);
+    _renderPipelineSummary();
+    _renderPipelineTable(_filteredPipelineData());
+  } catch (e) {
+    alert('Remove failed: ' + e.message);
+    btn.disabled = false;
+    btn.textContent = 'Confirm remove';
+  }
+}
+
+function togglePipelineAutoRefresh() {
+  const enabled = document.getElementById('pipeline-autorefresh').checked;
+  if (_pipelineRefreshTimer) {
+    clearInterval(_pipelineRefreshTimer);
+    _pipelineRefreshTimer = null;
+  }
+  if (enabled) {
+    _pipelineRefreshTimer = setInterval(() => {
+      const panel = document.getElementById('panel-pipeline');
+      if (panel && panel.classList.contains('active')) loadPipelineStatus();
+    }, 30000);
+  }
 }
 
 // ---------------------------------------------------------------------------

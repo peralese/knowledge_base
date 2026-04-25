@@ -81,6 +81,7 @@ from resynthesize_topic import (  # noqa: E402
     topic_status,
 )
 from stage_to_inbox import StageRequest, stage_feed  # noqa: E402
+from purge_source import purge_source  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # App
@@ -1346,6 +1347,172 @@ def get_recent_entities():
     """
     results = _recent_entity_activity(ROOT, limit=10)
     return {"entities": results}
+
+
+# ---------------------------------------------------------------------------
+# Pipeline Status Endpoints
+# ---------------------------------------------------------------------------
+
+def _build_aggregation_index(root: Path) -> dict[str, list[str]]:
+    """Return {synthesis_slug: [topic_slug, ...]} for every compiled topic note."""
+    index: dict[str, list[str]] = {}
+    topics_dir = root / "compiled" / "topics"
+    if not topics_dir.exists():
+        return index
+    for topic_file in topics_dir.glob("*.md"):
+        topic_slug = topic_file.stem
+        try:
+            text = topic_file.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        fm_match = re.match(r"^---\n(.*?)\n---", text, re.DOTALL)
+        if not fm_match:
+            continue
+        fm_text = fm_match.group(1)
+        in_compiled_from = False
+        for line in fm_text.splitlines():
+            if re.match(r"^compiled_from\s*:", line):
+                in_compiled_from = True
+                continue
+            if in_compiled_from:
+                m = re.match(r'^\s+-\s+"?([^"\n]+)"?\s*$', line)
+                if m:
+                    syn_slug = m.group(1).strip('"').strip()
+                    index.setdefault(syn_slug, []).append(topic_slug)
+                elif line and not line.startswith(" "):
+                    in_compiled_from = False
+    return index
+
+
+def _compute_pipeline_status(root: Path) -> list[dict]:
+    """Return one status record per registered source, sorted newest first."""
+    manifest_path = root / "metadata" / "source-manifest.json"
+    if not manifest_path.exists():
+        return []
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
+    sources = manifest.get("sources", [])
+
+    # Index review queue by source_id
+    queue_path = root / "metadata" / "review-queue.json"
+    queue_index: dict[str, dict] = {}
+    if queue_path.exists():
+        try:
+            queue = json.loads(queue_path.read_text(encoding="utf-8"))
+            if isinstance(queue, list):
+                queue_index = {
+                    e["source_id"]: e for e in queue if "source_id" in e
+                }
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    agg_index = _build_aggregation_index(root)
+
+    results: list[dict] = []
+    for source in sources:
+        source_id = source.get("source_id", "")
+        title = source.get("title", "")
+        filename = source.get("filename", "")
+        path_rel = source.get("path", "")
+        date_ingested = source.get("date_ingested", "")
+
+        stem = Path(filename).stem if filename else ""
+
+        raw_path_abs = root / path_rel if path_rel else None
+        file_missing = raw_path_abs is None or not raw_path_abs.exists()
+
+        prompt_pack = root / "metadata" / "prompts" / f"compile-{stem}-synthesis.md"
+        has_prompt_pack = prompt_pack.exists()
+
+        synthesis = root / "compiled" / "source_summaries" / f"{stem}-synthesis.md"
+        has_synthesis = synthesis.exists()
+
+        q = queue_index.get(source_id, {})
+        confidence: float | None = q.get("confidence_score")
+        has_score = confidence is not None
+        disposition: str | None = q.get("review_action")
+        topic_slug: str | None = q.get("topic_slug")
+
+        synthesis_slug = f"{stem}-synthesis"
+        aggregated_into = agg_index.get(synthesis_slug, [])
+
+        if file_missing:
+            stage, stage_number = "error", 0
+        elif aggregated_into:
+            stage, stage_number = "aggregated", 6
+        elif disposition == "approved":
+            stage, stage_number = "approved", 5
+        elif disposition == "rejected":
+            stage, stage_number = "rejected", 5
+        elif has_score:
+            stage, stage_number = "scored", 4
+        elif has_synthesis:
+            stage, stage_number = "synthesized", 3
+        elif has_prompt_pack:
+            stage, stage_number = "prompt-packed", 2
+        else:
+            stage, stage_number = "registered", 1
+
+        results.append({
+            "source_id": source_id,
+            "title": title,
+            "topic": topic_slug,
+            "registered_at": date_ingested,
+            "stage": stage,
+            "stage_number": stage_number,
+            "confidence": confidence,
+            "file_missing": file_missing,
+            "raw_path": path_rel,
+            "has_prompt_pack": has_prompt_pack,
+            "has_synthesis": has_synthesis,
+            "has_score": has_score,
+            "disposition": disposition,
+            "aggregated_into": aggregated_into,
+        })
+
+    results.sort(key=lambda x: x["registered_at"], reverse=True)
+    return results
+
+
+@app.get("/api/pipeline-status")
+def get_pipeline_status():
+    return _compute_pipeline_status(ROOT)
+
+
+@app.delete("/api/pipeline-status/{source_id}")
+def delete_pipeline_source(source_id: str, confirm: bool = False):
+    # Determine the source's current stage so we can enforce allowed states.
+    statuses = _compute_pipeline_status(ROOT)
+    status = next((s for s in statuses if s["source_id"] == source_id), None)
+    if status is None:
+        raise HTTPException(status_code=404, detail=f"Source '{source_id}' not found.")
+
+    stage = status["stage"]
+    if stage not in ("error", "rejected"):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Source '{source_id}' is in state '{stage}' and cannot be removed. "
+                "Only sources with stage 'error' (missing file) or 'rejected' are removable."
+            ),
+        )
+
+    try:
+        result = purge_source(source_id, ROOT, dry_run=not confirm)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+    if not confirm:
+        return {
+            "source_id": source_id,
+            "will_delete": result["removed"],
+            "will_skip": result["skipped"],
+            "confirm_url": f"/api/pipeline-status/{source_id}?confirm=true",
+        }
+
+    return {"deleted": source_id, "removed": result["removed"], "skipped": result["skipped"]}
 
 
 # ---------------------------------------------------------------------------
