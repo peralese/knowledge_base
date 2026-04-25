@@ -177,6 +177,37 @@ class ShareEndpointTests(unittest.TestCase):
             self.assertEqual(res.status_code, 200)
             self.assertEqual(res.json()["status"], "queued")
 
+    def test_share_writes_json_file_with_correct_content(self) -> None:
+        """stage_feed actually writes a .json file; verify path and content."""
+        mock_response = MagicMock()
+        mock_response.raise_for_status = MagicMock()
+        mock_response.text = '<html><head><title>CLI Tools Hidden Gems</title></head><body>Body.</body></html>'
+        url = "https://simonwillison.net/2024/Jun/17/cli-tools-hidden-gems/"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            feeds_dir = root / "raw" / "inbox" / "feeds"
+            feeds_dir.mkdir(parents=True)
+
+            with patch("dashboard._url_is_duplicate", return_value=(False, "")):
+                with patch("httpx.get", return_value=mock_response):
+                    with patch("dashboard.ROOT", root):
+                        res = client.post("/api/share", json={"url": url, "note": "test note"})
+
+            self.assertEqual(res.status_code, 200)
+            body = res.json()
+            self.assertEqual(body["status"], "queued")
+            self.assertIn("inbox_id", body)
+            self.assertIn("file", body)
+
+            written = Path(body["file"])
+            self.assertTrue(written.exists(), f"Expected file at {written}")
+
+            payload = json.loads(written.read_text(encoding="utf-8"))
+            self.assertEqual(payload["title"], "CLI Tools Hidden Gems")
+            self.assertEqual(payload["canonical_url"], url)
+            self.assertIn("test note", payload["content"])
+
 
 if __name__ == "__main__":
     unittest.main()

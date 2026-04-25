@@ -4,7 +4,9 @@ import argparse
 import json
 import shutil
 import sys
+import uuid
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 
 
@@ -106,7 +108,8 @@ def stage_feed(request: StageRequest) -> Path:
     canonical_url = str(payload.get("canonical_url") or payload.get("url") or payload.get("link") or request.canonical_url).strip()
     content = str(payload.get("content") or payload.get("summary") or payload.get("body") or "").strip()
 
-    destination = directory / f"{slugify_title(title)}.json"
+    slug = slugify_title(title) or f"item-{date.today().strftime('%Y%m%d')}-{uuid.uuid4().hex[:8]}"
+    destination = directory / f"{slug}.json"
     destination.write_text(
         json.dumps(
             {

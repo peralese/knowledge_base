@@ -1,0 +1,114 @@
+{
+  "date": "2026-04-23",
+  "timestamp": "2026-04-23-200938",
+  "note_counts": {
+    "topics": 6,
+    "concepts": 14,
+    "entities": 6,
+    "source_summaries": 9
+  },
+  "wikilink_density": {
+    "topics": 4.5,
+    "concepts": 0.71,
+    "entities": 1.0,
+    "source_summaries": 2.11
+  },
+  "stub_ratio_pct": 64.3,
+  "stub_count": 9,
+  "total_concept_notes": 14,
+  "orphan_count": 12,
+  "orphaned_concepts": 7,
+  "orphaned_entities": 5,
+  "top_orphans": [
+    "anthropic",
+    "api-key-management",
+    "bm25-scoring",
+    "ci-cd-pipelines",
+    "karpathy",
+    "large-language-models-llms",
+    "llamaindex",
+    "model-context-protocol-mcp",
+    "ollama",
+    "retrieval-augmented-generation",
+    "soul-md",
+    "zero-trust"
+  ],
+  "source_coverage_pct": 100.0,
+  "covered_approved_sources": 2,
+  "total_approved_sources": 2,
+  "avg_approved_sources_per_topic": 0.33,
+  "gaps": [
+    {
+      "topic": "auto-research",
+      "gap_score": 1.0,
+      "orphan_concept_ratio": 1.0,
+      "orphan_pct": 100,
+      "approved_sources": 0,
+      "stub_ratio": 1.0,
+      "stub_pct": 100,
+      "concepts_mentioned": 0,
+      "orphan_concepts": 0,
+      "stub_concepts": 0
+    },
+    {
+      "topic": "books",
+      "gap_score": 1.0,
+      "orphan_concept_ratio": 1.0,
+      "orphan_pct": 100,
+      "approved_sources": 0,
+      "stub_ratio": 1.0,
+      "stub_pct": 100,
+      "concepts_mentioned": 0,
+      "orphan_concepts": 0,
+      "stub_concepts": 0
+    },
+    {
+      "topic": "llm-knowledge-bases",
+      "gap_score": 1.0,
+      "orphan_concept_ratio": 1.0,
+      "orphan_pct": 100,
+      "approved_sources": 0,
+      "stub_ratio": 1.0,
+      "stub_pct": 100,
+      "concepts_mentioned": 0,
+      "orphan_concepts": 0,
+      "stub_concepts": 0
+    },
+    {
+      "topic": "ollama",
+      "gap_score": 1.0,
+      "orphan_concept_ratio": 1.0,
+      "orphan_pct": 100,
+      "approved_sources": 0,
+      "stub_ratio": 1.0,
+      "stub_pct": 100,
+      "concepts_mentioned": 0,
+      "orphan_concepts": 0,
+      "stub_concepts": 0
+    },
+    {
+      "topic": "agents",
+      "gap_score": 0.6,
+      "orphan_concept_ratio": 1.0,
+      "orphan_pct": 100,
+      "approved_sources": 1,
+      "stub_ratio": 0.5,
+      "stub_pct": 50,
+      "concepts_mentioned": 4,
+      "orphan_concepts": 4,
+      "stub_concepts": 2
+    },
+    {
+      "topic": "openclaw-security",
+      "gap_score": 0.5,
+      "orphan_concept_ratio": 1.0,
+      "orphan_pct": 100,
+      "approved_sources": 1,
+      "stub_ratio": 0.0,
+      "stub_pct": 0,
+      "concepts_mentioned": 3,
+      "orphan_concepts": 3,
+      "stub_concepts": 0
+    }
+  ]
+}

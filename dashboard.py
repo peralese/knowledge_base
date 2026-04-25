@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import re
 import sys
 import uuid
@@ -79,11 +80,13 @@ from resynthesize_topic import (  # noqa: E402
     resynthesize_topic,
     topic_status,
 )
+from stage_to_inbox import StageRequest, stage_feed  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # App
 # ---------------------------------------------------------------------------
 
+logger = logging.getLogger(__name__)
 app = FastAPI(title="KB Dashboard", version="1.0.0")
 
 
@@ -1230,12 +1233,9 @@ def share_url(body: ShareURLRequest):
     content = note if note else f"[Shared from mobile — {inbox_id}]"
 
     # Write to inbox using same format as stage_to_inbox.py (feeds adapter)
-    import json as _json  # noqa: PLC0415
-    from stage_to_inbox import StageRequest, stage_feed  # noqa: PLC0415
-
     req = StageRequest(
         adapter="feeds",
-        text=_json.dumps({
+        text=json.dumps({
             "title": title,
             "canonical_url": url,
             "content": content,
@@ -1245,9 +1245,13 @@ def share_url(body: ShareURLRequest):
         canonical_url=url,
         root=ROOT,
     )
-    stage_feed(req)
+    try:
+        written = stage_feed(req)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to write to inbox: {exc}")
 
-    return {"status": "queued", "inbox_id": inbox_id}
+    logger.info("Mobile share queued: %s → %s", url, written)
+    return {"status": "queued", "inbox_id": inbox_id, "file": str(written)}
 
 
 # ---------------------------------------------------------------------------
