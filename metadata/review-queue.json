@@ -9,16 +9,17 @@
     "origin": "web",
     "topic_slug": "ollama",
     "queued_at": "2026-04-19T16:19:44.834431",
-    "review_status": "pending_review",
+    "review_status": "synthesized",
     "validation_status": "validated",
     "validation_issues": [],
-    "confidence_score": 0.75,
+    "confidence_score": 0.78,
     "confidence_band": "medium",
-    "confidence_reasoning": "The synthesis captures the main components and benefits of a local AI stack but lacks detailed information on specific models and user discussions. The structure is clear and readable, yet there are some missing key points from the original source.",
-    "scored_at": "2026-04-19T16:22:24.414678",
+    "confidence_reasoning": "The synthesis note captures the main points of the article effectively but lacks detailed descriptions and direct quotes from the original text to ensure accuracy. Additionally, while the structure is clear, it could benefit from a more comprehensive breakdown of each key point.",
+    "scored_at": "2026-04-25T15:35:38.119673",
     "review_action": null,
     "review_method": null,
-    "reviewed_at": null
+    "reviewed_at": null,
+    "synthesized_at": "2026-04-25T15:23:51.645375"
   },
   {
     "source_id": "SRC-20260419-0002",
@@ -30,7 +31,7 @@
     "origin": "web",
     "topic_slug": "books",
     "queued_at": "2026-04-19T16:34:46.604697",
-    "review_status": "pending_review",
+    "review_status": "synthesized",
     "validation_status": "validated",
     "validation_issues": [],
     "confidence_score": 0.75,
@@ -39,7 +40,8 @@
     "scored_at": "2026-04-19T16:37:07.523669",
     "review_action": null,
     "review_method": null,
-    "reviewed_at": null
+    "reviewed_at": null,
+    "synthesized_at": "2026-04-25T15:25:07.465146"
   },
   {
     "source_id": "SRC-20260419-0003",
@@ -51,7 +53,7 @@
     "origin": "web",
     "topic_slug": "agents",
     "queued_at": "2026-04-19T16:42:23.554601",
-    "review_status": "pending_review",
+    "review_status": "synthesized",
     "validation_status": "validated",
     "validation_issues": [],
     "confidence_score": 0.92,
@@ -60,7 +62,8 @@
     "scored_at": "2026-04-19T16:45:09.672554",
     "review_action": "approved",
     "review_method": "auto",
-    "reviewed_at": "2026-04-19T16:45:09.672554"
+    "reviewed_at": "2026-04-19T16:45:09.672554",
+    "synthesized_at": "2026-04-25T15:26:16.879165"
   },
   {
     "source_id": "SRC-20260419-0004",
@@ -72,7 +75,7 @@
     "origin": "web",
     "topic_slug": "openclaw-security",
     "queued_at": "2026-04-19T17:41:33.883475",
-    "review_status": "pending_review",
+    "review_status": "synthesized",
     "validation_status": "validated",
     "validation_issues": [],
     "confidence_score": 0.82,
@@ -81,7 +84,8 @@
     "scored_at": "2026-04-19T17:45:10.729947",
     "review_action": null,
     "review_method": null,
-    "reviewed_at": null
+    "reviewed_at": null,
+    "synthesized_at": "2026-04-25T15:28:30.112755"
   },
   {
     "source_id": "SRC-20260419-0005",
@@ -93,7 +97,7 @@
     "origin": "web",
     "topic_slug": "openclaw-security",
     "queued_at": "2026-04-19T17:50:12.697601",
-    "review_status": "pending_review",
+    "review_status": "synthesized",
     "validation_status": "validated",
     "validation_issues": [],
     "confidence_score": 0.85,
@@ -102,7 +106,8 @@
     "scored_at": "2026-04-19T17:52:53.345843",
     "review_action": "approved",
     "review_method": "auto",
-    "reviewed_at": "2026-04-19T17:52:53.345843"
+    "reviewed_at": "2026-04-19T17:52:53.345843",
+    "synthesized_at": "2026-04-25T15:29:43.166250"
   },
   {
     "source_id": "SRC-20260419-0006",
@@ -114,7 +119,7 @@
     "origin": "web",
     "topic_slug": "llm-knowledge-bases",
     "queued_at": "2026-04-19T18:07:51.056075",
-    "review_status": "pending_review",
+    "review_status": "synthesized",
     "validation_status": "validated",
     "validation_issues": [],
     "confidence_score": 0.82,
@@ -123,7 +128,8 @@
     "scored_at": "2026-04-19T18:11:50.970493",
     "review_action": null,
     "review_method": null,
-    "reviewed_at": null
+    "reviewed_at": null,
+    "synthesized_at": "2026-04-25T15:31:12.280546"
   },
   {
     "source_id": "SRC-20260419-0007",
@@ -135,7 +141,7 @@
     "origin": "web",
     "topic_slug": "auto-research",
     "queued_at": "2026-04-19T18:27:47.420602",
-    "review_status": "pending_review",
+    "review_status": "synthesized",
     "validation_status": "validated",
     "validation_issues": [],
     "confidence_score": 0.83,
@@ -144,7 +150,8 @@
     "scored_at": "2026-04-19T18:29:53.260430",
     "review_action": null,
     "review_method": null,
-    "reviewed_at": null
+    "reviewed_at": null,
+    "synthesized_at": "2026-04-25T15:32:05.056110"
   },
   {
     "source_id": "SRC-20260422-0001",
@@ -156,7 +163,7 @@
     "origin": "web",
     "topic_slug": "auto-research",
     "queued_at": "2026-04-22T21:03:07.934871",
-    "review_status": "pending_review",
+    "review_status": "synthesized",
     "validation_status": "validated",
     "validation_issues": [],
     "confidence_score": 0.75,
@@ -165,7 +172,8 @@
     "scored_at": "2026-04-22T21:04:28.638879",
     "review_action": null,
     "review_method": null,
-    "reviewed_at": null
+    "reviewed_at": null,
+    "synthesized_at": "2026-04-25T15:33:05.104925"
   },
   {
     "source_id": "SRC-20260422-0002",
@@ -177,7 +185,7 @@
     "origin": "web",
     "topic_slug": "llm-knowledge-bases",
     "queued_at": "2026-04-22T21:16:23.372081",
-    "review_status": "pending_review",
+    "review_status": "synthesized",
     "validation_status": "validated",
     "validation_issues": [],
     "confidence_score": 0.75,
@@ -186,7 +194,8 @@
     "scored_at": "2026-04-22T21:17:45.050046",
     "review_action": null,
     "review_method": null,
-    "reviewed_at": null
+    "reviewed_at": null,
+    "synthesized_at": "2026-04-25T15:34:14.969546"
   },
   {
     "source_id": "SRC-20260424-0001",
@@ -197,7 +206,7 @@
     "source_type": "article",
     "origin": "feed",
     "queued_at": "2026-04-24T20:04:21.127438",
-    "review_status": "pending_review",
+    "review_status": "synthesis_failed",
     "validation_status": "validated",
     "validation_issues": [],
     "confidence_score": 0.75,
@@ -206,7 +215,8 @@
     "scored_at": "2026-04-24T20:05:15.116580",
     "review_action": null,
     "review_method": null,
-    "reviewed_at": null
+    "reviewed_at": null,
+    "synthesized_at": "2026-04-25T15:34:14.986078"
   },
   {
     "source_id": "SRC-20260424-0002",
@@ -217,7 +227,7 @@
     "source_type": "article",
     "origin": "feed",
     "queued_at": "2026-04-24T21:50:31.375263",
-    "review_status": "pending_review",
+    "review_status": "synthesized",
     "validation_status": "validated",
     "validation_issues": [],
     "confidence_score": 0.45,
@@ -226,7 +236,8 @@
     "scored_at": "2026-04-24T21:51:32.545396",
     "review_action": null,
     "review_method": null,
-    "reviewed_at": null
+    "reviewed_at": null,
+    "synthesized_at": "2026-04-25T15:34:49.285058"
   },
   {
     "source_id": "SRC-20260425-0001",
@@ -237,7 +248,7 @@
     "source_type": "article",
     "origin": "feed",
     "queued_at": "2026-04-25T13:21:52.366499",
-    "review_status": "pending_review",
+    "review_status": "synthesis_failed",
     "validation_status": "validated",
     "validation_issues": [],
     "confidence_score": 0.52,
@@ -246,7 +257,8 @@
     "scored_at": "2026-04-25T13:22:24.231136",
     "review_action": null,
     "review_method": null,
-    "reviewed_at": null
+    "reviewed_at": null,
+    "synthesized_at": "2026-04-25T15:34:49.296182"
   },
   {
     "source_id": "SRC-20260425-0002",
@@ -257,9 +269,10 @@
     "source_type": "article",
     "origin": "feed",
     "queued_at": "2026-04-25T13:33:45.331833",
-    "review_status": "pending_review",
+    "review_status": "synthesis_failed",
     "validation_status": "validated",
-    "validation_issues": []
+    "validation_issues": [],
+    "synthesized_at": "2026-04-25T15:34:49.296223"
   },
   {
     "source_id": "SRC-20260425-0003",
@@ -270,9 +283,10 @@
     "source_type": "article",
     "origin": "feed",
     "queued_at": "2026-04-25T13:39:21.810785",
-    "review_status": "pending_review",
+    "review_status": "synthesis_failed",
     "validation_status": "validated",
-    "validation_issues": []
+    "validation_issues": [],
+    "synthesized_at": "2026-04-25T15:34:49.296253"
   },
   {
     "source_id": "SRC-20260425-0004",
@@ -283,7 +297,7 @@
     "source_type": "article",
     "origin": "feed",
     "queued_at": "2026-04-25T13:40:02.013329",
-    "review_status": "pending_review",
+    "review_status": "synthesized",
     "validation_status": "validated",
     "validation_issues": [],
     "confidence_score": 0.56,
@@ -292,6 +306,7 @@
     "scored_at": "2026-04-25T14:40:11.788194",
     "review_action": null,
     "review_method": null,
-    "reviewed_at": null
+    "reviewed_at": null,
+    "synthesized_at": "2026-04-25T15:35:29.642815"
   }
 ]

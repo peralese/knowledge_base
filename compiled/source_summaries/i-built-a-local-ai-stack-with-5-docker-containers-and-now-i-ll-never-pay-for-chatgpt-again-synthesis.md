@@ -10,7 +10,7 @@ tags:
   - "source_summary"
   - "i-built-a-local-ai-stack-with-5-docker-containers-and-now-i-ll-never-pay-for-chatgpt-again"
 confidence: "medium"
-confidence_score: null
+confidence_score: 0.78
 generation_method: "ollama_local"
 approved: false
 ---
