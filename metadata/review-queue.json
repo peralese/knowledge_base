@@ -56,13 +56,13 @@
     "review_status": "synthesized",
     "validation_status": "validated",
     "validation_issues": [],
-    "confidence_score": 0.92,
+    "confidence_score": 0.85,
     "confidence_band": "high",
-    "confidence_reasoning": "The synthesis accurately captures the key points of the source document with high completeness and clarity in its structure.",
-    "scored_at": "2026-04-19T16:45:09.672554",
+    "confidence_reasoning": "The synthesis captures the key points of building AI agents but lacks specific details on some critical aspects such as the exact tools and frameworks mentioned in the source document, reducing its completeness score. The structure is clear, enhancing clarity.",
+    "scored_at": "2026-04-25T15:37:04.859507",
     "review_action": "approved",
     "review_method": "auto",
-    "reviewed_at": "2026-04-19T16:45:09.672554",
+    "reviewed_at": "2026-04-25T15:37:04.859507",
     "synthesized_at": "2026-04-25T15:26:16.879165"
   },
   {

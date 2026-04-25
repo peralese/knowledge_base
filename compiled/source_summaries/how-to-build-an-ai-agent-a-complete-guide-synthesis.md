@@ -18,9 +18,9 @@ tags:
   - "Deep Observability Trinity"
   - "how-to-build-an-ai-agent-a-complete-guide"
 confidence: "medium"
-confidence_score: null
+confidence_score: 0.85
 generation_method: "ollama_local"
-approved: false
+approved: true
 ---
 
 # Summary
