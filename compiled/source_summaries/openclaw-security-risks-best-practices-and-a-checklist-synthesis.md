@@ -10,7 +10,7 @@ tags:
   - "source_summary"
   - "openclaw-security-risks-best-practices-and-a-checklist"
 confidence: "medium"
-confidence_score: null
+confidence_score: 0.78
 generation_method: "ollama_local"
 approved: false
 ---
