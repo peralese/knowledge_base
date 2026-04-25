@@ -3,141 +3,66 @@ title: "How to Build Karpathy's LLM Wiki The Complete Guide to AI-Maintained Kno
 note_type: "source_summary"
 compiled_from: 
   - "how-to-build-karpathy-s-llm-wiki-the-complete-guide-to-ai-maintained-knowledge-bases"
-date_compiled: "2026-04-19"
-date_updated: "2026-04-19"
+date_compiled: "2026-04-25"
+date_updated: "2026-04-25"
 topics: []
 tags: 
   - "source_summary"
   - "how-to-build-karpathy-s-llm-wiki-the-complete-guide-to-ai-maintained-knowledge-bases"
 confidence: "medium"
-confidence_score: 0.82
+confidence_score: null
 generation_method: "ollama_local"
 approved: false
 ---
 
-Your request involves setting up a knowledge base system known as an LLM Wiki using Claude Code and Obsidian. Below are the steps to set up your own LLM Wiki, based on the key points you've provided:
+Based on the provided content, here are some key points and notes regarding the LLM Wiki concept:
 
 ### Key Points
-- Setting up an LLM Wiki with Claude Code.
-- Using Obsidian as the frontend for managing and navigating your knowledge base.
 
-### Steps
+1. **Immutable Raw Layer**: Every claim in the wiki should trace back to a source file stored in an immutable `raw` directory.
+2. **Hierarchical Navigation**: The pattern of reading index files and only relevant pages instead of loading the entire knowledge base mitigates context window limitations.
+3. **Schema Definition (`CLAUDE.MD`)**: This is essential for defining how data should be structured and maintained within the wiki.
+4. **Three Core Operations**:
+   - **Ingest**: Adding new information to the knowledge base.
+   - **Query**: Retrieving information from the knowledge base.
+   - **Lint**: Checking consistency and correctness across the knowledge base.
+5. **Obsidian as Frontend**: Obsidian is recommended for its capabilities in managing markdown files, creating links between notes, and visualizing complex relationships within the wiki.
+6. **LLM Wiki vs RAG**:
+   - **LLM Wiki** is suitable for personal or team-level projects with around 50-200 source documents where maintenance overhead is low.
+   - **RAG (Retrieval-Augmented Generation)** might be more appropriate for larger-scale, multi-agent systems managing thousands of sources and requiring complex retrieval mechanisms.
 
-1. **Prepare Your Environment**
-   - Install necessary tools:
-     - [Obsidian](https://obsidian.md/)
-     - [Claude CLI or Plugin](https://www.anthropic.com/docs/claude-api)
-     - Git (for version control)
+### Notes
 
-2. **Create Directory Structure**
-   - Create a project directory on your machine, e.g., `llm-wiki`.
-   - Inside this directory, create the following subdirectories:
-     ```plaintext
-     llm-wiki/
-     ├── raw  # Stores original source files.
-     │   └── inbox/
-     │       └── how-to-build-karpathy-s-llm-wiki-the-complete-guide-to-ai-maintained-knowledge-bases.md
-     ├── processed  # Processed versions of the sources, if any.
-     ├── outbox  # Where you'll move files after processing and reviewing them.
-     └── index.md  # The main index for your knowledge base.
-     ```
+1. **Maintenance Overhead**: The core idea behind LLM Wiki is to reduce the cognitive load on human users by handling maintenance tasks like summarization and cross-referencing automatically.
+2. **Quality Degradation**: Beyond a certain scale (around 200K-300K tokens), the quality of knowledge management may degrade due to context window limitations in large language models.
+3. **Model Collapse Risk**: The use of an immutable `raw` directory and regular linting helps mitigate issues related to information degradation over repeated rewrites.
 
-3. **Set Up Obsidian**
-   - Open Obsidian and create a new vault named `llm-wiki`.
-   - Add the above directory structure to Obsidian's file system.
+### Lineage
 
-4. **Create Schema (CLAUDE.MD)**
-   - Create a `claudefile.md` in your project root with instructions for Claude:
-     ```markdown
-     # Knowledge Base Index
+The concept is built upon Vannevar Bush's vision from his 1945 essay "As We May Think", which introduced the idea of the Memex. Unlike Bush’s manual system, the LLM Wiki automates the maintenance and cross-referencing processes using large language models.
 
-     ## Raw Files
-     All raw source files should go into the `raw/inbox/` directory.
+### Criticisms
 
-     ## Ingest Operation
-     1. Move file from inbox to outbox after review.
-     2. Use Claude Code to generate summaries or notes and store them in appropriate directories under `processed`.
+- **Lack of Internalization**: Some argue that relying on an AI to handle knowledge maintenance means humans might not fully internalize or deeply understand the content.
+- **Complexity Ceiling**: As projects scale beyond a certain size, the complexity of managing the system increases significantly and may require more sophisticated solutions like RAG.
 
-     ## Query Operation
-     To query, use index.md as a main navigation point.
+### Additional Resources
 
-     ## Lint Operation
-     Regularly lint the wiki by running:
-     ```
-     # Example of shell script command
-     python scripts/lint.py --config=config.json
-     ```
+- **Research Papers**:
+  - A-MEM: Agentic Memory for LLM Agents (2025)
+  - Survey on Knowledge-Oriented RAG (2025)
 
-5. **Ingest Raw Data**
-   - Add raw source documents to `raw/inbox/`.
-   - Review and move them to `outbox`.
+- **Primary Sources**:
+  - [Karpathy's Gist](https://gist.github.com/karpathy/6c14a2e4d3bea97f489b9d1efc8a2d8c)
+  - llms.txt Specification
+  - QMD (Local Markdown Search)
 
-6. **Process with Claude Code**
-   - Write or use existing Claude code snippets/scripts to process these files.
-   - Store processed data in the `processed` directory.
+- **Community Projects**:
+  - [llmwiki](https://github.com/lucasastorian/llmwiki) by Lucas Astorian
+  - [obsidian-wiki](https://github.com/Ar9av/obsidian-wiki)
+  - [second-brain](https://github.com/NicholasSpisak/second-brain)
 
-7. **Create Index File (INDEX.MD)**
-   - Generate an index file that acts as a navigation point for your knowledge base.
-     ```markdown
-     # LLM Wiki Knowledge Base
-
-     ## Table of Contents
-     1. [Introduction](#introduction)
-     2. [Setup Guide](#setup-guide)
-     3. [Usage Instructions](#usage-instructions)
-
-     <!-- Add links and descriptions for your documents here -->
-     ```
-
-8. **Leverage Obsidian Features**
-   - Use Obsidian's features like backlinks, tags, and notes to organize your knowledge base.
-   - Set up workspaces or vaults if you are working on multiple projects.
-
-9. **Regular Maintenance**
-   - Schedule regular linting operations to ensure consistency and accuracy of your wiki.
-   - Update and review the schema (`claudefile.md`) as needed.
-
-### Example Code for Ingest Operation
-Here is an example Python script that handles ingesting documents:
-```python
-import os
-
-def ingest_document(src_path, dst_path):
-    # Your code to move file from src to dst, e.g., via shutil.move()
-    pass
-
-    import argparse
-    parser = argparse.ArgumentParser(description='Ingest a document.')
-    parser.add_argument('--source', type=str, required=True)
-    parser.add_argument('--destination', type=str, required=True)
-
-    args = parser.parse_args()
-
-    source_path = os.path.join('raw/inbox/', args.source)
-    destination_path = os.path.join('outbox/', args.destination)
-
-    ingest_document(source_path, destination_path)
-```
-
-### Example Code for Lint Operation
-Here is an example linting script:
-```python
-import json
-
-def lint_knowledge_base(config):
-    # Your logic to validate the knowledge base here.
-    pass
-
-    with open('config.json') as f:
-        config = json.load(f)
-
-    lint_knowledge_base(config)
-```
-
-### Conclusion
-By following these steps, you can set up your own LLM Wiki leveraging Claude Code and Obsidian for efficient knowledge management. Regularly updating the schema (`claudefile.md`) and maintaining consistency through linting operations will help keep your wiki accurate and useful over time.
-
-If you have any specific issues or need further customization, feel free to ask!
+These points and notes provide a comprehensive overview of the LLM Wiki concept, its benefits, limitations, and implementation details.
 
 # Source Notes
 
