@@ -59,6 +59,26 @@
       "date_first_seen": "2026-04-22",
       "date_updated": "2026-04-22",
       "entity_type": "framework"
+    },
+    {
+      "slug": "aitoolsclub",
+      "title": "AIToolsClub",
+      "sources": [
+        "how-to-build-an-ai-agent-a-complete-guide-synthesis"
+      ],
+      "date_first_seen": "2026-04-25",
+      "date_updated": "2026-04-25",
+      "entity_type": "company"
+    },
+    {
+      "slug": "how-to-build-an-ai-agent-a-complete-guide",
+      "title": "How to Build an AI Agent: A Complete Guide",
+      "sources": [
+        "how-to-build-an-ai-agent-a-complete-guide-synthesis"
+      ],
+      "date_first_seen": "2026-04-25",
+      "date_updated": "2026-04-25",
+      "entity_type": "product"
     }
   ]
 }

@@ -126,6 +126,33 @@
       ],
       "date_first_seen": "2026-04-22",
       "date_updated": "2026-04-22"
+    },
+    {
+      "slug": "model-context-protocol",
+      "title": "Model Context Protocol (MCP)",
+      "sources": [
+        "how-to-build-an-ai-agent-a-complete-guide-synthesis"
+      ],
+      "date_first_seen": "2026-04-25",
+      "date_updated": "2026-04-25"
+    },
+    {
+      "slug": "agent-development-kit",
+      "title": "Agent Development Kit (ADK)",
+      "sources": [
+        "how-to-build-an-ai-agent-a-complete-guide-synthesis"
+      ],
+      "date_first_seen": "2026-04-25",
+      "date_updated": "2026-04-25"
+    },
+    {
+      "slug": "deep-observability-trinity",
+      "title": "Deep Observability Trinity",
+      "sources": [
+        "how-to-build-an-ai-agent-a-complete-guide-synthesis"
+      ],
+      "date_first_seen": "2026-04-25",
+      "date_updated": "2026-04-25"
     }
   ]
 }
