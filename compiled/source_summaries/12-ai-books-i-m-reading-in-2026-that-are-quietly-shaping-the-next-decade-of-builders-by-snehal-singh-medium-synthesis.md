@@ -16,7 +16,7 @@ tags:
   - "**Long-term Thinking**: Considering the broader implications and potential long-term impact of current advancements."
   - "12-ai-books-i-m-reading-in-2026-that-are-quietly-shaping-the-next-decade-of-builders-by-snehal-singh-medium"
 confidence: "medium"
-confidence_score: null
+confidence_score: 0.75
 generation_method: "ollama_local"
 approved: false
 ---
