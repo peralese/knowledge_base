@@ -12,7 +12,7 @@ tags:
   - "None specified in the source material."
   - "complete-guide-to-setting-up-openclaw-as-your-personal-ai-assistant"
 confidence: "medium"
-confidence_score: null
+confidence_score: 0.35
 generation_method: "ollama_local"
 approved: false
 ---
