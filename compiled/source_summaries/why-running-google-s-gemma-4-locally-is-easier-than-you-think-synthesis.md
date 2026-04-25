@@ -10,7 +10,7 @@ tags:
   - "source_summary"
   - "why-running-google-s-gemma-4-locally-is-easier-than-you-think"
 confidence: "medium"
-confidence_score: null
+confidence_score: 0.25
 generation_method: "ollama_local"
 approved: false
 ---
