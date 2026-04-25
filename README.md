@@ -61,6 +61,8 @@ Review queue: Dashboard -> Review Queue tab, or `python3 scripts/review.py list`
 
 Query: `python3 scripts/query.py "your question"`
 
+Query with explicit retrieval mode: `python3 scripts/query.py "your question" --retrieval hybrid`
+
 Scoped query: `python3 scripts/query.py --topic openclaw-security "your question"`
 
 Search: `python3 scripts/search.py "keyword"`
@@ -162,9 +164,24 @@ Complement BM25 for semantic queries at scale. Sequenced last so embeddings are 
 
 | Step | Task | Notes |
 |------|------|-------|
-| 2D-1 | **Latency Benchmarking** | Measure current and projected 3× corpus query latency before building. |
-| 2D-2 | **sqlite-vec or FAISS Index** | Lightweight local vector index. Embed compiled notes at ingest time. |
-| 2D-3 | **Hybrid Retrieval** | Combine BM25 + vector scores. BM25 primary for precision; vector handles semantic drift. |
+| 2D-1 | **Latency Benchmarking** | Complete. `scripts/benchmark_query.py` measures BM25 retrieval and end-to-end latency per query type; saves JSON snapshots to `outputs/benchmarks/`. Benchmark finding: BM25 is <0.1ms at 37 notes; Ollama synthesis (~2–5s) dominates. Vector retrieval is warranted for semantic recall quality, not latency. |
+| 2D-2 | **sqlite-vec or FAISS Index** | Complete. `scripts/vector_index.py` manages a local SQLite-based vector index (`outputs/vector_index.db`) using stdlib `sqlite3` + JSON embeddings + pure-Python cosine similarity (no new pip deps). Embedding model: `nomic-embed-text` via Ollama (install: `ollama pull nomic-embed-text`). Commands: `build`, `update` (hash-based incremental), `search`, `stats`. Stub concept notes and unapproved source summaries are excluded. |
+| 2D-3 | **Hybrid Retrieval** | Complete. `query.py` defaults to hybrid (BM25 60% + vector 40%) when the index is fresh; falls back to BM25 silently otherwise. Flags: `--retrieval {bm25,vector,hybrid}` and `--show-retrieval`. Dashboard Query tab has BM25/Hybrid/Vector toggle. Graceful degradation confirmed: queries work with index absent or stale. |
+
+**Post-ingest sequence** (run after approving new source summaries):
+
+```bash
+python3 scripts/concept_aggregator.py --all
+python3 scripts/define_concepts.py
+python3 scripts/inject_wikilinks.py
+python3 scripts/vector_index.py update       # update vector index for new/changed notes
+python3 scripts/graph_health.py
+```
+
+**nomic-embed-text requirement**: the vector index requires an Ollama embedding model. If not yet installed:
+```bash
+ollama pull nomic-embed-text
+```
 
 ---
 
