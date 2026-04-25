@@ -100,13 +100,13 @@
     "review_status": "synthesized",
     "validation_status": "validated",
     "validation_issues": [],
-    "confidence_score": 0.85,
+    "confidence_score": 0.92,
     "confidence_band": "high",
-    "confidence_reasoning": "The synthesis captures the key points and is well-structured, but there are minor inaccuracies in the summarization of some technical details, such as specific configurations for Docker isolation and SOUL.md usage.",
-    "scored_at": "2026-04-19T17:52:53.345843",
+    "confidence_reasoning": "The synthesis accurately captures the key security practices and emphasizes Docker isolation, permission rules via SOUL.md files, API key hygiene, network hardening, skill vetting, emergency controls, and logging as outlined in the source document. The summary is clear and well-structured with all major points covered, making it highly reliable for reference.",
+    "scored_at": "2026-04-25T15:39:47.502809",
     "review_action": "approved",
     "review_method": "auto",
-    "reviewed_at": "2026-04-19T17:52:53.345843",
+    "reviewed_at": "2026-04-25T15:39:47.502809",
     "synthesized_at": "2026-04-25T15:29:43.166250"
   },
   {

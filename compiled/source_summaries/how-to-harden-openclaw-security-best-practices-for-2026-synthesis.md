@@ -16,9 +16,9 @@ tags:
   - "Network Security Monitoring (NSM)"
   - "how-to-harden-openclaw-security-best-practices-for-2026"
 confidence: "medium"
-confidence_score: null
+confidence_score: 0.92
 generation_method: "ollama_local"
-approved: false
+approved: true
 ---
 
 # Summary
