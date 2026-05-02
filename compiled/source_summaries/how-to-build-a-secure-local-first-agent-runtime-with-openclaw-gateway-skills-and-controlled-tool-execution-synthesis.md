@@ -16,7 +16,7 @@ tags:
   - "Autonomous agent development"
   - "how-to-build-a-secure-local-first-agent-runtime-with-openclaw-gateway-skills-and-controlled-tool-execution"
 confidence: "medium"
-confidence_score: null
+confidence_score: 0.65
 generation_method: "ollama_local"
 approved: false
 ---
