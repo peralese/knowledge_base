@@ -319,7 +319,7 @@
     "origin": "feed",
     "topic_slug": "",
     "queued_at": "2026-05-02T14:57:15.576255",
-    "review_status": "pending_review",
+    "review_status": "synthesized",
     "validation_status": "validated",
     "validation_issues": [],
     "confidence_score": 0.65,
@@ -328,6 +328,7 @@
     "scored_at": "2026-05-02T14:58:49.895967",
     "review_action": null,
     "review_method": null,
-    "reviewed_at": null
+    "reviewed_at": null,
+    "synthesized_at": "2026-05-02T14:58:36.000000"
   }
 ]
