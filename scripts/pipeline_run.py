@@ -35,6 +35,7 @@ from score_synthesis import (  # noqa: E402
 )
 from synthesize import (  # noqa: E402
     DEFAULT_MODEL,
+    _update_status,
     load_queue,
     save_queue,
     synthesize_item,
@@ -96,14 +97,20 @@ def run_for_item(
         return False
     _log(source_id, "synthesize", f"OK     ({elapsed:.1f}s)")
 
+    queue = load_queue()
+    queue = _update_status(queue, source_id, "synthesized", {"synthesized_at": datetime.now().isoformat()})
+    save_queue(queue)
+
     commit_pipeline_stage(
         message=f"synth: {source_id} — {title} (confidence pending)",
-        paths=[root / "compiled" / "source_summaries" / f"{slug}-synthesis.md"],
+        paths=[
+            root / "compiled" / "source_summaries" / f"{slug}-synthesis.md",
+            root / "metadata" / "review-queue.json",
+        ],
         no_commit=no_commit,
     )
 
     # ---- 2. Score ------------------------------------------------------------
-    # Re-load the queue to get the updated entry (synthesize_item writes to it)
     queue = load_queue()
     updated_item = next((e for e in queue if e.get("source_id") == source_id), item)
 
