@@ -333,7 +333,7 @@
   },
   {
     "source_id": "SRC-20260514-0001",
-    "title": "x.com",
+    "title": "Using Claude Code: The unreasonable effectiveness of HTML",
     "source_note_path": "raw/articles/x-com.md",
     "input_path": "/Users/erickperales/Projects/knowledge_base/raw/inbox/feeds/x-com.json",
     "adapter": "feeds",
@@ -344,10 +344,10 @@
     "review_status": "pending_review",
     "validation_status": "validated",
     "validation_issues": [],
-    "confidence_score": 0.23,
+    "confidence_score": 0.37,
     "confidence_band": "low",
-    "confidence_reasoning": "The synthesis note fails to capture key points due to a lack of content in the source material and provides minimal value for readers.",
-    "scored_at": "2026-05-14T21:13:18.618328",
+    "confidence_reasoning": "The synthesis note fails to capture key points or insights from the source material, scoring low on completeness and accuracy. The structure is also minimal, lacking clarity for a comprehensive understanding.",
+    "scored_at": "2026-05-14T21:56:06.570718",
     "review_action": null,
     "review_method": null,
     "reviewed_at": null
