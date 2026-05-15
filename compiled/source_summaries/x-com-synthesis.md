@@ -12,7 +12,7 @@ tags:
   - "None identified."
   - "x-com"
 confidence: "medium"
-confidence_score: null
+confidence_score: 0.23
 generation_method: "ollama_local"
 approved: false
 ---

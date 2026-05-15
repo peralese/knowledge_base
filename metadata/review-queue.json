@@ -326,9 +326,30 @@
     "confidence_band": "medium",
     "confidence_reasoning": "The synthesis note includes a summary and key insights that are crafted based on common knowledge rather than explicit content from the source material. It lacks specific examples or direct quotes, which reduces its accuracy and completeness. The structure is clear but could benefit from more concrete details.",
     "scored_at": "2026-05-02T14:58:49.895967",
+    "review_action": "approved",
+    "review_method": "manual",
+    "reviewed_at": "2026-05-02T20:38:36.021859",
+    "synthesized_at": "2026-05-02T14:58:36.000000"
+  },
+  {
+    "source_id": "SRC-20260514-0001",
+    "title": "x.com",
+    "source_note_path": "raw/articles/x-com.md",
+    "input_path": "/Users/erickperales/Projects/knowledge_base/raw/inbox/feeds/x-com.json",
+    "adapter": "feeds",
+    "source_type": "article",
+    "origin": "feed",
+    "topic_slug": "",
+    "queued_at": "2026-05-14T21:12:14.700153",
+    "review_status": "pending_review",
+    "validation_status": "validated",
+    "validation_issues": [],
+    "confidence_score": 0.23,
+    "confidence_band": "low",
+    "confidence_reasoning": "The synthesis note fails to capture key points due to a lack of content in the source material and provides minimal value for readers.",
+    "scored_at": "2026-05-14T21:13:18.618328",
     "review_action": null,
     "review_method": null,
-    "reviewed_at": null,
-    "synthesized_at": "2026-05-02T14:58:36.000000"
+    "reviewed_at": null
   }
 ]
