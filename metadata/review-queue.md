@@ -1,6 +1,6 @@
 # Review Queue
 
-_Generated on 2026-04-25_
+_Generated on 2026-05-14_
 
 | Title | Source Note | Adapter | Validation | Confidence | Review |
 |---|---|---|---|---|---|
@@ -19,3 +19,5 @@ _Generated on 2026-04-25_
 | Complete Guide to Setting Up OpenClaw as Your Personal AI Assistant | `raw/articles/complete-guide-to-setting-up-openclaw-as-your-personal-ai-assistant-2.md` | feeds | validated | — | synthesis_failed |
 | I built a local AI stack with 5 Docker containers, and now I'll never pay for ChatGPT again | `raw/articles/i-built-a-local-ai-stack-with-5-docker-containers-and-now-i-ll-never-pay-for-chatgpt-again-2.md` | feeds | validated | — | synthesis_failed |
 | Why Running Google’s Gemma 4 Locally Is Easier Than You Think | `raw/articles/why-running-google-s-gemma-4-locally-is-easier-than-you-think.md` | feeds | validated | low 0.25 | rejected |
+| How to Build a Secure Local-First Agent Runtime with OpenClaw Gateway, Skills, and Controlled Tool Execution | `raw/articles/how-to-build-a-secure-local-first-agent-runtime-with-openclaw-gateway-skills-and-controlled-tool-execution.md` | feeds | validated | medium 0.65 | approved |
+| Using Claude Code: The unreasonable effectiveness of HTML | `raw/articles/x-com.md` | feeds | validated | low 0.37 | rejected |

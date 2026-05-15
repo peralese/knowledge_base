@@ -17,9 +17,12 @@ sys.path.insert(0, str(ROOT))
 import dashboard
 from dashboard import (
     _extract_page_title,
+    _fallback_title_for_url,
     _extract_frontmatter_tags,
     _inject_optional_frontmatter,
+    _is_generic_page_title,
     _parse_tags,
+    _reviewable_unscored_or_low,
     app,
     slugify,
 )
@@ -56,6 +59,43 @@ class ExtractFrontmatterTagsTests(unittest.TestCase):
     def test_empty_tags_ignored(self) -> None:
         text = '---\ntitle: "T"\ntags: []\n---\n\nBody.'
         self.assertEqual(_extract_frontmatter_tags(text), [])
+
+
+class ReviewableQueueTests(unittest.TestCase):
+    def test_includes_scored_pending_review_items(self) -> None:
+        items = _reviewable_unscored_or_low([
+            {
+                "source_id": "SRC-001",
+                "review_status": "pending_review",
+                "confidence_score": 0.23,
+                "review_action": None,
+            }
+        ])
+        self.assertEqual([item["source_id"] for item in items], ["SRC-001"])
+
+    def test_excludes_reviewed_items(self) -> None:
+        items = _reviewable_unscored_or_low([
+            {"source_id": "SRC-001", "review_status": "pending_review", "review_action": "approved"},
+            {"source_id": "SRC-002", "review_status": "synthesized", "review_action": "rejected"},
+        ])
+        self.assertEqual(items, [])
+
+
+class GenericTitleFallbackTests(unittest.TestCase):
+    def test_x_status_fallback_uses_handle(self) -> None:
+        title = _fallback_title_for_url("https://x.com/trq212/status/2052809885763747935?s=12")
+        self.assertEqual(title, "X post by @trq212")
+
+    def test_detects_generic_x_title(self) -> None:
+        self.assertTrue(_is_generic_page_title("x.com", "https://x.com/trq212/status/123"))
+
+    def test_specific_title_is_not_generic(self) -> None:
+        self.assertFalse(
+            _is_generic_page_title(
+                "Using Claude Code: The unreasonable effectiveness of HTML",
+                "https://x.com/trq212/status/123",
+            )
+        )
 
 
 # ---------------------------------------------------------------------------

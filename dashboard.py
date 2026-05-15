@@ -28,6 +28,7 @@ import uuid
 from datetime import date, datetime
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlparse
 
 import httpx
 import uvicorn
@@ -154,6 +155,26 @@ def _extract_page_title(html: str) -> str | None:
             break
 
     return title or None
+
+
+def _fallback_title_for_url(url: str) -> str:
+    """Return a human-ish title when a site only exposes a generic page title."""
+    parsed = urlparse(url)
+    host = parsed.hostname or ""
+    if host.removeprefix("www.") in {"x.com", "twitter.com"}:
+        parts = [part for part in parsed.path.split("/") if part]
+        if len(parts) >= 2 and parts[1] == "status":
+            return f"X post by @{parts[0]}"
+    return host or url
+
+
+def _is_generic_page_title(title: str, url: str) -> bool:
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").removeprefix("www.").lower()
+    normalized = title.strip().lower()
+    if host in {"x.com", "twitter.com"}:
+        return normalized in {"x", "x.com", "twitter", "twitter.com"}
+    return normalized in {host, f"www.{host}"}
 
 
 def _inject_optional_frontmatter(path: Path, fields: dict) -> None:
@@ -420,7 +441,7 @@ def _reviewable_unscored_or_low(queue: list[dict]) -> list[dict]:
     """Items that are synthesized, not yet reviewed, and below auto-approve threshold."""
     return [
         e for e in queue
-        if e.get("review_status") == "synthesized"
+        if e.get("review_status") in ("synthesized", "pending_review")
         and e.get("review_action") not in ("approved", "rejected")
     ]
 
@@ -1222,12 +1243,10 @@ def share_url(body: ShareURLRequest):
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail=f"URL not reachable: {exc}")
 
+    if title and _is_generic_page_title(title, url):
+        title = _fallback_title_for_url(url)
     if not title:
-        try:
-            from urllib.parse import urlparse  # noqa: PLC0415
-            title = urlparse(url).hostname or url
-        except Exception:
-            title = url
+        title = _fallback_title_for_url(url)
 
     note = body.note.strip()
     inbox_id = f"INX-{date.today().strftime('%Y%m%d')}-{uuid.uuid4().hex[:8]}"

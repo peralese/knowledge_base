@@ -208,6 +208,26 @@ class ShareEndpointTests(unittest.TestCase):
             self.assertEqual(payload["canonical_url"], url)
             self.assertIn("test note", payload["content"])
 
+    def test_x_share_uses_handle_when_title_is_generic(self) -> None:
+        mock_response = MagicMock()
+        mock_response.raise_for_status = MagicMock()
+        mock_response.text = '<html><head><title>x.com</title></head><body></body></html>'
+        url = "https://x.com/trq212/status/2052809885763747935?s=12"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "raw" / "inbox" / "feeds").mkdir(parents=True)
+
+            with patch("dashboard._url_is_duplicate", return_value=(False, "")):
+                with patch("httpx.get", return_value=mock_response):
+                    with patch("dashboard.ROOT", root):
+                        res = client.post("/api/share", json={"url": url})
+
+            self.assertEqual(res.status_code, 200)
+            written = Path(res.json()["file"])
+            payload = json.loads(written.read_text(encoding="utf-8"))
+            self.assertEqual(payload["title"], "X post by @trq212")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.2.0",
-  "last_updated": "2026-04-25",
+  "last_updated": "2026-05-14",
   "description": "Source manifest for tracking ingested raw notes and preserving lineage.",
   "sources": [
     {
@@ -119,6 +119,32 @@
       "input_path": "/home/peralese/Projects/Knowledge_Base/raw/inbox/browser/llm-wiki.md",
       "status": "raw",
       "archive_path": "raw/archive/llm-wiki--archived-20260422-211623.md"
+    },
+    {
+      "source_id": "SRC-20260502-0001",
+      "title": "How to Build a Secure Local-First Agent Runtime with OpenClaw Gateway, Skills, and Controlled Tool Execution",
+      "filename": "how-to-build-a-secure-local-first-agent-runtime-with-openclaw-gateway-skills-and-controlled-tool-execution.md",
+      "path": "raw/articles/how-to-build-a-secure-local-first-agent-runtime-with-openclaw-gateway-skills-and-controlled-tool-execution.md",
+      "source_type": "article",
+      "origin": "feed",
+      "date_ingested": "2026-05-02",
+      "canonical_url": "https://flip.it/Wp_N-8",
+      "input_path": "/Users/erickperales/Projects/knowledge_base/raw/inbox/feeds/how-to-build-a-secure-local-first-agent-runtime-with-openclaw-gateway-skills-and-controlled-tool-execution.json",
+      "status": "raw",
+      "archive_path": "raw/archive/how-to-build-a-secure-local-first-agent-runtime-with-openclaw-gateway-skills-and-controlled-tool-execution--archived-20260502-145715.json"
+    },
+    {
+      "source_id": "SRC-20260514-0001",
+      "title": "Using Claude Code: The unreasonable effectiveness of HTML",
+      "filename": "x-com.md",
+      "path": "raw/articles/x-com.md",
+      "source_type": "article",
+      "origin": "feed",
+      "date_ingested": "2026-05-14",
+      "canonical_url": "https://x.com/trq212/status/2052809885763747935?s=12",
+      "input_path": "/Users/erickperales/Projects/knowledge_base/raw/inbox/feeds/x-com.json",
+      "status": "raw",
+      "archive_path": "raw/archive/x-com--archived-20260514-211214.json"
     }
   ]
 }

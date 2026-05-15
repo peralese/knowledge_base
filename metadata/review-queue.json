@@ -348,8 +348,8 @@
     "confidence_band": "low",
     "confidence_reasoning": "The synthesis note fails to capture key points or insights from the source material, scoring low on completeness and accuracy. The structure is also minimal, lacking clarity for a comprehensive understanding.",
     "scored_at": "2026-05-14T21:56:06.570718",
-    "review_action": null,
-    "review_method": null,
-    "reviewed_at": null
+    "review_action": "rejected",
+    "review_method": "manual",
+    "reviewed_at": "2026-05-14T22:21:08.004797"
   }
 ]
