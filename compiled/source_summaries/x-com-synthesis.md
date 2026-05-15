@@ -1,5 +1,5 @@
 ---
-title: "x.com Synthesis"
+title: "Using Claude Code: The unreasonable effectiveness of HTML Synthesis"
 note_type: "source_summary"
 compiled_from: 
   - "x-com"
@@ -19,7 +19,7 @@ approved: false
 
 # Summary
 
-The source material, titled `x.com`, is a brief description shared from mobile on the platform x.com. It does not contain extensive content beyond its metadata and lacks key points or notes elaborating further on its significance.
+The source material, titled `Using Claude Code: The unreasonable effectiveness of HTML`, was shared from mobile via X. The captured note does not contain extensive content beyond its metadata and lacks key points or notes elaborating further on its significance.
 
 # Key Insights
 
@@ -36,7 +36,7 @@ The source material, titled `x.com`, is a brief description shared from mobile o
 
 # Source Highlights
 
-- Title: x.com
+- Title: Using Claude Code: The unreasonable effectiveness of HTML
 - Source Type: article
 - Origin: feed
 - Summary: Brief description of what this source is and why it matters.
