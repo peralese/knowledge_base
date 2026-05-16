@@ -44,6 +44,9 @@ EMBED_MODEL = "nomic-embed-text"
 INDEX_DB_PATH = ROOT / "outputs" / "vector_index.db"
 STALENESS_DAYS = 7
 
+sys.path.insert(0, str(Path(__file__).parent))
+from domains import DEFAULT_DOMAIN_SLUG, compiled_domain_dir, vector_index_path  # noqa: E402
+
 
 # ---------------------------------------------------------------------------
 # Content eligibility
@@ -92,18 +95,25 @@ def _note_type(path: Path, root: Path) -> str | None:
     return None
 
 
-def _eligible_notes(root: Path) -> list[tuple[Path, str]]:
+def _eligible_notes(root: Path, domain: str = DEFAULT_DOMAIN_SLUG) -> list[tuple[Path, str]]:
     """Return list of (path, note_type) for all notes eligible for indexing.
 
     Excludes stub concept notes and unapproved source summaries.
     """
     eligible: list[tuple[Path, str]] = []
     dirs = [
-        (root / "compiled" / "topics", "topic"),
-        (root / "compiled" / "concepts", "concept"),
-        (root / "compiled" / "entities", "entity"),
-        (root / "compiled" / "source_summaries", "source_summary"),
+        (compiled_domain_dir(root, domain) / "topics", "topic"),
+        (compiled_domain_dir(root, domain) / "concepts", "concept"),
+        (compiled_domain_dir(root, domain) / "entities", "entity"),
+        (compiled_domain_dir(root, domain) / "source_summaries", "source_summary"),
     ]
+    if not any(directory.exists() for directory, _ in dirs):
+        dirs = [
+            (root / "compiled" / "topics", "topic"),
+            (root / "compiled" / "concepts", "concept"),
+            (root / "compiled" / "entities", "entity"),
+            (root / "compiled" / "source_summaries", "source_summary"),
+        ]
     for directory, note_type in dirs:
         if not directory.exists():
             continue
@@ -146,7 +156,8 @@ def _check_embed_model_available(model: str) -> None:
         ) from exc
 
     available = [m.get("name", "") for m in data.get("models", [])]
-    if model not in available:
+    available_bases = [name.split(":", 1)[0] for name in available]
+    if model not in available and model.split(":", 1)[0] not in available_bases:
         available_str = ", ".join(available) if available else "(none pulled)"
         raise ValueError(
             f"Embedding model '{model}' is not available in Ollama.\n"
@@ -260,11 +271,11 @@ def _load_all_embeddings(conn: sqlite3.Connection) -> list[dict]:
 # Commands
 # ---------------------------------------------------------------------------
 
-def cmd_build(root: Path, model: str, db_path: Path) -> int:
+def cmd_build(root: Path, model: str, db_path: Path, domain: str = DEFAULT_DOMAIN_SLUG) -> int:
     """Embed all eligible notes and build a fresh index."""
     _check_embed_model_available(model)
 
-    notes = _eligible_notes(root)
+    notes = _eligible_notes(root, domain=domain)
     if not notes:
         print("No eligible notes found. Run the pipeline first.", file=sys.stderr)
         return 1
@@ -312,11 +323,11 @@ def cmd_build(root: Path, model: str, db_path: Path) -> int:
     return 0 if success > 0 else 1
 
 
-def cmd_update(root: Path, model: str, db_path: Path) -> int:
+def cmd_update(root: Path, model: str, db_path: Path, domain: str = DEFAULT_DOMAIN_SLUG) -> int:
     """Re-embed only notes that have changed or are missing from the index."""
     _check_embed_model_available(model)
 
-    notes = _eligible_notes(root)
+    notes = _eligible_notes(root, domain=domain)
     conn = _open_db(db_path)
 
     # Load existing hashes
@@ -427,9 +438,9 @@ def cmd_search(query: str, root: Path, model: str, db_path: Path, top_n: int = 5
     return 0
 
 
-def cmd_stats(root: Path, db_path: Path) -> int:
+def cmd_stats(root: Path, db_path: Path, domain: str = DEFAULT_DOMAIN_SLUG) -> int:
     """Show vector index statistics."""
-    eligible = _eligible_notes(root)
+    eligible = _eligible_notes(root, domain=domain)
     if not db_path.exists():
         print("Vector index not found. Run: python3 scripts/vector_index.py build")
         print(f"Eligible notes: {len(eligible)}")
@@ -550,9 +561,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--db",
         type=Path,
-        default=INDEX_DB_PATH,
-        help=f"Path to the SQLite index file. Default: {INDEX_DB_PATH}",
+        default=None,
+        help="Path to the SQLite index file. Defaults to indexes/domains/<domain>/vector_index.db.",
     )
+    parser.add_argument("--domain", default=DEFAULT_DOMAIN_SLUG, help=f"Domain slug. Defaults to {DEFAULT_DOMAIN_SLUG}.")
 
     subs = parser.add_subparsers(dest="command")
 
@@ -573,16 +585,16 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     model = getattr(args, "embedding_model", EMBED_MODEL)
-    db_path = getattr(args, "db", INDEX_DB_PATH)
+    db_path = getattr(args, "db", None) or vector_index_path(ROOT, args.domain)
 
     if args.command == "build":
-        return cmd_build(ROOT, model, db_path)
+        return cmd_build(ROOT, model, db_path, domain=args.domain)
     if args.command == "update":
-        return cmd_update(ROOT, model, db_path)
+        return cmd_update(ROOT, model, db_path, domain=args.domain)
     if args.command == "search":
         return cmd_search(args.query, ROOT, model, db_path, top_n=args.top_n)
     if args.command == "stats":
-        return cmd_stats(ROOT, db_path)
+        return cmd_stats(ROOT, db_path, domain=args.domain)
 
     parser.print_help()
     return 1

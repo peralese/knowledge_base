@@ -12,6 +12,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 TOPIC_REGISTRY_PATH = ROOT / "metadata" / "topic-registry.json"
 
+sys.path.insert(0, str(Path(__file__).parent))
+from domains import (  # noqa: E402
+    DEFAULT_DOMAIN_SLUG,
+    compiled_subdir,
+    domain_from_path,
+    ensure_domain_dirs,
+    metadata_domain_dir,
+    outputs_subdir,
+)
+
 CATEGORY_DESTINATIONS = {
     "source_summary": Path("compiled/source_summaries"),
     "concept": Path("compiled/concepts"),
@@ -58,6 +68,7 @@ class PromptPackMetadata:
     canonical_slug: str
     note_category: str
     source_notes: list[str]
+    domain: str = ""
 
 
 @dataclass
@@ -620,6 +631,7 @@ def extract_prompt_pack_metadata(prompt_pack_path: Path) -> PromptPackMetadata:
     canonical_title_match = re.search(r"^- Canonical title:\s*(.+)$", text, re.MULTILINE)
     canonical_slug_match = re.search(r"^- Canonical slug:\s*(.+)$", text, re.MULTILINE)
     category_match = re.search(r"^- Note category:\s*(.+)$", text, re.MULTILINE)
+    domain_match = re.search(r"^- Domain:\s*(.+)$", text, re.MULTILINE)
 
     requested_title = sanitize_title_value(title_match.group(1).strip())
     canonical_title = sanitize_title_value(canonical_title_match.group(1).strip()) if canonical_title_match else requested_title
@@ -629,6 +641,7 @@ def extract_prompt_pack_metadata(prompt_pack_path: Path) -> PromptPackMetadata:
         note_category = "topic"
 
     source_notes = extract_valid_wikilinks(text)
+    domain = domain_match.group(1).strip() if domain_match else domain_from_path(prompt_pack_path, ROOT) or ""
 
     return PromptPackMetadata(
         prompt_pack_path=prompt_pack_path,
@@ -637,6 +650,7 @@ def extract_prompt_pack_metadata(prompt_pack_path: Path) -> PromptPackMetadata:
         canonical_slug=canonical_slug,
         note_category=note_category,
         source_notes=source_notes,
+        domain=domain,
     )
 
 
@@ -650,13 +664,21 @@ def resolve_destination(
     canonical_slug: str,
     output_type: str,
     note_category: str,
+    domain: str = "",
 ) -> Path:
     """Resolve the final output path for the applied synthesis."""
     safe_slug = slugify_title(canonical_slug)
 
     if output_type == "compiled":
-        return root / destination_dir_for_category(note_category) / f"{safe_slug}.md"
+        category_dir = destination_dir_for_category(note_category).parts[-1]
+        return (
+            compiled_subdir(root, domain, category_dir)
+            if domain
+            else root / destination_dir_for_category(note_category)
+        ) / f"{safe_slug}.md"
 
+    if output_type == "answer" and domain:
+        return outputs_subdir(root, domain, "answers") / f"{safe_slug}.md"
     return root / OUTPUT_DESTINATIONS[output_type] / f"{safe_slug}.md"
 
 
@@ -710,6 +732,7 @@ def build_compiled_frontmatter(
     generation_method: str,
     today: str,
     existing_metadata: dict[str, object],
+    domain: str = "",
 ) -> str:
     """Build frontmatter for a compiled note while preserving existing values where reasonable."""
     resolved_title = title
@@ -733,7 +756,7 @@ def build_compiled_frontmatter(
     existing_score = existing_metadata.get("confidence_score")
     score_str = str(round(float(existing_score), 4)) if isinstance(existing_score, (int, float)) else "null"
 
-    return (
+    text = (
         "---\n"
         f'title: "{escape_yaml_string(resolved_title)}"\n'
         f'note_type: "{escape_yaml_string(resolved_note_type)}"\n'
@@ -748,6 +771,14 @@ def build_compiled_frontmatter(
         f"approved: {approved_str}\n"
         "---"
     )
+    if domain:
+        text = text.replace(
+            f'title: "{escape_yaml_string(resolved_title)}"\n',
+            f'title: "{escape_yaml_string(resolved_title)}"\n'
+            f'domain: "{escape_yaml_string(domain)}"\n',
+            1,
+        )
+    return text
 
 
 def build_output_frontmatter(
@@ -832,6 +863,7 @@ def assemble_output_text(
             generation_method=generation_method,
             today=today,
             existing_metadata=metadata,
+            domain=prompt_pack_metadata.domain,
         )
     else:
         frontmatter = build_output_frontmatter(
@@ -882,7 +914,10 @@ def apply_synthesis(request: ApplySynthesisRequest) -> Path:
         canonical_slug=canonical_slug,
         output_type=output_type,
         note_category=prompt_pack_metadata.note_category,
+        domain=prompt_pack_metadata.domain,
     )
+    if prompt_pack_metadata.domain:
+        ensure_domain_dirs(request.root, prompt_pack_metadata.domain)
 
     if destination.exists() and not request.force:
         raise FileExistsError(f"Destination file already exists: {destination}. Use --force to overwrite.")
@@ -900,6 +935,7 @@ def apply_synthesis(request: ApplySynthesisRequest) -> Path:
             canonical_slug=canonical_slug,
             note_category=prompt_pack_metadata.note_category,
             source_notes=prompt_pack_metadata.source_notes,
+            domain=prompt_pack_metadata.domain,
         ),
         output_type=output_type,
         title=canonical_title if output_type == "compiled" else requested_title,

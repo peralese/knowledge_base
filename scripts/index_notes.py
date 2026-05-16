@@ -34,6 +34,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 sys.path.insert(0, str(Path(__file__).parent))
 from git_ops import commit_pipeline_stage  # noqa: E402
+from domains import DEFAULT_DOMAIN_SLUG, compiled_domain_dir  # noqa: E402
 
 INDEX_PATH = ROOT / "compiled" / "index.md"
 
@@ -163,12 +164,12 @@ def _truncate(text: str) -> str:
 # Note loading
 # ---------------------------------------------------------------------------
 
-def _load_note_entries(root: Path) -> dict[str, list[NoteEntry]]:
+def _load_note_entries(root: Path, domain: str = "") -> dict[str, list[NoteEntry]]:
     """Load all compiled notes and return them grouped by category."""
     groups: dict[str, list[NoteEntry]] = {cat: [] for cat in CATEGORY_ORDER}
 
     for cat in CATEGORY_ORDER:
-        directory = root / "compiled" / cat
+        directory = compiled_domain_dir(root, domain) / cat if domain else root / "compiled" / cat
         if not directory.exists():
             continue
         for path in sorted(directory.glob("*.md")):
@@ -237,13 +238,19 @@ def build_index_text(groups: dict[str, list[NoteEntry]], today: str) -> str:
 # Main run
 # ---------------------------------------------------------------------------
 
-def run(root: Path, dry_run: bool = False, as_json: bool = False, no_commit: bool = False) -> int:
-    compiled_dir = root / "compiled"
+def run(
+    root: Path,
+    dry_run: bool = False,
+    as_json: bool = False,
+    no_commit: bool = False,
+    domain: str = "",
+) -> int:
+    compiled_dir = compiled_domain_dir(root, domain) if domain else root / "compiled"
     if not compiled_dir.exists():
         print("Error: compiled/ directory not found. Run compile_notes.py first.", file=sys.stderr)
         return 1
 
-    groups = _load_note_entries(root)
+    groups = _load_note_entries(root, domain=domain)
     today = date.today().isoformat()
 
     if as_json:
@@ -257,10 +264,11 @@ def run(root: Path, dry_run: bool = False, as_json: bool = False, no_commit: boo
         print(text)
         return 0
 
-    dest = root / "compiled" / "index.md"
+    dest = compiled_domain_dir(root, domain) / "index.md" if domain else root / "compiled" / "index.md"
+    dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(text, encoding="utf-8")
     total = sum(len(v) for v in groups.values())
-    print(f"Index written : compiled/index.md ({total} notes)")
+    print(f"Index written : {dest.relative_to(root)} ({total} notes)")
     commit_pipeline_stage(
         message=f"index: rebuilt ({total} notes)",
         paths=[dest],
@@ -294,13 +302,14 @@ def build_parser() -> argparse.ArgumentParser:
         dest="no_commit",
         help="Skip git auto-commit after rebuilding the index.",
     )
+    parser.add_argument("--domain", default=DEFAULT_DOMAIN_SLUG, help=f"Domain slug. Defaults to {DEFAULT_DOMAIN_SLUG}.")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    return run(ROOT, dry_run=args.dry_run, as_json=args.as_json, no_commit=args.no_commit)
+    return run(ROOT, dry_run=args.dry_run, as_json=args.as_json, no_commit=args.no_commit, domain=args.domain)
 
 
 if __name__ == "__main__":

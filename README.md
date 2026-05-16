@@ -1,5 +1,11 @@
 # Knowledge Base
 
+## Domain-Aware KBs
+
+The dashboard and pipeline now support multiple local domains, such as `ai` and `civil-war-history`, without mixing them into one reasoning space. New domain-aware flows write to `raw/domains/<slug>/`, `metadata/domains/<slug>/`, `compiled/domains/<slug>/`, `outputs/domains/<slug>/`, and `indexes/domains/<slug>/`.
+
+See [docs/domains.md](docs/domains.md) for the architecture, migration command, and CLI examples.
+
 Knowledge Base is a local-first research pipeline for turning URLs, files, feeds, and notes into an Obsidian-readable compiled wiki. It ingests raw material, synthesizes source summaries with a local Ollama model, scores and reviews them, aggregates approved knowledge into topic notes, and supports querying or re-synthesizing the compiled wiki.
 
 ## Architecture

@@ -42,6 +42,13 @@ REVIEW_QUEUE_REPORT_PATH = ROOT / "metadata" / "review-queue.md"
 sys.path.insert(0, str(Path(__file__).parent))
 from git_ops import commit_pipeline_stage  # noqa: E402
 from purge_source import purge_source  # noqa: E402
+from domains import DEFAULT_DOMAIN_SLUG, compiled_subdir, metadata_file  # noqa: E402
+
+
+def configure_domain_paths(domain: str, root: Path = ROOT) -> None:
+    global REVIEW_QUEUE_PATH, REVIEW_QUEUE_REPORT_PATH
+    REVIEW_QUEUE_PATH = metadata_file(root, domain, "review-queue.json")
+    REVIEW_QUEUE_REPORT_PATH = metadata_file(root, domain, "review-queue.md")
 
 
 # ---------------------------------------------------------------------------
@@ -113,8 +120,12 @@ def _find_compiled_note(item: dict[str, object], root: Path) -> Path | None:
     if not note_path_str:
         return None
     slug = Path(note_path_str).stem
-    candidate = root / "compiled" / "source_summaries" / f"{slug}-synthesis.md"
-    return candidate if candidate.exists() else None
+    domain = str(item.get("domain", "")).strip()
+    candidates = []
+    if domain:
+        candidates.append(compiled_subdir(root, domain, "source_summaries") / f"{slug}-synthesis.md")
+    candidates.append(root / "compiled" / "source_summaries" / f"{slug}-synthesis.md")
+    return next((candidate for candidate in candidates if candidate.exists()), None)
 
 
 def _patch_note_approved(path: Path, approved: bool) -> None:
@@ -658,6 +669,11 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     subparsers = parser.add_subparsers(dest="command")
+    parser.add_argument(
+        "--domain",
+        default=DEFAULT_DOMAIN_SLUG,
+        help=f"Review queue domain. Defaults to {DEFAULT_DOMAIN_SLUG}.",
+    )
 
     # list
     list_p = subparsers.add_parser("list", help="List synthesized items awaiting review.")
@@ -763,6 +779,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    configure_domain_paths(args.domain, ROOT)
 
     if args.command == "list" or args.command is None:
         return cmd_list(full=getattr(args, "full", False))

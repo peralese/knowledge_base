@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 import urllib.request
 from datetime import date
 from pathlib import Path
@@ -11,6 +12,9 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MODEL = "qwen2.5:14b"
 OLLAMA_BASE_URL = "http://localhost:11434"
 MAX_CONTEXT_CHARS = 120_000
+
+sys.path.insert(0, str(Path(__file__).parent))
+from domains import DEFAULT_DOMAIN_SLUG, compiled_domain_dir, outputs_subdir  # noqa: E402
 
 
 def _split_frontmatter(text: str) -> tuple[dict[str, object], str]:
@@ -74,14 +78,17 @@ def _wiki_targets(text: str) -> list[str]:
     return targets
 
 
-def _source_summary_path(target: str, project_root: Path) -> Path | None:
+def _source_summary_path(target: str, project_root: Path, domain: str = DEFAULT_DOMAIN_SLUG) -> Path | None:
     cleaned = target.strip()
     candidates = [
         project_root / cleaned,
+        compiled_domain_dir(project_root, domain) / "source_summaries" / cleaned,
+        compiled_domain_dir(project_root, domain) / "source_summaries" / f"{cleaned}.md",
         project_root / "compiled" / "source_summaries" / cleaned,
         project_root / "compiled" / "source_summaries" / f"{cleaned}.md",
     ]
     if cleaned.endswith(".md"):
+        candidates.append(compiled_domain_dir(project_root, domain) / "source_summaries" / Path(cleaned).name)
         candidates.append(project_root / "compiled" / "source_summaries" / Path(cleaned).name)
 
     for candidate in candidates:
@@ -101,7 +108,13 @@ def _topic_slugs_from_index(index_text: str) -> list[str]:
     return slugs
 
 
-def load_context(topic_slug: str | None, project_root: Path) -> tuple[str, list[str]]:
+def load_context(
+    topic_slug: str | None,
+    project_root: Path,
+    domain: str = "",
+    *,
+    all_domains: bool = False,
+) -> tuple[str, list[str]]:
     """Load wiki context for a query.
 
     Returns (context_text, source_paths_used). Topic-scoped queries load the topic
@@ -110,7 +123,9 @@ def load_context(topic_slug: str | None, project_root: Path) -> tuple[str, list[
     notes: list[tuple[Path, str]] = []
 
     if topic_slug:
-        topic_path = project_root / "compiled" / "topics" / f"{topic_slug}.md"
+        topic_path = compiled_domain_dir(project_root, domain) / "topics" / f"{topic_slug}.md"
+        if not topic_path.exists():
+            topic_path = project_root / "compiled" / "topics" / f"{topic_slug}.md"
         if not topic_path.exists():
             return "", []
         topic_text = topic_path.read_text(encoding="utf-8", errors="replace")
@@ -118,7 +133,7 @@ def load_context(topic_slug: str | None, project_root: Path) -> tuple[str, list[
 
         linked_paths: list[Path] = []
         for target in _wiki_targets(topic_text):
-            path = _source_summary_path(target, project_root)
+            path = _source_summary_path(target, project_root, domain)
             if path and path not in linked_paths:
                 linked_paths.append(path)
 
@@ -128,17 +143,19 @@ def load_context(topic_slug: str | None, project_root: Path) -> tuple[str, list[
             compiled_from = [compiled_from]
         if isinstance(compiled_from, list):
             for stem in compiled_from:
-                path = _source_summary_path(str(stem), project_root)
+                path = _source_summary_path(str(stem), project_root, domain)
                 if path and path not in linked_paths:
                     linked_paths.append(path)
 
         for path in linked_paths:
             notes.append((path, path.read_text(encoding="utf-8", errors="replace")))
     else:
-        topics_dir = project_root / "compiled" / "topics"
-        index_path = project_root / "compiled" / "index.md"
+        topics_dir = compiled_domain_dir(project_root, domain) / "topics"
+        index_path = compiled_domain_dir(project_root, domain) / "index.md"
         topic_paths: list[Path] = []
-        if index_path.exists():
+        if all_domains:
+            topic_paths = sorted((project_root / "compiled" / "domains").glob("*/topics/*.md"))
+        elif index_path.exists():
             index_text = index_path.read_text(encoding="utf-8", errors="replace")
             for slug in _topic_slugs_from_index(index_text):
                 path = topics_dir / f"{slug}.md"
@@ -146,6 +163,17 @@ def load_context(topic_slug: str | None, project_root: Path) -> tuple[str, list[
                     topic_paths.append(path)
         if not topic_paths and topics_dir.exists():
             topic_paths = sorted(topics_dir.glob("*.md"))
+        if not topic_paths:
+            legacy_topics_dir = project_root / "compiled" / "topics"
+            legacy_index_path = project_root / "compiled" / "index.md"
+            if legacy_index_path.exists():
+                index_text = legacy_index_path.read_text(encoding="utf-8", errors="replace")
+                for slug in _topic_slugs_from_index(index_text):
+                    path = legacy_topics_dir / f"{slug}.md"
+                    if path.exists() and path not in topic_paths:
+                        topic_paths.append(path)
+            elif legacy_topics_dir.exists():
+                topic_paths = sorted(legacy_topics_dir.glob("*.md"))
         for path in topic_paths:
             notes.append((path, path.read_text(encoding="utf-8", errors="replace")))
 
@@ -209,12 +237,14 @@ def save_answer(
     sources: list[str],
     topic_slug: str | None,
     outputs_dir: Path,
+    domain: str = "",
 ) -> Path:
     """Save answer to outputs/answers/ and return the path."""
     today = date.today().isoformat()
     title = question.strip()
     slug = _slugify(title[:60])
-    answers_dir = outputs_dir / "answers"
+    project_root = outputs_dir.parent if outputs_dir.name == "outputs" else ROOT
+    answers_dir = outputs_subdir(project_root, domain, "answers") if domain else outputs_dir / "answers"
     answers_dir.mkdir(parents=True, exist_ok=True)
     dest = answers_dir / f"{today}-{slug}.md"
 
@@ -229,6 +259,7 @@ def save_answer(
         "---\n"
         f'question: "{question.strip().replace(chr(34), chr(39))}"\n'
         f"topic: {topic}\n"
+        f"domain: {domain}\n"
         f"date: {today}\n"
         "feedback: null\n"
         "feedback_note: null\n"
@@ -247,8 +278,9 @@ def save_answer(
     return dest
 
 
-def recent_answers(outputs_dir: Path, limit: int = 5) -> list[dict[str, object]]:
-    answers_dir = outputs_dir / "answers"
+def recent_answers(outputs_dir: Path, limit: int = 5, domain: str = "") -> list[dict[str, object]]:
+    project_root = outputs_dir.parent if outputs_dir.name == "outputs" else ROOT
+    answers_dir = outputs_subdir(project_root, domain, "answers") if domain else outputs_dir / "answers"
     if not answers_dir.exists():
         return []
     rows: list[dict[str, object]] = []
@@ -264,17 +296,19 @@ def recent_answers(outputs_dir: Path, limit: int = 5) -> list[dict[str, object]]
             "topic": str(fm.get("topic", "all")),
             "date": str(fm.get("date", "")),
             "feedback": feedback,
-            "path": f"outputs/answers/{path.name}",
+            "domain": str(fm.get("domain", domain)),
+            "path": str(path.relative_to(project_root)),
             "_mtime": path.stat().st_mtime,
         })
     rows.sort(key=lambda row: (str(row["date"]), float(row["_mtime"])), reverse=True)
     return [{k: v for k, v in row.items() if k != "_mtime"} for row in rows[:limit]]
 
 
-def read_answer(outputs_dir: Path, filename: str) -> dict[str, object]:
+def read_answer(outputs_dir: Path, filename: str, domain: str = "") -> dict[str, object]:
     if Path(filename).name != filename or not filename.endswith(".md"):
         raise FileNotFoundError(filename)
-    path = outputs_dir / "answers" / filename
+    project_root = outputs_dir.parent if outputs_dir.name == "outputs" else ROOT
+    path = (outputs_subdir(project_root, domain, "answers") if domain else outputs_dir / "answers") / filename
     text = path.read_text(encoding="utf-8", errors="replace")
     fm, body = _split_frontmatter(text)
     sources = fm.get("sources", [])
@@ -289,6 +323,7 @@ def read_answer(outputs_dir: Path, filename: str) -> dict[str, object]:
     return {
         "question": str(fm.get("question", "")),
         "topic": str(fm.get("topic", "all")),
+        "domain": str(fm.get("domain", domain)),
         "date": str(fm.get("date", "")),
         "answer": body,
         "sources": [Path(str(source)).stem for source in sources],

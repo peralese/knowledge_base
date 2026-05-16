@@ -32,10 +32,17 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).parent))
 from git_ops import commit_pipeline_stage  # noqa: E402
+from domains import DEFAULT_DOMAIN_SLUG, compiled_subdir, metadata_file  # noqa: E402
 REVIEW_QUEUE_PATH = ROOT / "metadata" / "review-queue.json"
 REVIEW_QUEUE_REPORT_PATH = ROOT / "metadata" / "review-queue.md"
 TMP_OUTPUT = ROOT / "tmp" / "synthesis-output.md"
 DEFAULT_MODEL = "qwen2.5:14b"
+
+
+def configure_domain_paths(domain: str, root: Path = ROOT) -> None:
+    global REVIEW_QUEUE_PATH, REVIEW_QUEUE_REPORT_PATH
+    REVIEW_QUEUE_PATH = metadata_file(root, domain, "review-queue.json")
+    REVIEW_QUEUE_REPORT_PATH = metadata_file(root, domain, "review-queue.md")
 
 
 # ---------------------------------------------------------------------------
@@ -159,6 +166,7 @@ def _generate_prompt_pack(
                 category="source_summary",
                 mode="prompt-pack",
                 force=force,
+                domain=str(source_note_path.parts[source_note_path.parts.index("domains") + 1]) if "domains" in source_note_path.parts else "",
                 root=root,
             )
         )
@@ -276,6 +284,7 @@ def synthesize_item(
                     category="source_summary",
                     mode="scaffold",
                     force=force,
+                    domain=str(item.get("domain") or ""),
                     root=root,
                 )
             )
@@ -402,8 +411,12 @@ def cmd_synthesize(
         commit_pipeline_stage(
             message=f"synth: {source_id} — {title} (confidence pending)",
             paths=[
-                root / "compiled" / "source_summaries" / f"{slug}-synthesis.md",
-                root / "metadata" / "review-queue.json",
+                (
+                    compiled_subdir(root, str(item.get("domain")), "source_summaries")
+                    if item.get("domain")
+                    else root / "compiled" / "source_summaries"
+                ) / f"{slug}-synthesis.md",
+                REVIEW_QUEUE_PATH,
             ],
             no_commit=no_commit,
         )
@@ -448,8 +461,12 @@ def cmd_all(*, title_override: str, model: str, force: bool, root: Path, no_comm
             commit_pipeline_stage(
                 message=f"synth: {source_id} — {title} (confidence pending)",
                 paths=[
-                    root / "compiled" / "source_summaries" / f"{slug}-synthesis.md",
-                    root / "metadata" / "review-queue.json",
+                    (
+                        compiled_subdir(root, str(item.get("domain")), "source_summaries")
+                        if item.get("domain")
+                        else root / "compiled" / "source_summaries"
+                    ) / f"{slug}-synthesis.md",
+                    REVIEW_QUEUE_PATH,
                 ],
                 no_commit=no_commit,
             )
@@ -527,12 +544,18 @@ def build_parser() -> argparse.ArgumentParser:
         dest="concepts_only",
         help="Re-run concept/entity extraction on all approved source summaries; skip re-synthesis.",
     )
+    parser.add_argument(
+        "--domain",
+        default=DEFAULT_DOMAIN_SLUG,
+        help=f"Review queue domain. Defaults to {DEFAULT_DOMAIN_SLUG}.",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    configure_domain_paths(args.domain, ROOT)
 
     if args.concepts_only:
         return cmd_concepts_only(model=args.model, root=ROOT, no_commit=args.no_commit)

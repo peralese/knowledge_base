@@ -44,6 +44,16 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).parent))
+from domains import (  # noqa: E402
+    DEFAULT_DOMAIN_SLUG,
+    domain_from_path,
+    ensure_domain_dirs,
+    get_domain,
+    metadata_file,
+    raw_domain_dir,
+)
+
 INBOX_DIR = ROOT / "raw" / "inbox"
 STATE_PATH = ROOT / "metadata" / ".watcher-state.json"
 REVIEW_QUEUE_PATH = ROOT / "metadata" / "review-queue.json"
@@ -138,6 +148,31 @@ def save_review_queue(entries: list[dict[str, object]]) -> None:
     REVIEW_QUEUE_PATH.parent.mkdir(parents=True, exist_ok=True)
     REVIEW_QUEUE_PATH.write_text(json.dumps(entries, indent=2) + "\n", encoding="utf-8")
     REVIEW_QUEUE_REPORT_PATH.write_text(render_review_queue(entries), encoding="utf-8")
+
+
+def _queue_paths_for_domain(root: Path, domain: str) -> tuple[Path, Path]:
+    return (
+        metadata_file(root, domain, "review-queue.json"),
+        metadata_file(root, domain, "review-queue.md"),
+    )
+
+
+def load_review_queue_for_domain(root: Path, domain: str) -> list[dict[str, object]]:
+    path, _ = _queue_paths_for_domain(root, domain)
+    if not path.exists():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
+    return data if isinstance(data, list) else []
+
+
+def save_review_queue_for_domain(entries: list[dict[str, object]], root: Path, domain: str) -> None:
+    path, report_path = _queue_paths_for_domain(root, domain)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(entries, indent=2) + "\n", encoding="utf-8")
+    report_path.write_text(render_review_queue(entries), encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -329,6 +364,26 @@ def derive_canonical_url(path: Path) -> str:
     return url_match.group(0).rstrip(").,]") if url_match else ""
 
 
+def derive_domain(path: Path, fallback: str = DEFAULT_DOMAIN_SLUG) -> str:
+    detected = domain_from_path(path, ROOT)
+    if detected:
+        return detected
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return fallback
+    if path.suffix.lower() == ".json":
+        try:
+            payload = json.loads(text)
+        except json.JSONDecodeError:
+            payload = {}
+        if isinstance(payload, dict):
+            value = str(payload.get("domain", "")).strip()
+            if value:
+                return value
+    return _parse_frontmatter_value(text, "domain") or fallback
+
+
 def _parse_frontmatter(text: str) -> dict[str, object]:
     """Parse the limited raw-note frontmatter schema used in this repository."""
     normalized = text.replace("\r\n", "\n").replace("\r", "\n")
@@ -401,9 +456,10 @@ def queue_review_item(
     adapter: str,
     validation_issues: list[str],
     topic_slug: str = "",
+    domain: str = "",
 ) -> None:
     """Add or update a pending review entry for an ingested note."""
-    queue = load_review_queue()
+    queue = load_review_queue_for_domain(ROOT, domain) if domain else load_review_queue()
     text = source_note_path.read_text(encoding="utf-8", errors="replace")
     frontmatter = _parse_frontmatter(text)
     entry = {
@@ -433,7 +489,10 @@ def queue_review_item(
     else:
         queue[existing_index] = {**queue[existing_index], **entry}
 
-    save_review_queue(queue)
+    if domain:
+        save_review_queue_for_domain(queue, ROOT, domain)
+    else:
+        save_review_queue(queue)
 
 
 def render_review_queue(entries: list[dict[str, object]]) -> str:
@@ -449,8 +508,8 @@ def render_review_queue(entries: list[dict[str, object]]) -> str:
         return "\n".join(lines) + "\n"
 
     lines.extend([
-        "| Title | Source Note | Adapter | Validation | Confidence | Review |",
-        "|---|---|---|---|---|---|",
+        "| Domain | Title | Source Note | Adapter | Validation | Confidence | Review |",
+        "|---|---|---|---|---|---|---|",
     ])
     for entry in entries:
         conf_score = entry.get("confidence_score")
@@ -458,14 +517,14 @@ def render_review_queue(entries: list[dict[str, object]]) -> str:
         conf_str = f"{conf_band} {conf_score:.2f}" if conf_score is not None else "—"
         action = entry.get("review_action") or entry.get("review_status", "")
         lines.append(
-            f"| {entry.get('title', '')} | `{entry.get('source_note_path', '')}` | "
+            f"| {entry.get('domain', '')} | {entry.get('title', '')} | `{entry.get('source_note_path', '')}` | "
             f"{entry.get('adapter', '')} | {entry.get('validation_status', '')} | "
             f"{conf_str} | {action} |"
         )
         issues = entry.get("validation_issues", [])
         if issues:
             for issue in issues:
-                lines.append(f"|  |  |  | issue: {issue} |  |  |")
+                lines.append(f"|  |  |  |  | issue: {issue} |  |  |")
     return "\n".join(lines) + "\n"
 
 
@@ -473,7 +532,7 @@ def render_review_queue(entries: list[dict[str, object]]) -> str:
 # Ingest dispatch
 # ---------------------------------------------------------------------------
 
-def ingest_file(path: Path, source_type: str) -> IngestOutcome:
+def ingest_file(path: Path, source_type: str, domain: str = "") -> IngestOutcome:
     """Call ingest_source(), validate the result, and queue it for review."""
     sys.path.insert(0, str(Path(__file__).parent))
     from ingest import ingest_source, IngestRequest  # noqa: PLC0415
@@ -483,6 +542,10 @@ def ingest_file(path: Path, source_type: str) -> IngestOutcome:
     origin = derive_origin(path)
     canonical_url = derive_canonical_url(path)
     adapter = detect_adapter(path)
+    requested_domain = derive_domain(path, domain)
+    resolved_domain = get_domain(requested_domain, ROOT).slug if requested_domain else ""
+    if resolved_domain:
+        ensure_domain_dirs(ROOT, resolved_domain)
 
     # Read optional metadata fields written by _inject_optional_frontmatter in
     # dashboard.py so they survive into the raw/articles/ note frontmatter.
@@ -505,6 +568,8 @@ def ingest_file(path: Path, source_type: str) -> IngestOutcome:
     print(f"  Origin      : {origin}")
     if canonical_url:
         print(f"  Canonical   : {canonical_url}")
+    if resolved_domain:
+        print(f"  Domain      : {resolved_domain}")
 
     ingest_kwargs: dict = dict(
         title=title,
@@ -514,6 +579,8 @@ def ingest_file(path: Path, source_type: str) -> IngestOutcome:
         input_path=str(path),
         root=ROOT,
     )
+    if resolved_domain:
+        ingest_kwargs["domain"] = resolved_domain
     if staged_author:
         ingest_kwargs["author"] = staged_author
     if staged_date_published:
@@ -538,6 +605,7 @@ def ingest_file(path: Path, source_type: str) -> IngestOutcome:
             origin=origin,
             adapter=adapter,
             topic_slug=staged_topics[0] if staged_topics else "",
+            domain=resolved_domain,
             validation_issues=validation_issues,
         )
         print(f"  -> {result.relative_to(ROOT)}")
@@ -545,7 +613,7 @@ def ingest_file(path: Path, source_type: str) -> IngestOutcome:
             "  Validation  : "
             + ("validated" if not validation_issues else f"needs review ({len(validation_issues)} issue(s))")
         )
-        print("  Queue       : metadata/review-queue.md")
+        print(f"  Queue       : {'metadata/domains/' + resolved_domain + '/review-queue.md' if resolved_domain else 'metadata/review-queue.md'}")
         return IngestOutcome(
             processed=True,
             output_path=result,
@@ -579,7 +647,12 @@ def ingest_file(path: Path, source_type: str) -> IngestOutcome:
 # Watcher loop
 # ---------------------------------------------------------------------------
 
-def scan_inbox(inbox: Path, state: dict[str, str], source_type: str) -> dict[str, str]:
+def scan_inbox(
+    inbox: Path,
+    state: dict[str, str],
+    source_type: str,
+    domain: str = "",
+) -> dict[str, str]:
     """Check for new files in inbox and ingest them. Returns updated state."""
     if not inbox.exists():
         return state
@@ -597,7 +670,7 @@ def scan_inbox(inbox: Path, state: dict[str, str], source_type: str) -> dict[str
 
         ts = datetime.now().strftime("%H:%M:%S")
         print(f"[{ts}] New file: {path.name}")
-        outcome = ingest_file(path, source_type)
+        outcome = ingest_file(path, source_type, domain=derive_domain(path, domain))
         if outcome.processed:
             updated[key] = datetime.now().isoformat()
             updated.pop(legacy_key, None)  # replace legacy key if present
@@ -605,21 +678,24 @@ def scan_inbox(inbox: Path, state: dict[str, str], source_type: str) -> dict[str
     return updated
 
 
-def watch(interval: int, source_type: str, once: bool) -> None:
+def watch(interval: int, source_type: str, once: bool, domain: str = DEFAULT_DOMAIN_SLUG) -> None:
     """Main watcher loop."""
     state = load_state()
-    for directory in ADAPTER_DIRECTORIES.values():
+    resolved_domain = get_domain(domain, ROOT).slug
+    ensure_domain_dirs(ROOT, resolved_domain)
+    watched_inbox = raw_domain_dir(ROOT, resolved_domain) / "inbox"
+    for directory in [watched_inbox, *ADAPTER_DIRECTORIES.values()]:
         directory.mkdir(parents=True, exist_ok=True)
 
     if once:
-        state = scan_inbox(INBOX_DIR, state, source_type)
+        state = scan_inbox(watched_inbox, state, source_type, resolved_domain)
         save_state(state)
         return
 
-    print(f"Watching {INBOX_DIR.relative_to(ROOT)}  (interval: {interval}s, Ctrl-C to stop)")
+    print(f"Watching {watched_inbox.relative_to(ROOT)}  (interval: {interval}s, Ctrl-C to stop)")
     try:
         while True:
-            new_state = scan_inbox(INBOX_DIR, state, source_type)
+            new_state = scan_inbox(watched_inbox, state, source_type, resolved_domain)
             if new_state != state:
                 save_state(new_state)
                 state = new_state
@@ -652,13 +728,18 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Process whatever is in inbox right now then exit (no loop).",
     )
+    parser.add_argument(
+        "--domain",
+        default=DEFAULT_DOMAIN_SLUG,
+        help=f"Domain slug to watch. Defaults to {DEFAULT_DOMAIN_SLUG}.",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    watch(interval=args.interval, source_type=args.source_type, once=args.once)
+    watch(interval=args.interval, source_type=args.source_type, once=args.once, domain=args.domain)
     return 0
 
 

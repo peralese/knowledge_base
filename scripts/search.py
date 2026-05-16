@@ -33,6 +33,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
+sys.path.insert(0, str(Path(__file__).parent))
+from domains import DEFAULT_DOMAIN_SLUG, compiled_domain_dir, raw_domain_dir  # noqa: E402
+
 COMPILED_DIRS = [
     Path("compiled/topics"),
     Path("compiled/concepts"),
@@ -121,12 +124,30 @@ def _strip_frontmatter(text: str) -> str:
 # Document loading
 # ---------------------------------------------------------------------------
 
-def load_documents(root: Path, include_raw: bool = False) -> list[Document]:
+def load_documents(
+    root: Path,
+    include_raw: bool = False,
+    domain: str = DEFAULT_DOMAIN_SLUG,
+    all_domains: bool = False,
+) -> list[Document]:
     """Load compiled (and optionally raw) notes as Documents."""
     docs: list[Document] = []
 
-    for rel_dir in COMPILED_DIRS:
-        directory = root / rel_dir
+    compiled_dirs = (
+        [*sorted((root / "compiled" / "domains").glob("*/topics")),
+         *sorted((root / "compiled" / "domains").glob("*/concepts")),
+         *sorted((root / "compiled" / "domains").glob("*/source_summaries"))]
+        if all_domains
+        else [
+            compiled_domain_dir(root, domain) / "topics",
+            compiled_domain_dir(root, domain) / "concepts",
+            compiled_domain_dir(root, domain) / "source_summaries",
+        ]
+    )
+    if not any(directory.exists() for directory in compiled_dirs):
+        compiled_dirs = [root / rel_dir for rel_dir in COMPILED_DIRS]
+
+    for directory in compiled_dirs:
         if not directory.exists():
             continue
         for path in sorted(directory.glob("*.md")):
@@ -136,8 +157,20 @@ def load_documents(root: Path, include_raw: bool = False) -> list[Document]:
             docs.append(Document(path=path, title=title, body=body, layer="compiled"))
 
     if include_raw:
-        for rel_dir in RAW_DIRS:
-            directory = root / rel_dir
+        raw_dirs = (
+            [*sorted((root / "raw" / "domains").glob("*/articles")),
+             *sorted((root / "raw" / "domains").glob("*/notes")),
+             *sorted((root / "raw" / "domains").glob("*/pdfs"))]
+            if all_domains
+            else [
+                raw_domain_dir(root, domain) / "articles",
+                raw_domain_dir(root, domain) / "notes",
+                raw_domain_dir(root, domain) / "pdfs",
+            ]
+        )
+        if not any(directory.exists() for directory in raw_dirs):
+            raw_dirs = [root / rel_dir for rel_dir in RAW_DIRS]
+        for directory in raw_dirs:
             if not directory.exists():
                 continue
             for path in sorted(directory.glob("*.md")):
@@ -282,6 +315,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--json", action="store_true", dest="as_json",
         help="Output results as JSON.",
     )
+    parser.add_argument("--domain", default=DEFAULT_DOMAIN_SLUG, help=f"Domain slug. Defaults to {DEFAULT_DOMAIN_SLUG}.")
+    parser.add_argument("--all-domains", action="store_true", help="Explicitly search across all domains.")
     return parser
 
 
@@ -289,7 +324,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
-    docs = load_documents(ROOT, include_raw=args.include_raw)
+    docs = load_documents(ROOT, include_raw=args.include_raw, domain=args.domain, all_domains=args.all_domains)
     if not docs:
         print("Error: no notes found to index.", file=sys.stderr)
         return 1

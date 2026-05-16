@@ -1,0 +1,13 @@
+{
+  "version": "1.0",
+  "default_domain": "ai",
+  "domains": [
+    {
+      "display_name": "AI",
+      "slug": "ai",
+      "description": "Default domain for the original single-domain knowledge base.",
+      "created_at": "2026-05-15T00:00:00+00:00",
+      "active": true
+    }
+  ]
+}

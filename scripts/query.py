@@ -66,6 +66,9 @@ ANSWERS_DIR = ROOT / "outputs" / "answers"
 # Reserve ~4k for the question + instructions + answer headroom.
 MAX_CONTEXT_CHARS = 120_000
 
+sys.path.insert(0, str(Path(__file__).parent))
+from domains import DEFAULT_DOMAIN_SLUG, compiled_domain_dir, outputs_subdir, vector_index_path  # noqa: E402
+
 
 # ---------------------------------------------------------------------------
 # Compiled note loading
@@ -108,14 +111,33 @@ def _strip_frontmatter(text: str) -> str:
     return parts[1].strip()
 
 
-def load_compiled_notes(root: Path) -> list[CompiledNote]:
+def load_compiled_notes(root: Path, domain: str = "", all_domains: bool = False) -> list[CompiledNote]:
     """Load all compiled notes from compiled/ subdirectories."""
     notes: list[CompiledNote] = []
-    dirs = [
-        root / "compiled" / "topics",
-        root / "compiled" / "concepts",
-        root / "compiled" / "source_summaries",
-    ]
+    if all_domains:
+        dirs = [
+            *sorted((root / "compiled" / "domains").glob("*/topics")),
+            *sorted((root / "compiled" / "domains").glob("*/concepts")),
+            *sorted((root / "compiled" / "domains").glob("*/source_summaries")),
+        ]
+    elif domain:
+        dirs = [
+            compiled_domain_dir(root, domain) / "topics",
+            compiled_domain_dir(root, domain) / "concepts",
+            compiled_domain_dir(root, domain) / "source_summaries",
+        ]
+        if not any(directory.exists() for directory in dirs):
+            dirs = [
+                root / "compiled" / "topics",
+                root / "compiled" / "concepts",
+                root / "compiled" / "source_summaries",
+            ]
+    else:
+        dirs = [
+            root / "compiled" / "topics",
+            root / "compiled" / "concepts",
+            root / "compiled" / "source_summaries",
+        ]
     for directory in dirs:
         if not directory.exists():
             continue
@@ -246,6 +268,7 @@ def build_answer_frontmatter(
     notes_used: list[CompiledNote],
     model: str,
     today: str,
+    domain: str = "",
 ) -> str:
     def fmt_list(items: list[str]) -> str:
         if not items:
@@ -258,6 +281,7 @@ def build_answer_frontmatter(
         "---\n"
         f'title: "{title}"\n'
         f'output_type: "answer"\n'
+        f'domain: "{domain}"\n'
         f'generated_from_query: "{question.strip().replace(chr(34), chr(39))}"\n'
         f'generated_on: "{today}"\n'
         f"compiled_notes_used: {fmt_list(note_stems)}\n"
@@ -278,11 +302,12 @@ def file_answer(
     model: str,
     force: bool,
     root: Path,
+    domain: str = "",
 ) -> Path:
     """Write the answer as a durable artifact in outputs/answers/."""
     today = date.today().isoformat()
     slug = slugify(title)
-    dest = root / "outputs" / "answers" / f"{slug}.md"
+    dest = (outputs_subdir(root, domain, "answers") if domain else root / "outputs" / "answers") / f"{slug}.md"
 
     if dest.exists() and not force:
         raise FileExistsError(
@@ -295,6 +320,7 @@ def file_answer(
         notes_used=notes_used,
         model=model,
         today=today,
+        domain=domain,
     )
 
     note_links = "\n".join(f"- [[{n.stem}]]" for n in notes_used)
@@ -326,13 +352,15 @@ def _bm25_select_notes(
     question: str,
     root: Path,
     top_n: int,
+    domain: str = "",
+    all_domains: bool = False,
 ) -> list[tuple[CompiledNote, float]]:
     """Use BM25 to select notes. Returns list of (note, raw_bm25_score)."""
     sys.path.insert(0, str(Path(__file__).parent))
     from search import build_index, load_documents  # noqa: PLC0415
     from search import search as bm25_search  # noqa: PLC0415
 
-    docs = load_documents(root, include_raw=False)
+    docs = load_documents(root, include_raw=False, domain=domain, all_domains=all_domains)
     if not docs:
         return []
 
@@ -353,11 +381,11 @@ def _vector_select_notes(
     root: Path,
     top_n: int,
     embedding_model: str = "nomic-embed-text",
+    domain: str = "",
 ) -> list[tuple[CompiledNote, float]]:
     """Vector similarity search. Returns list of (note, cosine_similarity)."""
     sys.path.insert(0, str(Path(__file__).parent))
     from vector_index import (  # noqa: PLC0415
-        INDEX_DB_PATH,
         call_ollama_embeddings,
         vector_search,
     )
@@ -368,7 +396,7 @@ def _vector_select_notes(
         sys.stderr.write(f"Warning: vector embedding failed: {exc}\n")
         return []
 
-    hits = vector_search(query_embedding, INDEX_DB_PATH, top_n=top_n)
+    hits = vector_search(query_embedding, vector_index_path(root, domain), top_n=top_n)
     notes: list[tuple[CompiledNote, float]] = []
     for note_id, _, score in hits:
         path = root / note_id
@@ -401,13 +429,15 @@ def _hybrid_select_notes(
     embedding_model: str = "nomic-embed-text",
     bm25_weight: float = _BM25_WEIGHT,
     vector_weight: float = _VECTOR_WEIGHT,
+    domain: str = "",
+    all_domains: bool = False,
 ) -> list[tuple[CompiledNote, float]]:
     """Combine BM25 and vector results with weighted hybrid scoring.
 
     hybrid_score = bm25_weight × norm(bm25) + vector_weight × cosine
     """
-    bm25_results = _bm25_select_notes(question, root, top_n * 2)
-    vector_results = _vector_select_notes(question, root, top_n * 2, embedding_model)
+    bm25_results = _bm25_select_notes(question, root, top_n * 2, domain=domain, all_domains=all_domains)
+    vector_results = _vector_select_notes(question, root, top_n * 2, embedding_model, domain=domain)
 
     bm25_norm = _normalize_scores(bm25_results)
     # Vector scores are already cosine similarity in [0,1]
@@ -463,14 +493,16 @@ def _select_notes(
     root: Path,
     retrieval: str,
     top_n: int,
+    domain: str = "",
+    all_domains: bool = False,
 ) -> list[tuple[CompiledNote, float]]:
     """Dispatch to the correct retrieval function."""
     if retrieval == "vector":
-        return _vector_select_notes(question, root, top_n)
+        return _vector_select_notes(question, root, top_n, domain=domain)
     if retrieval == "hybrid":
-        return _hybrid_select_notes(question, root, top_n)
+        return _hybrid_select_notes(question, root, top_n, domain=domain, all_domains=all_domains)
     # Default: bm25
-    return _bm25_select_notes(question, root, top_n)
+    return _bm25_select_notes(question, root, top_n, domain=domain, all_domains=all_domains)
 
 
 def _print_retrieval_debug(
@@ -499,6 +531,8 @@ def run(
     topic: str = "",
     retrieval: str | None = None,
     show_retrieval: bool = False,
+    domain: str = "",
+    all_domains: bool = False,
 ) -> int:
     # Topic-scoped mode uses query_engine to load context
     if topic:
@@ -509,7 +543,7 @@ def run(
             parse_sources_from_response,
             save_answer as qe_save_answer,
         )
-        context_text, context_paths = load_context(topic, root)
+        context_text, context_paths = load_context(topic, root, domain=domain, all_domains=all_domains)
         if not context_text:
             print(f"Error: no context found for topic '{topic}'.", file=sys.stderr)
             return 1
@@ -547,11 +581,12 @@ def run(
             sources=[p for p in context_paths if Path(p).stem in cited],
             topic_slug=topic,
             outputs_dir=root / "outputs",
+            domain=domain,
         )
         print(f"Answer filed  : {dest.relative_to(root)}")
         return 0
 
-    all_notes = load_compiled_notes(root)
+    all_notes = load_compiled_notes(root, domain=domain, all_domains=all_domains)
     if not all_notes:
         print("Error: no compiled notes found. Run compile_notes.py first.", file=sys.stderr)
         return 1
@@ -561,7 +596,14 @@ def run(
 
     if top_n > 0 or retrieval is not None or effective_retrieval != "bm25":
         # Use new retrieval path (2D-3)
-        scored = _select_notes(question, root, effective_retrieval, resolve_top_n)
+        scored = _select_notes(
+            question,
+            root,
+            effective_retrieval,
+            resolve_top_n,
+            domain=domain,
+            all_domains=all_domains,
+        )
         if show_retrieval:
             _print_retrieval_debug(scored, effective_retrieval)
         notes = [note for note, _ in scored] if scored else all_notes
@@ -570,7 +612,9 @@ def run(
         notes = all_notes
         retrieval_label = f"full context ({len(notes)} notes)"
 
-    index_path = root / "compiled" / "index.md"
+    index_path = compiled_domain_dir(root, domain) / "index.md" if domain else root / "compiled" / "index.md"
+    if all_domains or not index_path.exists():
+        index_path = root / "compiled" / "index.md"
     index_text = ""
     if index_path.exists():
         raw_index = index_path.read_text(encoding="utf-8", errors="replace")
@@ -615,6 +659,7 @@ def run(
             model=model,
             force=force,
             root=root,
+            domain=domain,
         )
     except FileExistsError as exc:
         print(f"Error: {exc}", file=sys.stderr)
@@ -703,6 +748,8 @@ def build_parser() -> argparse.ArgumentParser:
         dest="show_retrieval",
         help="Print retrieved notes and their scores before sending to Ollama.",
     )
+    parser.add_argument("--domain", default=DEFAULT_DOMAIN_SLUG, help=f"Domain slug. Defaults to {DEFAULT_DOMAIN_SLUG}.")
+    parser.add_argument("--all-domains", action="store_true", help="Explicitly query across all domains.")
     return parser
 
 
@@ -723,6 +770,8 @@ def main(argv: list[str] | None = None) -> int:
         topic=args.topic,
         retrieval=args.retrieval,
         show_retrieval=args.show_retrieval,
+        domain=args.domain,
+        all_domains=args.all_domains,
     )
 
 

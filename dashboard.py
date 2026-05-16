@@ -83,6 +83,17 @@ from resynthesize_topic import (  # noqa: E402
 )
 from stage_to_inbox import StageRequest, stage_feed  # noqa: E402
 from purge_source import purge_source  # noqa: E402
+from domains import (  # noqa: E402
+    DEFAULT_DOMAIN_SLUG,
+    create_domain,
+    ensure_domain_dirs,
+    get_domain,
+    load_domains,
+    metadata_file,
+    raw_domain_dir,
+    raw_subdir,
+    slugify_domain,
+)
 
 # ---------------------------------------------------------------------------
 # App
@@ -103,6 +114,36 @@ def _load_registry() -> dict:
         return json.loads(TOPIC_REGISTRY_PATH.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return {"topics": []}
+
+
+def _domain_slug(value: str | None) -> str:
+    return get_domain(value or DEFAULT_DOMAIN_SLUG, ROOT).slug
+
+
+def _topic_registry_path(domain: str) -> Path:
+    path = metadata_file(ROOT, domain, "topic-registry.json")
+    return path if path.exists() else TOPIC_REGISTRY_PATH
+
+
+def _review_queue_path(domain: str) -> Path:
+    path = metadata_file(ROOT, domain, "review-queue.json")
+    return path if path.exists() else ROOT / "metadata" / "review-queue.json"
+
+
+def _load_registry_for_domain(domain: str) -> dict:
+    path = _topic_registry_path(domain)
+    if not path.exists():
+        return {"topics": []}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {"topics": []}
+
+
+def _save_registry_for_domain(domain: str, data: dict) -> None:
+    path = metadata_file(ROOT, domain, "topic-registry.json")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
 
 def _save_registry(data: dict) -> None:
@@ -366,9 +407,12 @@ def _ingest_via_inbox(
     license_: str = "",
     canonical_url: str = "",
     topic_slug: str = "",
+    domain: str = DEFAULT_DOMAIN_SLUG,
 ) -> Path:
+    domain = _domain_slug(domain)
+    ensure_domain_dirs(ROOT, domain)
     slug = slugify(title)
-    destination = ARTICLES_DIR / f"{slug}.md"
+    destination = raw_subdir(ROOT, domain, "articles") / f"{slug}.md"
     if destination.exists():
         raise HTTPException(
             status_code=409,
@@ -379,7 +423,7 @@ def _ingest_via_inbox(
             },
         )
 
-    staged_dir = ROOT / "raw" / "inbox" / "browser"
+    staged_dir = raw_domain_dir(ROOT, domain) / "inbox" / "browser"
     staged_dir.mkdir(parents=True, exist_ok=True)
     staged_path = staged_dir / f"{slug}.md"
     if staged_path.exists():
@@ -394,6 +438,7 @@ def _ingest_via_inbox(
 
     frontmatter: dict[str, object] = {
         "title": title,
+        "domain": domain,
         "source_type": source_type.strip() or "article",
         "origin": origin,
     }
@@ -424,9 +469,9 @@ def _ingest_via_inbox(
     original_queue_report_path = inbox_watcher.REVIEW_QUEUE_REPORT_PATH
     try:
         inbox_watcher.ROOT = ROOT
-        inbox_watcher.REVIEW_QUEUE_PATH = ROOT / "metadata" / "review-queue.json"
-        inbox_watcher.REVIEW_QUEUE_REPORT_PATH = ROOT / "metadata" / "review-queue.md"
-        outcome = inbox_watcher.ingest_file(staged_path, source_type.strip() or "article")
+        inbox_watcher.REVIEW_QUEUE_PATH = metadata_file(ROOT, domain, "review-queue.json")
+        inbox_watcher.REVIEW_QUEUE_REPORT_PATH = metadata_file(ROOT, domain, "review-queue.md")
+        outcome = inbox_watcher.ingest_file(staged_path, source_type.strip() or "article", domain=domain)
     finally:
         inbox_watcher.ROOT = original_root
         inbox_watcher.REVIEW_QUEUE_PATH = original_queue_path
@@ -712,9 +757,39 @@ def serve_index():
 # Topics
 # ---------------------------------------------------------------------------
 
+class NewDomainRequest(BaseModel):
+    display_name: str
+    slug: Optional[str] = None
+    description: str = ""
+
+
+@app.get("/api/domains")
+def get_domains():
+    domains = load_domains(ROOT)
+    default_slug = DEFAULT_DOMAIN_SLUG
+    return {
+        "default_domain": default_slug,
+        "domains": [domain.__dict__ for domain in domains if domain.active],
+    }
+
+
+@app.post("/api/domains", status_code=201)
+def add_domain(body: NewDomainRequest):
+    try:
+        domain = create_domain(
+            body.display_name,
+            slug=body.slug,
+            description=body.description,
+            root=ROOT,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    return {"domain": domain.__dict__}
+
 @app.get("/api/topics")
-def get_topics():
-    registry = _load_registry()
+def get_topics(domain: str = DEFAULT_DOMAIN_SLUG):
+    domain_slug = _domain_slug(domain)
+    registry = _load_registry_for_domain(domain_slug)
     topics = [
         {
             "slug": t.get("slug", ""),
@@ -735,7 +810,7 @@ def get_topic_status(slug: str):
 
 
 @app.get("/api/tags")
-def get_tags():
+def get_tags(domain: str = DEFAULT_DOMAIN_SLUG):
     return {"tags": _used_tags()}
 
 
@@ -806,7 +881,7 @@ def _build_concepts_index(root: Path) -> list[dict]:
 
 
 @app.get("/api/concepts")
-def get_concepts():
+def get_concepts(domain: str = DEFAULT_DOMAIN_SLUG):
     """Return the concept/entity index as JSON. Fast static scan, no LLM calls."""
     items = _build_concepts_index(ROOT)
     return {"concepts": items, "total": len(items)}
@@ -820,8 +895,9 @@ class NewTopicRequest(BaseModel):
 
 
 @app.post("/api/topics", status_code=201)
-def add_topic(body: NewTopicRequest):
-    registry = _load_registry()
+def add_topic(body: NewTopicRequest, domain: str = DEFAULT_DOMAIN_SLUG):
+    domain_slug = _domain_slug(domain)
+    registry = _load_registry_for_domain(domain_slug)
     topics = registry.setdefault("topics", [])
 
     slug = _kebab(body.slug or body.display_name)
@@ -838,7 +914,7 @@ def add_topic(body: NewTopicRequest):
         new_topic["keywords"] = body.keywords
 
     topics.append(new_topic)
-    _save_registry(registry)
+    _save_registry_for_domain(domain_slug, registry)
     return {"topic": {"slug": slug, "display_name": body.display_name.strip()}}
 
 
@@ -850,6 +926,8 @@ class QueryRequest(BaseModel):
     question: str
     topic_slug: Optional[str] = None
     retrieval: Optional[str] = None  # "bm25", "vector", "hybrid", or None (auto)
+    domain: str = DEFAULT_DOMAIN_SLUG
+    all_domains: bool = False
 
 
 def _dashboard_load_context(
@@ -857,6 +935,8 @@ def _dashboard_load_context(
     topic_slug: str | None,
     retrieval: str | None,
     root: Path,
+    domain: str = DEFAULT_DOMAIN_SLUG,
+    all_domains: bool = False,
 ) -> tuple[str, list[str]]:
     """Load query context with optional retrieval mode override.
 
@@ -865,7 +945,7 @@ def _dashboard_load_context(
     topic, uses BM25/vector/hybrid note selection before building context.
     """
     if topic_slug or retrieval is None:
-        return load_context(topic_slug, root)
+        return load_context(topic_slug, root, domain=domain, all_domains=all_domains)
 
     # Retrieval-mode context selection (no topic scope)
     import sys as _sys  # noqa: PLC0415
@@ -880,9 +960,9 @@ def _dashboard_load_context(
     )
 
     effective_mode, _ = _resolve_retrieval_mode(retrieval, root)
-    scored = _select_notes(question, root, effective_mode, _DEFAULT_TOP_N)
+    scored = _select_notes(question, root, effective_mode, _DEFAULT_TOP_N, domain=domain, all_domains=all_domains)
     if not scored:
-        return load_context(None, root)
+        return load_context(None, root, domain=domain, all_domains=all_domains)
 
     MAX_CHARS = 120_000
     blocks: list[str] = []
@@ -909,11 +989,12 @@ def query_wiki(body: QueryRequest):
         raise HTTPException(status_code=400, detail="question is required.")
 
     topic_slug = body.topic_slug.strip() if body.topic_slug else None
+    domain = _domain_slug(body.domain)
     retrieval = body.retrieval.strip() if body.retrieval else None
     if retrieval and retrieval not in ("bm25", "vector", "hybrid"):
         raise HTTPException(status_code=400, detail="retrieval must be 'bm25', 'vector', or 'hybrid'.")
 
-    context, context_paths = _dashboard_load_context(question, topic_slug, retrieval, ROOT)
+    context, context_paths = _dashboard_load_context(question, topic_slug, retrieval, ROOT, domain=domain, all_domains=body.all_domains)
     if not context:
         raise HTTPException(status_code=404, detail="No compiled context found for this query.")
 
@@ -933,24 +1014,25 @@ def query_wiki(body: QueryRequest):
     used_paths = [path for path in context_paths if Path(path).stem in cited]
     if not used_paths:
         used_paths = context_paths
-    saved = save_answer(question, answer, used_paths, topic_slug, ROOT / "outputs")
+    saved = save_answer(question, answer, used_paths, topic_slug, ROOT / "outputs", domain=domain)
     return {
         "answer": answer,
         "sources": [Path(path).stem for path in used_paths],
         "saved_path": str(saved.relative_to(ROOT)),
         "retrieval_mode": retrieval or "default",
+        "domain": "all" if body.all_domains else domain,
     }
 
 
 @app.get("/api/answers/recent")
-def get_recent_answers():
-    return {"answers": recent_answers(ROOT / "outputs", limit=5)}
+def get_recent_answers(domain: str = DEFAULT_DOMAIN_SLUG):
+    return {"answers": recent_answers(ROOT / "outputs", limit=5, domain=_domain_slug(domain))}
 
 
 @app.get("/api/answers/{filename}")
-def get_answer(filename: str):
+def get_answer(filename: str, domain: str = DEFAULT_DOMAIN_SLUG):
     try:
-        return read_answer(ROOT / "outputs", filename)
+        return read_answer(ROOT / "outputs", filename, domain=_domain_slug(domain))
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Answer not found.")
 
@@ -1024,6 +1106,7 @@ def post_resynthesize(body: ResynthesizeRequest):
 class IngestURLRequest(BaseModel):
     url: str
     title: str = ""
+    domain: str = DEFAULT_DOMAIN_SLUG
     topic_slug: str = ""
     notes: str = ""
     source_type: str = "article"
@@ -1078,15 +1161,17 @@ def ingest_url(body: IngestURLRequest):
         license_=body.license or "",
         canonical_url=url,
         topic_slug=body.topic_slug,
+        domain=domain,
     )
 
-    return {"status": "queued", "filename": destination.name}
+    return {"status": "queued", "filename": destination.name, "domain": domain}
 
 
 @app.post("/api/ingest/file")
 def ingest_file(
     file: UploadFile = File(...),
     title: str = Form(default=""),
+    domain: str = Form(default=DEFAULT_DOMAIN_SLUG),
     topic_slug: str = Form(default=""),
     notes: str = Form(default=""),
     source_type: str = Form(default="article"),
@@ -1099,6 +1184,7 @@ def ingest_file(
 ):
     if not title.strip():
         raise HTTPException(status_code=400, detail="title is required.")
+    domain_slug = _domain_slug(domain)
 
     suffix = Path(file.filename or "upload").suffix.lower()
     allowed = {".pdf", ".html", ".htm", ".md"}
@@ -1134,9 +1220,10 @@ def ingest_file(
         language=language,
         license_=license,
         topic_slug=topic_slug,
+        domain=domain_slug,
     )
 
-    return {"status": "queued", "filename": destination.name}
+    return {"status": "queued", "filename": destination.name, "domain": domain_slug}
 
 
 # ---------------------------------------------------------------------------
@@ -1144,8 +1231,13 @@ def ingest_file(
 # ---------------------------------------------------------------------------
 
 @app.get("/api/queue")
-def get_queue():
-    queue = load_queue()
+def get_queue(domain: str = DEFAULT_DOMAIN_SLUG):
+    domain_slug = _domain_slug(domain)
+    queue_path = _review_queue_path(domain_slug)
+    try:
+        queue = json.loads(queue_path.read_text(encoding="utf-8")) if queue_path.exists() else []
+    except (json.JSONDecodeError, OSError):
+        queue = []
     items = _reviewable_unscored_or_low(queue)
     result = []
     for e in items:
@@ -1154,6 +1246,7 @@ def get_queue():
             "id": e.get("source_id", ""),
             "title": e.get("title", ""),
             "topic": e.get("topic_slug", ""),
+            "domain": e.get("domain", domain_slug),
             "confidence": e.get("confidence_score"),
             "confidence_band": e.get("confidence_band", ""),
             "date_synthesized": str(e.get("scored_at", e.get("queued_at", "")))[:10],
@@ -1165,12 +1258,14 @@ def get_queue():
 
 
 @app.post("/api/queue/{source_id}/approve")
-def approve_item(source_id: str):
-    queue = load_queue()
+def approve_item(source_id: str, domain: str = DEFAULT_DOMAIN_SLUG):
+    domain_slug = _domain_slug(domain)
+    queue_path = _review_queue_path(domain_slug)
+    queue = json.loads(queue_path.read_text(encoding="utf-8")) if queue_path.exists() else []
     updated, found = approve(queue, source_id)
     if not found:
         raise HTTPException(status_code=404, detail=f"'{source_id}' not found in queue.")
-    save_queue(updated)
+    queue_path.write_text(json.dumps(updated, indent=2) + "\n", encoding="utf-8")
     item = next((e for e in updated if e.get("source_id") == source_id), {})
     path = _find_compiled_note(item, ROOT)
     if path:
@@ -1179,12 +1274,14 @@ def approve_item(source_id: str):
 
 
 @app.post("/api/queue/{source_id}/reject")
-def reject_item(source_id: str, reason: str = ""):
-    queue = load_queue()
+def reject_item(source_id: str, reason: str = "", domain: str = DEFAULT_DOMAIN_SLUG):
+    domain_slug = _domain_slug(domain)
+    queue_path = _review_queue_path(domain_slug)
+    queue = json.loads(queue_path.read_text(encoding="utf-8")) if queue_path.exists() else []
     updated, found = reject(queue, source_id, reason=reason)
     if not found:
         raise HTTPException(status_code=404, detail=f"'{source_id}' not found in queue.")
-    save_queue(updated)
+    queue_path.write_text(json.dumps(updated, indent=2) + "\n", encoding="utf-8")
     item = next((e for e in updated if e.get("source_id") == source_id), {})
     path = _find_compiled_note(item, ROOT)
     if path:
@@ -1193,8 +1290,10 @@ def reject_item(source_id: str, reason: str = ""):
 
 
 @app.get("/api/queue/{source_id}/preview")
-def preview_item(source_id: str):
-    queue = load_queue()
+def preview_item(source_id: str, domain: str = DEFAULT_DOMAIN_SLUG):
+    domain_slug = _domain_slug(domain)
+    queue_path = _review_queue_path(domain_slug)
+    queue = json.loads(queue_path.read_text(encoding="utf-8")) if queue_path.exists() else []
     item = next((e for e in queue if e.get("source_id") == source_id), None)
     if item is None:
         raise HTTPException(status_code=404, detail=f"'{source_id}' not found in queue.")
@@ -1551,3 +1650,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print(f"KB Dashboard → http://{args.host}:{args.port}")
     uvicorn.run("dashboard:app", host=args.host, port=args.port, reload=False)
+    domain = _domain_slug(body.domain)

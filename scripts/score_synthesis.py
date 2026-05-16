@@ -35,6 +35,7 @@ DEFAULT_AUTO_APPROVE_THRESHOLD = 0.85
 sys.path.insert(0, str(Path(__file__).parent))
 from git_ops import commit_pipeline_stage  # noqa: E402, PLC0415
 from llm_driver import _check_model_available, call_ollama  # noqa: E402, PLC0415
+from domains import compiled_subdir  # noqa: E402, PLC0415
 
 
 # ---------------------------------------------------------------------------
@@ -268,8 +269,12 @@ def _find_compiled_note(item: dict[str, object], root: Path) -> Path | None:
     if not note_path_str:
         return None
     slug = Path(note_path_str).stem
-    candidate = root / "compiled" / "source_summaries" / f"{slug}-synthesis.md"
-    return candidate if candidate.exists() else None
+    domain = str(item.get("domain", "")).strip()
+    candidates = []
+    if domain:
+        candidates.append(compiled_subdir(root, domain, "source_summaries") / f"{slug}-synthesis.md")
+    candidates.append(root / "compiled" / "source_summaries" / f"{slug}-synthesis.md")
+    return next((candidate for candidate in candidates if candidate.exists()), None)
 
 
 def _set_frontmatter_field(text: str, key: str, value_str: str) -> str:

@@ -653,6 +653,30 @@
     <div class="form-card">
       <h2>Add to Knowledge Base</h2>
 
+      <div class="field">
+        <label>Domain</label>
+        <select id="domain-select" onchange="onDomainSelectChange()">
+          <option value="">Loading…</option>
+        </select>
+      </div>
+
+      <div id="new-domain-form" style="display:none;background:#0f1117;border:1px solid #2d3148;border-radius:8px;padding:16px;margin-top:-8px;margin-bottom:18px;">
+        <div class="field">
+          <label>Domain Name</label>
+          <input type="text" id="new-domain-name" placeholder="Civil War History" oninput="updateDomainSlugPreview()" />
+          <div class="slug-preview" id="domain-slug-preview">slug: —</div>
+        </div>
+        <div class="field">
+          <label>Description <span style="font-weight:400;text-transform:none">(optional)</span></label>
+          <input type="text" id="new-domain-description" placeholder="19th century United States history" />
+        </div>
+        <div class="sub-actions">
+          <button class="btn btn-sm btn-primary" onclick="createDomain()">Create Domain</button>
+          <button class="link-btn" onclick="cancelNewDomain()">Cancel</button>
+          <span id="new-domain-msg" style="font-size:12px;color:#ef4444;"></span>
+        </div>
+      </div>
+
       <!-- Source toggle -->
       <div class="field">
         <label>Source</label>
@@ -808,6 +832,17 @@
       </div>
 
       <div class="field">
+        <label>Domain</label>
+        <select id="query-domain-select" onchange="onQueryDomainChange()">
+          <option value="">Loading…</option>
+        </select>
+        <label class="autorefresh-label" style="margin-top:8px;">
+          <input type="checkbox" id="query-all-domains">
+          Search all domains explicitly
+        </label>
+      </div>
+
+      <div class="field">
         <label>Topic</label>
         <select id="query-topic-select">
           <option value="">All topics</option>
@@ -940,6 +975,7 @@ function showTab(name) {
 // ---------------------------------------------------------------------------
 function toggleSourceType() {
   const type = document.querySelector('input[name="source-type"]:checked').value;
+  const domain = document.getElementById('domain-select').value;
   document.getElementById('url-field').style.display = type === 'url' ? 'block' : 'none';
   document.getElementById('file-field').style.display = type === 'file' ? 'block' : 'none';
   // Clear title so auto-population logic for the new source type can run cleanly
@@ -1020,13 +1056,108 @@ function _initTitleListeners() {
 // ---------------------------------------------------------------------------
 // Topics
 // ---------------------------------------------------------------------------
+let _currentDomain = localStorage.getItem('kb.currentDomain') || 'ai';
+
+function _slugifyDomain(name) {
+  return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'inbox';
+}
+
+async function loadDomains() {
+  const res = await fetch('/api/domains');
+  const data = await res.json();
+  const ingestSel = document.getElementById('domain-select');
+  const querySel = document.getElementById('query-domain-select');
+  ingestSel.innerHTML = '';
+  querySel.innerHTML = '';
+  for (const d of data.domains || []) {
+    const opt = document.createElement('option');
+    opt.value = d.slug;
+    opt.textContent = d.display_name;
+    ingestSel.appendChild(opt);
+    const qOpt = document.createElement('option');
+    qOpt.value = d.slug;
+    qOpt.textContent = d.display_name;
+    querySel.appendChild(qOpt);
+  }
+  const addOpt = document.createElement('option');
+  addOpt.value = '__new_domain__';
+  addOpt.textContent = '+ Add new domain…';
+  ingestSel.appendChild(addOpt);
+  if (![...ingestSel.options].some(o => o.value === _currentDomain)) {
+    _currentDomain = data.default_domain || 'ai';
+  }
+  ingestSel.value = _currentDomain;
+  querySel.value = _currentDomain;
+}
+
+function onDomainSelectChange() {
+  const sel = document.getElementById('domain-select');
+  const form = document.getElementById('new-domain-form');
+  if (sel.value === '__new_domain__') {
+    form.style.display = 'block';
+    document.getElementById('new-domain-name').focus();
+    return;
+  }
+  form.style.display = 'none';
+  _currentDomain = sel.value || 'ai';
+  localStorage.setItem('kb.currentDomain', _currentDomain);
+  const q = document.getElementById('query-domain-select');
+  if (q) q.value = _currentDomain;
+  loadTopics();
+  loadTags();
+}
+
+function onQueryDomainChange() {
+  _currentDomain = document.getElementById('query-domain-select').value || 'ai';
+  localStorage.setItem('kb.currentDomain', _currentDomain);
+  const ingest = document.getElementById('domain-select');
+  if (ingest && [...ingest.options].some(o => o.value === _currentDomain)) ingest.value = _currentDomain;
+  loadTopics();
+  loadRecentAnswers();
+}
+
+function updateDomainSlugPreview() {
+  const name = document.getElementById('new-domain-name').value;
+  document.getElementById('domain-slug-preview').textContent = 'slug: ' + (_slugifyDomain(name) || '—');
+}
+
+async function createDomain() {
+  const name = document.getElementById('new-domain-name').value.trim();
+  const description = document.getElementById('new-domain-description').value.trim();
+  const msg = document.getElementById('new-domain-msg');
+  if (!name) { msg.textContent = 'Domain name is required.'; return; }
+  const res = await fetch('/api/domains', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ display_name: name, description }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    msg.textContent = err.detail || 'Error creating domain.';
+    return;
+  }
+  const data = await res.json();
+  _currentDomain = data.domain.slug;
+  localStorage.setItem('kb.currentDomain', _currentDomain);
+  document.getElementById('new-domain-form').style.display = 'none';
+  document.getElementById('new-domain-name').value = '';
+  document.getElementById('new-domain-description').value = '';
+  await loadDomains();
+  await loadTopics();
+}
+
+function cancelNewDomain() {
+  document.getElementById('new-domain-form').style.display = 'none';
+  document.getElementById('domain-select').value = _currentDomain;
+}
+
 async function loadTopics() {
-  const res = await fetch('/api/topics');
+  const res = await fetch('/api/topics?domain=' + encodeURIComponent(_currentDomain));
   const data = await res.json();
   const sel = document.getElementById('topic-select');
   sel.innerHTML = '<option value="">— Select a topic —</option>';
   const querySel = document.getElementById('query-topic-select');
-  querySel.innerHTML = '<option value="">All topics</option>';
+  querySel.innerHTML = '<option value="">All topics in this domain</option>';
   for (const t of data.topics) {
     const opt = document.createElement('option');
     opt.value = t.slug;
@@ -1074,7 +1205,7 @@ async function createTopic() {
     keywords: kw ? kw.split(',').map(s => s.trim()).filter(Boolean) : [],
   };
 
-  const res = await fetch('/api/topics', {
+  const res = await fetch('/api/topics?domain=' + encodeURIComponent(_currentDomain), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -1105,10 +1236,12 @@ async function createTopic() {
   querySel.appendChild(qOpt);
 
   const manageSel = document.getElementById('manage-topic-select');
-  const mOpt = document.createElement('option');
-  mOpt.value = slug;
-  mOpt.textContent = data.topic.display_name;
-  manageSel.appendChild(mOpt);
+  if (manageSel) {
+    const mOpt = document.createElement('option');
+    mOpt.value = slug;
+    mOpt.textContent = data.topic.display_name;
+    manageSel.appendChild(mOpt);
+  }
 
   document.getElementById('new-topic-form').classList.remove('visible');
   document.getElementById('new-topic-name').value = '';
@@ -1144,7 +1277,7 @@ async function loadTags() {
   const pane = document.getElementById('tag-picks');
   pane.innerHTML = '';
   try {
-    const res = await fetch('/api/tags');
+    const res = await fetch('/api/tags?domain=' + encodeURIComponent(_currentDomain));
     const data = await res.json();
     for (const tag of data.tags || []) {
       const btn = document.createElement('button');
@@ -1210,6 +1343,8 @@ function _renderAnswer(data) {
 async function submitQuery() {
   const question = document.getElementById('query-question').value.trim();
   const topic = document.getElementById('query-topic-select').value || null;
+  const domain = document.getElementById('query-domain-select').value || _currentDomain;
+  const allDomains = document.getElementById('query-all-domains').checked;
   const btn = document.getElementById('query-submit');
   if (!question) {
     _setQueryMsg('Question is required.', 'error');
@@ -1224,7 +1359,7 @@ async function submitQuery() {
     const res = await fetch('/api/query', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: question, topic_slug: topic, retrieval: _retrievalMode }),
+      body: JSON.stringify({ question: question, topic_slug: topic, retrieval: _retrievalMode, domain, all_domains: allDomains }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -1246,7 +1381,7 @@ async function loadRecentAnswers() {
   const container = document.getElementById('recent-answers');
   if (!container) return;
   container.innerHTML = '<div class="queue-empty">Loading…</div>';
-  const res = await fetch('/api/answers/recent');
+  const res = await fetch('/api/answers/recent?domain=' + encodeURIComponent(_currentDomain));
   const data = await res.json();
   const answers = data.answers || [];
   if (!answers.length) {
@@ -1299,7 +1434,7 @@ async function submitFeedback(answerId, rating, rowEl) {
 }
 
 async function loadAnswer(filename) {
-  const res = await fetch('/api/answers/' + encodeURIComponent(filename));
+  const res = await fetch('/api/answers/' + encodeURIComponent(filename) + '?domain=' + encodeURIComponent(_currentDomain));
   if (!res.ok) return;
   const data = await res.json();
   _lastQuestion = data.question || '';
@@ -1355,6 +1490,12 @@ async function submitIngest() {
     return;
   }
 
+  if (domain === '__new_domain__' || !domain) {
+    msgEl.className = 'msg msg-error';
+    msgEl.textContent = 'Please select a domain.';
+    return;
+  }
+
   if (topicSlug === '__new__' || !topicSlug) {
     msgEl.className = 'msg msg-error';
     msgEl.textContent = 'Please select a topic.';
@@ -1372,6 +1513,7 @@ async function submitIngest() {
       const payload = {
         url,
         title,
+        domain,
         topic_slug: topicSlug,
         notes,
         source_type: meta.sourceType,
@@ -1392,6 +1534,7 @@ async function submitIngest() {
       const fd = new FormData();
       fd.append('file', fileInput.files[0]);
       fd.append('title', title);
+      fd.append('domain', domain);
       fd.append('topic_slug', topicSlug);
       fd.append('notes', notes);
       fd.append('source_type', meta.sourceType);
@@ -1416,11 +1559,13 @@ async function submitIngest() {
 
     msgEl.className = 'msg msg-success';
     msgEl.textContent = 'Queued. The pipeline will synthesize this shortly.';
+    _currentDomain = domain;
+    localStorage.setItem('kb.currentDomain', domain);
     document.getElementById('url-input').value = '';
     document.getElementById('file-input').value = '';
     document.getElementById('title-input').value = '';
     document.getElementById('notes-input').value = '';
-    document.getElementById('topic-select').value = '';
+    document.getElementById('topic-select').value = topicSlug;
     document.getElementById('meta-author').value = '';
     document.getElementById('meta-canonical-url').value = '';
     document.getElementById('meta-date-published').value = '';
@@ -1444,7 +1589,7 @@ async function submitIngest() {
 async function loadQueue() {
   const container = document.getElementById('queue-container');
   container.innerHTML = '<div class="queue-empty">Loading…</div>';
-  const res = await fetch('/api/queue');
+  const res = await fetch('/api/queue?domain=' + encodeURIComponent(_currentDomain));
   const data = await res.json();
   renderQueue(data.items);
 }
@@ -1519,7 +1664,7 @@ async function togglePreview(id) {
   }
   pane.textContent = 'Loading…';
   pane.classList.add('visible');
-  const res = await fetch('/api/queue/' + id + '/preview');
+  const res = await fetch('/api/queue/' + id + '/preview?domain=' + encodeURIComponent(_currentDomain));
   if (res.ok) {
     pane.textContent = await res.text();
   } else {
@@ -1528,7 +1673,7 @@ async function togglePreview(id) {
 }
 
 async function approveItem(id) {
-  const res = await fetch('/api/queue/' + id + '/approve', { method: 'POST' });
+  const res = await fetch('/api/queue/' + id + '/approve?domain=' + encodeURIComponent(_currentDomain), { method: 'POST' });
   if (res.ok) {
     removeCard(id);
   } else {
@@ -1545,7 +1690,7 @@ function hideRejectConfirm(id) {
 }
 
 async function rejectItem(id) {
-  const res = await fetch('/api/queue/' + id + '/reject', { method: 'POST' });
+  const res = await fetch('/api/queue/' + id + '/reject?domain=' + encodeURIComponent(_currentDomain), { method: 'POST' });
   if (res.ok) {
     removeCard(id);
   } else {
@@ -1650,7 +1795,7 @@ async function loadTopicsTab() {
   if (!container) return;
   container.innerHTML = '<div class="queue-empty">Loading…</div>';
   try {
-    const res = await fetch('/api/topics');
+    const res = await fetch('/api/topics?domain=' + encodeURIComponent(_currentDomain));
     const data = await res.json();
     _topicsData = data.topics || [];
     renderTopicsTab();
@@ -2094,9 +2239,11 @@ function togglePipelineAutoRefresh() {
 }
 
 // ---------------------------------------------------------------------------
-loadTopics();
-loadTags();
-loadQueue().then(() => {});
+loadDomains().then(() => {
+  loadTopics();
+  loadTags();
+  loadQueue().then(() => {});
+});
 _initTitleListeners();
 </script>
 </body>

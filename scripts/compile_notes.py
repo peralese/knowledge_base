@@ -12,6 +12,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 TOPIC_REGISTRY_PATH = ROOT / "metadata" / "topic-registry.json"
 
+sys.path.insert(0, str(Path(__file__).parent))
+from domains import DEFAULT_DOMAIN_SLUG, compiled_subdir, ensure_domain_dirs, metadata_domain_dir  # noqa: E402
+
 CATEGORY_DESTINATIONS = {
     "source_summary": Path("compiled/source_summaries"),
     "concept": Path("compiled/concepts"),
@@ -46,6 +49,7 @@ class CompileRequest:
     title: str
     category: str = "topic"
     mode: str = "scaffold"
+    domain: str = ""
     force: bool = False
     root: Path = ROOT
 
@@ -271,9 +275,10 @@ def build_compiled_frontmatter(
     tags: list[str],
     generation_method: str,
     today: str,
+    domain: str = "",
 ) -> str:
     """Build YAML frontmatter for a compiled note."""
-    return (
+    text = (
         "---\n"
         f'title: "{escape_yaml_string(title)}"\n'
         f'note_type: "{escape_yaml_string(category)}"\n'
@@ -285,6 +290,14 @@ def build_compiled_frontmatter(
         f'generation_method: "{escape_yaml_string(generation_method)}"\n'
         "---"
     )
+    if domain:
+        text = text.replace(
+            f'title: "{escape_yaml_string(title)}"\n',
+            f'title: "{escape_yaml_string(title)}"\n'
+            f'domain: "{escape_yaml_string(domain)}"\n',
+            1,
+        )
+    return text
 
 
 def build_scaffold_body(sources: list[SourceNote]) -> str:
@@ -363,6 +376,7 @@ def build_prompt_pack(
     canonical: CanonicalTopicResolution,
     category: str,
     sources: list[SourceNote],
+    domain: str = "",
 ) -> str:
     """Create a markdown prompt-pack for later manual or local LLM use."""
     source_names = [source.stem for source in sources]
@@ -427,7 +441,13 @@ def build_prompt_pack(
     return "\n".join(sections).rstrip() + "\n"
 
 
-def build_scaffold_note(title: str, category: str, sources: list[SourceNote], today: str) -> str:
+def build_scaffold_note(
+    title: str,
+    category: str,
+    sources: list[SourceNote],
+    today: str,
+    domain: str = "",
+) -> str:
     """Assemble a compiled scaffold note."""
     compiled_from = [source.stem for source in sources]
     topics = dedupe_preserve_order([topic for source in sources for topic in source.topics])
@@ -440,6 +460,7 @@ def build_scaffold_note(title: str, category: str, sources: list[SourceNote], to
         tags=tags,
         generation_method="manual_scaffold",
         today=today,
+        domain=domain,
     )
     body = build_scaffold_body(sources)
     return f"{frontmatter}\n\n{body}\n"
@@ -450,9 +471,18 @@ def resolve_output_paths(request: CompileRequest, canonical: CanonicalTopicResol
     outputs: dict[str, Path] = {}
 
     if request.mode in {"scaffold", "both"}:
-        outputs["scaffold"] = request.root / destination_dir_for_category(request.category) / f"{canonical.slug}.md"
+        category_dir = destination_dir_for_category(request.category).parts[-1]
+        outputs["scaffold"] = (
+            compiled_subdir(request.root, request.domain, category_dir)
+            if request.domain
+            else request.root / destination_dir_for_category(request.category)
+        ) / f"{canonical.slug}.md"
     if request.mode in {"prompt-pack", "both"}:
-        outputs["prompt-pack"] = request.root / "metadata" / "prompts" / f"compile-{canonical.slug}.md"
+        outputs["prompt-pack"] = (
+            metadata_domain_dir(request.root, request.domain) / "prompts"
+            if request.domain
+            else request.root / "metadata" / "prompts"
+        ) / f"compile-{canonical.slug}.md"
 
     return outputs
 
@@ -473,6 +503,8 @@ def compile_notes(request: CompileRequest) -> dict[str, Path]:
         raise ValueError("--title is required.")
     if not request.sources:
         raise ValueError("Provide at least one source note via --sources.")
+    if request.domain:
+        ensure_domain_dirs(request.root, request.domain)
 
     category = request.category.strip().lower() or "topic"
     if category not in CATEGORY_DESTINATIONS:
@@ -494,6 +526,7 @@ def compile_notes(request: CompileRequest) -> dict[str, Path]:
             category=category,
             mode=mode,
             force=request.force,
+            domain=request.domain,
             root=request.root,
         ),
         canonical,
@@ -506,13 +539,16 @@ def compile_notes(request: CompileRequest) -> dict[str, Path]:
     if "scaffold" in output_paths:
         scaffold_path = output_paths["scaffold"]
         scaffold_path.parent.mkdir(parents=True, exist_ok=True)
-        scaffold_path.write_text(build_scaffold_note(canonical.title, category, sources, today), encoding="utf-8")
+        scaffold_path.write_text(
+            build_scaffold_note(canonical.title, category, sources, today, request.domain),
+            encoding="utf-8",
+        )
         created["scaffold"] = scaffold_path
 
     if "prompt-pack" in output_paths:
         prompt_path = output_paths["prompt-pack"]
         prompt_path.parent.mkdir(parents=True, exist_ok=True)
-        prompt_path.write_text(build_prompt_pack(canonical, category, sources), encoding="utf-8")
+        prompt_path.write_text(build_prompt_pack(canonical, category, sources, request.domain), encoding="utf-8")
         created["prompt-pack"] = prompt_path
 
     return created
@@ -543,6 +579,11 @@ def build_parser() -> argparse.ArgumentParser:
     category_group.add_argument("--topic", dest="category", action="store_const", const="topic")
     parser.set_defaults(category="topic")
     parser.add_argument("--force", action="store_true", help="Overwrite output files if they already exist.")
+    parser.add_argument(
+        "--domain",
+        default=DEFAULT_DOMAIN_SLUG,
+        help=f"Domain slug for compiled outputs. Defaults to {DEFAULT_DOMAIN_SLUG}.",
+    )
     return parser
 
 
@@ -559,6 +600,7 @@ def main(argv: list[str] | None = None) -> int:
                 category=args.category,
                 mode=args.mode,
                 force=args.force,
+                domain=args.domain,
             )
         )
     except (FileExistsError, FileNotFoundError, ValueError, json.JSONDecodeError) as exc:

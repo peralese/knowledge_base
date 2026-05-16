@@ -12,6 +12,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 INBOX_ROOT = ROOT / "raw" / "inbox"
+
+sys.path.insert(0, str(Path(__file__).parent))
+from domains import DEFAULT_DOMAIN_SLUG, ensure_domain_dirs, get_domain, inbox_subdir  # noqa: E402
+
 ADAPTER_DIRS = {
     "browser": INBOX_ROOT / "browser",
     "clipboard": INBOX_ROOT / "clipboard",
@@ -27,6 +31,7 @@ class StageRequest:
     text: str = ""
     canonical_url: str = ""
     input_file: Path | None = None
+    domain: str = ""
     root: Path = ROOT
 
 
@@ -38,14 +43,21 @@ def slugify_title(title: str) -> str:
     return slug.strip("-") or "staged-input"
 
 
-def ensure_adapter_dir(adapter: str, root: Path) -> Path:
-    directory = root / "raw" / "inbox" / adapter
+def ensure_adapter_dir(adapter: str, root: Path, domain: str = "") -> Path:
+    if domain:
+        get_domain(domain, root)
+        ensure_domain_dirs(root, domain)
+        directory = inbox_subdir(root, domain, adapter)
+    else:
+        directory = root / "raw" / "inbox" / adapter
     directory.mkdir(parents=True, exist_ok=True)
     return directory
 
 
-def _frontmatter(title: str, canonical_url: str) -> str:
+def _frontmatter(title: str, canonical_url: str, domain: str = "") -> str:
     lines = ["---", f'title: "{title.replace(chr(34), chr(39))}"']
+    if domain:
+        lines.append(f'domain: "{domain.replace(chr(34), chr(39))}"')
     if canonical_url.strip():
         lines.append(f'canonical_url: "{canonical_url.replace(chr(34), chr(39))}"')
     lines.append("---")
@@ -57,10 +69,11 @@ def stage_clipboard(request: StageRequest) -> Path:
         raise ValueError("Clipboard staging requires --text or stdin content.")
     title = request.title.strip() or "Clipboard Capture"
     body = request.text.strip()
-    directory = ensure_adapter_dir("clipboard", request.root)
+    domain = get_domain(request.domain, request.root).slug if request.domain else ""
+    directory = ensure_adapter_dir("clipboard", request.root, domain)
     destination = directory / f"{slugify_title(title)}.md"
     destination.write_text(
-        f"{_frontmatter(title, request.canonical_url)}\n\n{body}\n",
+        f"{_frontmatter(title, request.canonical_url, domain)}\n\n{body}\n",
         encoding="utf-8",
     )
     return destination
@@ -71,14 +84,15 @@ def stage_browser(request: StageRequest) -> Path:
         raise ValueError("Browser staging requires --input-file.")
     if not request.input_file.exists():
         raise FileNotFoundError(f"Input file not found: {request.input_file}")
-    directory = ensure_adapter_dir("browser", request.root)
+    domain = get_domain(request.domain, request.root).slug if request.domain else ""
+    directory = ensure_adapter_dir("browser", request.root, domain)
 
     if request.input_file.suffix.lower() in {".md", ".txt", ".html"} and request.title.strip():
         text = request.input_file.read_text(encoding="utf-8", errors="replace")
         extension = ".md" if request.input_file.suffix.lower() == ".md" else request.input_file.suffix.lower()
         destination = directory / f"{slugify_title(request.title)}{extension or '.md'}"
         destination.write_text(
-            f"{_frontmatter(request.title.strip(), request.canonical_url)}\n\n{text.strip()}\n",
+            f"{_frontmatter(request.title.strip(), request.canonical_url, domain)}\n\n{text.strip()}\n",
             encoding="utf-8",
         )
         return destination
@@ -89,7 +103,8 @@ def stage_browser(request: StageRequest) -> Path:
 
 
 def stage_feed(request: StageRequest) -> Path:
-    directory = ensure_adapter_dir("feeds", request.root)
+    domain = get_domain(request.domain, request.root).slug if request.domain else ""
+    directory = ensure_adapter_dir("feeds", request.root, domain)
     payload: dict[str, object]
 
     if request.input_file is not None:
@@ -114,6 +129,7 @@ def stage_feed(request: StageRequest) -> Path:
         json.dumps(
             {
                 "title": title,
+                "domain": domain,
                 "canonical_url": canonical_url,
                 "content": content,
             },
@@ -130,7 +146,8 @@ def stage_pdf(request: StageRequest) -> Path:
         raise ValueError("PDF staging requires --input-file.")
     if not request.input_file.exists():
         raise FileNotFoundError(f"Input file not found: {request.input_file}")
-    directory = ensure_adapter_dir("pdf-drop", request.root)
+    domain = get_domain(request.domain, request.root).slug if request.domain else ""
+    directory = ensure_adapter_dir("pdf-drop", request.root, domain)
     destination = directory / request.input_file.name
     shutil.copy2(request.input_file, destination)
     return destination
@@ -162,6 +179,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--text", default="", help="Direct text or JSON payload to stage.")
     parser.add_argument("--canonical-url", default="", help="Optional canonical URL metadata.")
     parser.add_argument("--input-file", type=Path, help="Optional input file to stage.")
+    parser.add_argument(
+        "--domain",
+        default=DEFAULT_DOMAIN_SLUG,
+        help=f"Domain slug to stage into. Defaults to {DEFAULT_DOMAIN_SLUG}.",
+    )
     return parser
 
 
@@ -180,6 +202,7 @@ def main(argv: list[str] | None = None) -> int:
             text=staged_text,
             canonical_url=args.canonical_url,
             input_file=args.input_file,
+            domain=args.domain,
             root=ROOT,
         )
     )

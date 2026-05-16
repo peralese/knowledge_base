@@ -18,6 +18,16 @@ ARCHIVE_DIR = Path("raw/archive")
 DEFAULT_STATUS = "raw"
 DEFAULT_LANGUAGE = "en"
 
+sys.path.insert(0, str(Path(__file__).parent))
+from domains import (  # noqa: E402
+    DEFAULT_DOMAIN_SLUG,
+    ensure_domain_dirs,
+    get_domain,
+    metadata_file,
+    raw_domain_dir,
+    raw_subdir,
+)
+
 DESTINATION_FOLDERS = {
     "article": Path("raw/articles"),
     "blog": Path("raw/articles"),
@@ -49,6 +59,7 @@ class IngestRequest:
     language: str = ""
     status: str = DEFAULT_STATUS
     confidence: str = ""
+    domain: str = ""
     force: bool = False
     root: Path = ROOT
 
@@ -64,6 +75,14 @@ def slugify_title(title: str) -> str:
 def destination_dir_for_source_type(source_type: str) -> Path:
     """Map a source type to the correct raw/ destination."""
     return DESTINATION_FOLDERS.get(source_type.strip().lower(), Path("raw/inbox"))
+
+
+def destination_dir_for_request(request: IngestRequest) -> Path:
+    relative = destination_dir_for_source_type(request.source_type)
+    if request.domain:
+        name = relative.parts[-1] if relative.parts else "inbox"
+        return raw_subdir(request.root, request.domain, name)
+    return request.root / relative
 
 
 class _TextExtractor(HTMLParser):
@@ -248,6 +267,8 @@ def build_frontmatter(
         f'status: "{escape_yaml_string(request.status)}"',
         f"topics: {format_yaml_list(request.topics)}",
     ]
+    if request.domain:
+        lines.insert(5, f'domain: "{escape_yaml_string(request.domain)}"')
     if request.tags:
         lines.append(f"tags: {format_yaml_list(request.tags)}")
 
@@ -314,6 +335,7 @@ def build_manifest_entry(
         "source_type": request.source_type,
         "origin": request.origin,
         "date_ingested": date_ingested,
+        "domain": request.domain,
         "canonical_url": request.canonical_url,
         "input_path": request.input_path,
         "status": request.status,
@@ -325,11 +347,16 @@ def build_manifest_entry(
 
 def is_inbox_input(input_path: Path, root: Path) -> bool:
     """Return True when the input file came from raw/inbox/ inside the repository."""
-    try:
-        relative_path = input_path.resolve().relative_to((root / "raw" / "inbox").resolve())
-    except ValueError:
-        return False
-    return not str(relative_path).startswith("..")
+    inbox_roots = [root / "raw" / "inbox", root / "raw" / "domains"]
+    for inbox_root in inbox_roots:
+        try:
+            relative_path = input_path.resolve().relative_to(inbox_root.resolve())
+        except ValueError:
+            continue
+        if inbox_root.name == "inbox":
+            return True
+        return "inbox" in relative_path.parts
+    return False
 
 
 def build_archive_filename(input_path: Path, archived_at: datetime | None = None) -> str:
@@ -339,9 +366,14 @@ def build_archive_filename(input_path: Path, archived_at: datetime | None = None
     return f"{input_path.stem}--archived-{timestamp}{input_path.suffix}"
 
 
-def archive_input_file(input_path: Path, root: Path, archived_at: datetime | None = None) -> Path:
+def archive_input_file(
+    input_path: Path,
+    root: Path,
+    archived_at: datetime | None = None,
+    domain: str = "",
+) -> Path:
     """Move an inbox file into raw/archive/ with a timestamped, collision-safe filename."""
-    archive_dir = root / ARCHIVE_DIR
+    archive_dir = raw_domain_dir(root, domain) / "archive" if domain else root / ARCHIVE_DIR
     archive_dir.mkdir(parents=True, exist_ok=True)
 
     archived_at = archived_at or datetime.now()
@@ -381,6 +413,10 @@ def ingest_source(request: IngestRequest) -> Path:
     title = request.title.strip()
     if not title:
         raise ValueError("--title is required.")
+    if request.domain:
+        domain = get_domain(request.domain, request.root)
+        request.domain = domain.slug
+        ensure_domain_dirs(request.root, domain.slug)
 
     input_file = Path(request.input_path) if request.input_path else None
     content, detected_input_path = read_input_content(
@@ -391,7 +427,7 @@ def ingest_source(request: IngestRequest) -> Path:
         request.input_path = detected_input_path
         input_file = Path(detected_input_path)
 
-    destination_dir = request.root / destination_dir_for_source_type(request.source_type)
+    destination_dir = destination_dir_for_request(request)
     destination_dir.mkdir(parents=True, exist_ok=True)
 
     slug = slugify_title(title)
@@ -403,7 +439,11 @@ def ingest_source(request: IngestRequest) -> Path:
             output_path = destination_dir / f"{slug}-{counter}.md"
             counter += 1
 
-    manifest_path = request.root / "metadata" / "source-manifest.json"
+    manifest_path = (
+        metadata_file(request.root, request.domain, "source-manifest.json")
+        if request.domain
+        else request.root / "metadata" / "source-manifest.json"
+    )
     manifest = load_manifest(manifest_path)
     existing_entry = next(
         (entry for entry in manifest.get("sources", []) if entry.get("path") == str(output_path.relative_to(request.root))),
@@ -412,14 +452,18 @@ def ingest_source(request: IngestRequest) -> Path:
 
     source_id = existing_entry.get("source_id") if existing_entry else generate_source_id(manifest)
     today = date.today().isoformat()
-    manifest_entry_path = f"metadata/source-manifest.json::{source_id}"
+    manifest_entry_path = (
+        f"metadata/domains/{request.domain}/source-manifest.json::{source_id}"
+        if request.domain
+        else f"metadata/source-manifest.json::{source_id}"
+    )
     note_text = build_note_text(request, source_id, content, today, manifest_entry_path)
 
     output_path.write_text(note_text + "\n", encoding="utf-8")
 
     archive_path: Path | None = None
     if input_file and is_inbox_input(input_file, request.root):
-        archive_path = archive_input_file(input_file, request.root)
+        archive_path = archive_input_file(input_file, request.root, domain=request.domain)
 
     entry = build_manifest_entry(request, source_id, output_path, today, archive_path=archive_path)
     manifest, _ = upsert_manifest_entry(manifest, entry)
@@ -449,6 +493,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--language", default=DEFAULT_LANGUAGE, help="Language code. Defaults to en.")
     parser.add_argument("--status", default=DEFAULT_STATUS, help="Status value. Defaults to raw.")
     parser.add_argument("--confidence", default="", help="Optional confidence value.")
+    parser.add_argument(
+        "--domain",
+        default=DEFAULT_DOMAIN_SLUG,
+        help=f"Domain slug to ingest into. Defaults to {DEFAULT_DOMAIN_SLUG}.",
+    )
     parser.add_argument("--force", action="store_true", help="Overwrite the destination file if it already exists.")
     return parser
 
@@ -474,6 +523,7 @@ def main(argv: list[str] | None = None) -> int:
             language=args.language,
             status=args.status,
             confidence=args.confidence,
+            domain=args.domain,
             force=args.force,
         )
         output_path = ingest_source(request)
@@ -482,7 +532,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     print(f"Created note: {output_path.relative_to(ROOT)}")
-    print(f"Updated manifest: {MANIFEST_PATH.relative_to(ROOT)}")
+    print(f"Updated manifest: {metadata_file(ROOT, args.domain, 'source-manifest.json').relative_to(ROOT)}")
     return 0
 
 
