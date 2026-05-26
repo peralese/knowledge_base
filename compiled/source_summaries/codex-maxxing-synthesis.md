@@ -10,7 +10,7 @@ tags:
   - "source_summary"
   - "codex-maxxing"
 confidence: "medium"
-confidence_score: null
+confidence_score: 0.45
 generation_method: "ollama_local"
 approved: false
 ---
