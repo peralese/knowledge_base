@@ -1,13 +1,13 @@
 ---
 title: "Wiki Index"
 note_type: "index"
-generated_on: "2026-05-31"
+generated_on: "2026-06-01"
 note_count: 39
 ---
 
 # Wiki Index
 
-_Generated on 2026-05-31 — 39 topics_
+_Generated on 2026-06-01 — 39 topics_
 
 ## Topics
 
