@@ -27,6 +27,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from git_ops import commit_pipeline_stage  # noqa: E402
 from index_notes import run as rebuild_index  # noqa: E402
+from domains import DEFAULT_DOMAIN_SLUG  # noqa: E402
 from score_synthesis import (  # noqa: E402
     ScoreRequest,
     _find_compiled_note,
@@ -45,6 +46,23 @@ from topic_aggregator import _find_source_summary, aggregate_for_source  # noqa:
 
 DEFAULT_THRESHOLD = 0.85
 DEFAULT_INTERVAL = 30
+
+
+def _domain_for_item(item: dict[str, object]) -> str:
+    domain = str(item.get("domain") or "").strip()
+    return domain or DEFAULT_DOMAIN_SLUG
+
+
+def _domains_for_items(items: list[dict[str, object]]) -> list[str]:
+    seen: set[str] = set()
+    domains: list[str] = []
+    for item in items:
+        domain = _domain_for_item(item)
+        if domain in seen:
+            continue
+        seen.add(domain)
+        domains.append(domain)
+    return domains
 
 
 # ---------------------------------------------------------------------------
@@ -174,10 +192,10 @@ def run_for_item(
 # Index rebuild (shared across all processed items)
 # ---------------------------------------------------------------------------
 
-def run_index_rebuild(root: Path, no_commit: bool = False) -> None:
+def run_index_rebuild(root: Path, no_commit: bool = False, domain: str = DEFAULT_DOMAIN_SLUG) -> None:
     try:
-        rc = rebuild_index(root, no_commit=no_commit)
-        compiled = root / "compiled"
+        rc = rebuild_index(root, no_commit=no_commit, domain=domain)
+        compiled = root / "compiled" / "domains" / domain
         n = sum(1 for _ in compiled.rglob("*.md")) if compiled.exists() else 0
         status = f"OK     ({n} notes)" if rc == 0 else "FAILED"
         _log("", "index_rebuild", status)
@@ -205,7 +223,7 @@ def cmd_run_one(source_id: str, *, model: str, threshold: float, root: Path, no_
         return 1
 
     run_for_item(item, model=model, threshold=threshold, root=root, no_commit=no_commit)
-    run_index_rebuild(root, no_commit=no_commit)
+    run_index_rebuild(root, no_commit=no_commit, domain=_domain_for_item(item))
     return 0
 
 
@@ -227,7 +245,8 @@ def cmd_run_all(*, model: str, threshold: float, root: Path, no_commit: bool = F
         if not success:
             failed += 1
 
-    run_index_rebuild(root, no_commit=no_commit)
+    for domain in _domains_for_items(items):
+        run_index_rebuild(root, no_commit=no_commit, domain=domain)
 
     passed = len(items) - failed
     print(f"\nDone: {passed}/{len(items)} succeeded.")
@@ -244,7 +263,8 @@ def cmd_watch(*, interval: int, model: str, threshold: float, root: Path, no_com
                 print(f"\n[{_ts()}] Found {len(items)} pending item(s).")
                 for item in items:
                     run_for_item(item, model=model, threshold=threshold, root=root, no_commit=no_commit)
-                run_index_rebuild(root, no_commit=no_commit)
+                for domain in _domains_for_items(items):
+                    run_index_rebuild(root, no_commit=no_commit, domain=domain)
             time.sleep(interval)
     except KeyboardInterrupt:
         print("\nStopped.")

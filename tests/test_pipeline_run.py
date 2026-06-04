@@ -9,6 +9,8 @@ from unittest.mock import MagicMock, call, patch
 
 from scripts.pipeline_run import (
     DEFAULT_THRESHOLD,
+    _domain_for_item,
+    _domains_for_items,
     _pending_items,
     cmd_run_all,
     cmd_run_one,
@@ -25,8 +27,9 @@ def _make_entry(
     title: str = "Test Article",
     review_status: str = "pending_review",
     source_note_path: str = "raw/articles/test-article.md",
+    domain: str = "",
 ) -> dict:
-    return {
+    entry = {
         "source_id": source_id,
         "title": title,
         "review_status": review_status,
@@ -36,6 +39,9 @@ def _make_entry(
         "validation_issues": [],
         "queued_at": "2026-04-18T10:00:00",
     }
+    if domain:
+        entry["domain"] = domain
+    return entry
 
 
 def _write_queue(root: Path, entries: list) -> None:
@@ -69,6 +75,18 @@ class PendingItemsTests(unittest.TestCase):
 
     def test_empty_queue_returns_empty(self) -> None:
         self.assertEqual(_pending_items([]), [])
+
+    def test_domain_defaults_to_ai_for_legacy_queue_items(self) -> None:
+        self.assertEqual(_domain_for_item(_make_entry()), "ai")
+
+    def test_domains_for_items_are_unique_in_order(self) -> None:
+        queue = [
+            _make_entry("A", domain="ai"),
+            _make_entry("B", domain="civil-war-history"),
+            _make_entry("C", domain="ai"),
+            _make_entry("D"),
+        ]
+        self.assertEqual(_domains_for_items(queue), ["ai", "civil-war-history"])
 
 
 # ---------------------------------------------------------------------------
@@ -227,6 +245,7 @@ class CmdRunOneTests(unittest.TestCase):
         rc = cmd_run_one("SRC-001", model="qwen2.5:14b", threshold=0.85, root=self.root)
         self.assertEqual(rc, 0)
         mock_run.assert_called_once()
+        mock_idx.assert_called_once_with(self.root, no_commit=False, domain="ai")
 
     @patch("scripts.pipeline_run.load_queue")
     def test_returns_one_when_not_found(self, mock_lq) -> None:
@@ -258,12 +277,16 @@ class CmdRunAllTests(unittest.TestCase):
     @patch("scripts.pipeline_run.load_queue")
     def test_processes_all_pending_items(self, mock_lq, mock_run, mock_idx) -> None:
         mock_lq.return_value = [
-            _make_entry("SRC-001", review_status="pending_review"),
-            _make_entry("SRC-002", review_status="pending_review"),
+            _make_entry("SRC-001", review_status="pending_review", domain="ai"),
+            _make_entry("SRC-002", review_status="pending_review", domain="civil-war-history"),
         ]
         rc = cmd_run_all(model="qwen2.5:14b", threshold=0.85, root=self.root)
         self.assertEqual(rc, 0)
         self.assertEqual(mock_run.call_count, 2)
+        mock_idx.assert_has_calls([
+            call(self.root, no_commit=False, domain="ai"),
+            call(self.root, no_commit=False, domain="civil-war-history"),
+        ])
 
     @patch("scripts.pipeline_run.run_index_rebuild")
     @patch("scripts.pipeline_run.load_queue")

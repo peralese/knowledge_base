@@ -193,7 +193,7 @@ def _load_note_entries(root: Path, domain: str = "") -> dict[str, list[NoteEntry
 # Index rendering
 # ---------------------------------------------------------------------------
 
-def build_index_text(groups: dict[str, list[NoteEntry]], today: str) -> str:
+def build_index_text(groups: dict[str, list[NoteEntry]], today: str, domain: str = "") -> str:
     """Render the full compiled/index.md content.
 
     Only topics and concepts are wikilinked here. Source summaries are
@@ -203,11 +203,14 @@ def build_index_text(groups: dict[str, list[NoteEntry]], today: str) -> str:
     """
     # Count only linked categories for the header (source_summaries not shown)
     linked_total = sum(len(groups.get(cat, [])) for cat in INDEX_LINK_CATEGORIES)
+    title = f"{domain.upper()} Wiki Index" if domain else "Wiki Index"
+    domain_line = f'domain: "{domain}"\n' if domain else ""
 
     frontmatter = (
         "---\n"
-        'title: "Wiki Index"\n'
+        f'title: "{title}"\n'
         'note_type: "index"\n'
+        f"{domain_line}"
         f'generated_on: "{today}"\n'
         f"note_count: {linked_total}\n"
         "---"
@@ -215,7 +218,7 @@ def build_index_text(groups: dict[str, list[NoteEntry]], today: str) -> str:
 
     header = (
         f"{frontmatter}\n\n"
-        "# Wiki Index\n\n"
+        f"# {title}\n\n"
         f"_Generated on {today} — {linked_total} topic{'s' if linked_total != 1 else ''}_\n"
     )
 
@@ -258,7 +261,7 @@ def run(
         print(json.dumps(output, indent=2))
         return 0
 
-    text = build_index_text(groups, today)
+    text = build_index_text(groups, today, domain=domain)
 
     if dry_run:
         print(text)
