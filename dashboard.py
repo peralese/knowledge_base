@@ -85,6 +85,7 @@ from stage_to_inbox import StageRequest, stage_feed  # noqa: E402
 from purge_source import purge_source  # noqa: E402
 from domains import (  # noqa: E402
     DEFAULT_DOMAIN_SLUG,
+    compiled_subdir,
     create_domain,
     ensure_domain_dirs,
     get_domain,
@@ -1471,10 +1472,10 @@ def get_recent_entities():
 # Pipeline Status Endpoints
 # ---------------------------------------------------------------------------
 
-def _build_aggregation_index(root: Path) -> dict[str, list[str]]:
+def _build_aggregation_index(root: Path, domain: str | None = None) -> dict[str, list[str]]:
     """Return {synthesis_slug: [topic_slug, ...]} for every compiled topic note."""
     index: dict[str, list[str]] = {}
-    topics_dir = root / "compiled" / "topics"
+    topics_dir = compiled_subdir(root, domain, "topics") if domain else root / "compiled" / "topics"
     if not topics_dir.exists():
         return index
     for topic_file in topics_dir.glob("*.md"):
@@ -1502,34 +1503,77 @@ def _build_aggregation_index(root: Path) -> dict[str, list[str]]:
     return index
 
 
-def _compute_pipeline_status(root: Path) -> list[dict]:
-    """Return one status record per registered source, sorted newest first."""
-    manifest_path = root / "metadata" / "source-manifest.json"
-    if not manifest_path.exists():
+def _load_json_object(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _load_json_list(path: Path) -> list[dict]:
+    if not path.exists():
         return []
     try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return []
-    sources = manifest.get("sources", [])
+    return data if isinstance(data, list) else []
+
+
+def _first_existing_path(root: Path, rel_path: str, domain: str | None = None) -> Path | None:
+    candidates: list[Path] = []
+    rel = Path(rel_path) if rel_path else None
+    if rel is not None:
+        if domain and rel_path.startswith("raw/articles/"):
+            candidates.append(raw_subdir(root, domain, "articles") / rel.name)
+        candidates.append(root / rel_path)
+    return next((candidate for candidate in candidates if candidate.exists()), None)
+
+
+def _compute_pipeline_status(root: Path, domain: str | None = None) -> list[dict]:
+    """Return one status record per registered source, sorted newest first."""
+    manifest_path = metadata_file(root, domain, "source-manifest.json") if domain else root / "metadata" / "source-manifest.json"
+    manifest = _load_json_object(manifest_path)
+    legacy_manifest = _load_json_object(root / "metadata" / "source-manifest.json")
+
+    if not manifest and not legacy_manifest:
+        return []
 
     # Index review queue by source_id
-    queue_path = root / "metadata" / "review-queue.json"
+    queue_path = metadata_file(root, domain, "review-queue.json") if domain else root / "metadata" / "review-queue.json"
+    queue = _load_json_list(queue_path)
     queue_index: dict[str, dict] = {}
-    if queue_path.exists():
-        try:
-            queue = json.loads(queue_path.read_text(encoding="utf-8"))
-            if isinstance(queue, list):
-                queue_index = {
-                    e["source_id"]: e for e in queue if "source_id" in e
-                }
-        except (json.JSONDecodeError, OSError):
-            pass
+    if isinstance(queue, list):
+        queue_index = {
+            e["source_id"]: e for e in queue if "source_id" in e
+        }
 
-    agg_index = _build_aggregation_index(root)
+    sources_by_id: dict[str, dict] = {}
+    for source in legacy_manifest.get("sources", []):
+        if source.get("source_id"):
+            sources_by_id[source["source_id"]] = source
+    for source in manifest.get("sources", []):
+        if source.get("source_id"):
+            sources_by_id[source["source_id"]] = source
+
+    # Domain queues can be newer than their migrated manifest. Keep those rows visible
+    # by borrowing matching legacy manifest data or falling back to queue metadata.
+    for source_id, entry in queue_index.items():
+        sources_by_id.setdefault(source_id, {
+            "source_id": source_id,
+            "title": entry.get("title", ""),
+            "filename": Path(str(entry.get("source_note_path", ""))).name,
+            "path": entry.get("source_note_path", ""),
+            "date_ingested": str(entry.get("queued_at", ""))[:10],
+        })
+
+    agg_index = _build_aggregation_index(root, domain)
 
     results: list[dict] = []
-    for source in sources:
+    for source in sources_by_id.values():
         source_id = source.get("source_id", "")
         title = source.get("title", "")
         filename = source.get("filename", "")
@@ -1538,19 +1582,24 @@ def _compute_pipeline_status(root: Path) -> list[dict]:
 
         stem = Path(filename).stem if filename else ""
 
-        raw_path_abs = root / path_rel if path_rel else None
+        raw_path_abs = _first_existing_path(root, path_rel, domain)
         file_missing = raw_path_abs is None or not raw_path_abs.exists()
 
-        prompt_pack = root / "metadata" / "prompts" / f"compile-{stem}-synthesis.md"
+        prompt_pack = metadata_file(root, domain, "prompts") / f"compile-{stem}-synthesis.md" if domain else root / "metadata" / "prompts" / f"compile-{stem}-synthesis.md"
+        if domain and not prompt_pack.exists():
+            prompt_pack = root / "metadata" / "prompts" / f"compile-{stem}-synthesis.md"
         has_prompt_pack = prompt_pack.exists()
 
-        synthesis = root / "compiled" / "source_summaries" / f"{stem}-synthesis.md"
+        synthesis = compiled_subdir(root, domain, "source_summaries") / f"{stem}-synthesis.md" if domain else root / "compiled" / "source_summaries" / f"{stem}-synthesis.md"
+        if domain and not synthesis.exists():
+            synthesis = root / "compiled" / "source_summaries" / f"{stem}-synthesis.md"
         has_synthesis = synthesis.exists()
 
         q = queue_index.get(source_id, {})
         confidence: float | None = q.get("confidence_score")
         has_score = confidence is not None
         disposition: str | None = q.get("review_action")
+        review_status: str | None = q.get("review_status")
         topic_slug: str | None = q.get("topic_slug")
 
         synthesis_slug = f"{stem}-synthesis"
@@ -1586,6 +1635,8 @@ def _compute_pipeline_status(root: Path) -> list[dict]:
             "has_prompt_pack": has_prompt_pack,
             "has_synthesis": has_synthesis,
             "has_score": has_score,
+            "in_review_queue": bool(q),
+            "review_status": review_status,
             "disposition": disposition,
             "aggregated_into": aggregated_into,
         })
@@ -1595,8 +1646,9 @@ def _compute_pipeline_status(root: Path) -> list[dict]:
 
 
 @app.get("/api/pipeline-status")
-def get_pipeline_status():
-    return _compute_pipeline_status(ROOT)
+def get_pipeline_status(domain: Optional[str] = None):
+    domain_slug = _domain_slug(domain or DEFAULT_DOMAIN_SLUG)
+    return _compute_pipeline_status(ROOT, domain_slug)
 
 
 @app.delete("/api/pipeline-status/{source_id}")

@@ -231,10 +231,10 @@ _BAND_ORDER = {"low": 0, "medium": 1, "high": 2}
 
 
 def _reviewable_items(queue: list[dict[str, object]]) -> list[dict[str, object]]:
-    """Return synthesized items not yet manually reviewed, sorted low-confidence first."""
+    """Return items not yet manually reviewed, sorted low-confidence first."""
     items = [
         e for e in queue
-        if e.get("review_status") == "synthesized"
+        if e.get("review_status") in {"synthesized", "pending_review"}
         and e.get("review_action") != "approved"
         and e.get("review_action") != "rejected"
     ]

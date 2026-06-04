@@ -1978,7 +1978,7 @@ async function loadPipelineStatus() {
   const container = document.getElementById('pipeline-container');
   container.innerHTML = '<div class="pipeline-empty">Loading…</div>';
   try {
-    const res = await fetch('/api/pipeline-status');
+    const res = await fetch('/api/pipeline-status?domain=' + encodeURIComponent(_currentDomain));
     if (!res.ok) throw new Error('Server error ' + res.status);
     _pipelineData = await res.json();
     _renderPipelineSummary();
@@ -2106,7 +2106,7 @@ function _buildActionHtml(s) {
   if (s.stage === 'error' || s.stage === 'rejected') {
     return `<button class="pipeline-action-link" onclick="event.stopPropagation();showRemoveConfirm('${escHtml(s.source_id)}')">→ Remove</button>`;
   }
-  if (['registered','prompt-packed','synthesized'].includes(s.stage)) {
+  if (['registered','prompt-packed','synthesized'].includes(s.stage) && s.in_review_queue && s.review_status === 'pending_review') {
     const cmd = 'python3 scripts/pipeline_run.py ' + s.source_id;
     return `<button class="pipeline-action-link" onclick="event.stopPropagation();togglePipelineRow('${escHtml(s.source_id)}')">→ Run pipeline</button>`;
   }
@@ -2130,11 +2130,16 @@ function _buildDetailHtml(s) {
   const dispLine = s.disposition || 'pending';
 
   let extraHtml = '';
-  if (['registered','prompt-packed','synthesized'].includes(s.stage)) {
+  if (['registered','prompt-packed','synthesized'].includes(s.stage) && s.in_review_queue && s.review_status === 'pending_review') {
     const cmd = `python3 scripts/pipeline_run.py ${s.source_id}`;
     extraHtml = `<div style="margin-top:10px;grid-column:1/-1;">
       <div class="pdl">Run pipeline</div>
       <div class="cmd-block" onclick="copyPipelineCmd(this, '${escHtml(cmd)}')">${escHtml(cmd)}</div>
+    </div>`;
+  } else if (['registered','prompt-packed','synthesized'].includes(s.stage) && !s.in_review_queue) {
+    extraHtml = `<div style="margin-top:10px;grid-column:1/-1;">
+      <div class="pdl">Queue</div>
+      <div class="pdv">Missing review-queue entry</div>
     </div>`;
   }
   if (s.stage === 'error' || s.stage === 'rejected') {
