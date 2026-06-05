@@ -2,13 +2,13 @@
 title: "AI Wiki Index"
 note_type: "index"
 domain: "ai"
-generated_on: "2026-06-04"
+generated_on: "2026-06-05"
 note_count: 39
 ---
 
 # AI Wiki Index
 
-_Generated on 2026-06-04 — 39 topics_
+_Generated on 2026-06-05 — 39 topics_
 
 ## Topics
 
