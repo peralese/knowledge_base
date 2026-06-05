@@ -280,11 +280,15 @@ class RunIntegrationTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
-        for d in ["compiled/topics", "compiled/concepts", "compiled/source_summaries"]:
+        for d in [
+            "compiled/domains/ai/topics",
+            "compiled/domains/ai/concepts",
+            "compiled/domains/ai/source_summaries",
+        ]:
             (self.root / d).mkdir(parents=True)
-        _write(self.root, "compiled/topics/aws-containers.md",
+        _write(self.root, "compiled/domains/ai/topics/aws-containers.md",
                '---\ntitle: "AWS Containers"\n---\n\nEKS vs ECS vs Fargate.\n')
-        _write(self.root, "compiled/topics/openclaw.md",
+        _write(self.root, "compiled/domains/ai/topics/openclaw.md",
                '---\ntitle: "OpenClaw"\n---\n\nSecurity guide.\n')
 
     def tearDown(self) -> None:
@@ -293,27 +297,28 @@ class RunIntegrationTests(unittest.TestCase):
     def test_run_creates_index_file(self) -> None:
         rc = run(self.root)
         self.assertEqual(rc, 0)
-        self.assertTrue((self.root / "compiled" / "index.md").exists())
+        self.assertTrue((self.root / "compiled" / "domains" / "ai" / "index.md").exists())
+        self.assertFalse((self.root / "compiled" / "index.md").exists())
 
     def test_run_returns_zero(self) -> None:
         self.assertEqual(run(self.root), 0)
 
     def test_index_file_has_frontmatter(self) -> None:
         run(self.root)
-        content = (self.root / "compiled" / "index.md").read_text(encoding="utf-8")
+        content = (self.root / "compiled" / "domains" / "ai" / "index.md").read_text(encoding="utf-8")
         self.assertTrue(content.startswith("---"))
 
     def test_index_file_contains_wikilinks(self) -> None:
         run(self.root)
-        content = (self.root / "compiled" / "index.md").read_text(encoding="utf-8")
+        content = (self.root / "compiled" / "domains" / "ai" / "index.md").read_text(encoding="utf-8")
         self.assertIn("[[aws-containers]]", content)
         self.assertIn("[[openclaw]]", content)
 
     def test_run_updates_existing_index(self) -> None:
         run(self.root)
-        _write(self.root, "compiled/topics/new-topic.md", '---\ntitle: "New"\n---\n\nNew content.\n')
+        _write(self.root, "compiled/domains/ai/topics/new-topic.md", '---\ntitle: "New"\n---\n\nNew content.\n')
         run(self.root)
-        content = (self.root / "compiled" / "index.md").read_text(encoding="utf-8")
+        content = (self.root / "compiled" / "domains" / "ai" / "index.md").read_text(encoding="utf-8")
         self.assertIn("[[new-topic]]", content)
 
     def test_run_returns_one_when_compiled_dir_missing(self) -> None:
@@ -324,9 +329,9 @@ class RunIntegrationTests(unittest.TestCase):
 
     def test_index_not_included_in_its_own_listing(self) -> None:
         # Pre-create an index.md to verify it is excluded from the re-generated index
-        _write(self.root, "compiled/index.md", "# Old Index\n")
+        _write(self.root, "compiled/domains/ai/index.md", "# Old Index\n")
         run(self.root)
-        content = (self.root / "compiled" / "index.md").read_text(encoding="utf-8")
+        content = (self.root / "compiled" / "domains" / "ai" / "index.md").read_text(encoding="utf-8")
         self.assertNotIn("[[index]]", content)
 
 
@@ -338,14 +343,15 @@ class RunDryRunTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
-        (self.root / "compiled" / "topics").mkdir(parents=True)
-        _write(self.root, "compiled/topics/my-note.md", "Body text.\n")
+        (self.root / "compiled" / "domains" / "ai" / "topics").mkdir(parents=True)
+        _write(self.root, "compiled/domains/ai/topics/my-note.md", "Body text.\n")
 
     def tearDown(self) -> None:
         self.tmp.cleanup()
 
     def test_dry_run_does_not_write_file(self) -> None:
         run(self.root, dry_run=True)
+        self.assertFalse((self.root / "compiled" / "domains" / "ai" / "index.md").exists())
         self.assertFalse((self.root / "compiled" / "index.md").exists())
 
     def test_dry_run_returns_zero(self) -> None:
@@ -368,8 +374,8 @@ class RunJsonTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
-        (self.root / "compiled" / "topics").mkdir(parents=True)
-        _write(self.root, "compiled/topics/my-note.md",
+        (self.root / "compiled" / "domains" / "ai" / "topics").mkdir(parents=True)
+        _write(self.root, "compiled/domains/ai/topics/my-note.md",
                '---\ntitle: "My Note"\n---\n\nBody text.\n')
 
     def tearDown(self) -> None:
@@ -394,6 +400,7 @@ class RunJsonTests(unittest.TestCase):
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             run(self.root, as_json=True)
+        self.assertFalse((self.root / "compiled" / "domains" / "ai" / "index.md").exists())
         self.assertFalse((self.root / "compiled" / "index.md").exists())
 
     def test_json_entries_have_expected_fields(self) -> None:

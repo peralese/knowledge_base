@@ -1,8 +1,9 @@
-"""Phase 8 Index Maintenance: generate a global index of all compiled notes.
+"""Phase 8 Index Maintenance: generate an index of compiled notes.
 
-Reads every compiled note and produces compiled/index.md — a single markdown
-file with one-line summaries grouped by category (topics, concepts,
-source_summaries). The index serves two purposes:
+Reads every compiled note for a domain and produces
+compiled/domains/<domain>/index.md — a single markdown file with one-line
+summaries grouped by category (topics, concepts, source_summaries). The index
+serves two purposes:
 
   1. Human browsability: quickly see what's in the wiki.
   2. LLM context primer: query.py prepends the index as a "Wiki Map" so the
@@ -10,7 +11,7 @@ source_summaries). The index serves two purposes:
      notes are loaded.
 
 Usage:
-    # Regenerate compiled/index.md
+    # Regenerate compiled/domains/ai/index.md
     python3 scripts/index_notes.py
 
     # Preview to stdout without writing
@@ -35,8 +36,6 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).parent))
 from git_ops import commit_pipeline_stage  # noqa: E402
 from domains import DEFAULT_DOMAIN_SLUG, compiled_domain_dir  # noqa: E402
-
-INDEX_PATH = ROOT / "compiled" / "index.md"
 
 CATEGORY_ORDER = ["topics", "concepts", "entities", "source_summaries"]
 
@@ -248,12 +247,17 @@ def run(
     no_commit: bool = False,
     domain: str = "",
 ) -> int:
-    compiled_dir = compiled_domain_dir(root, domain) if domain else root / "compiled"
+    resolved_domain = domain or DEFAULT_DOMAIN_SLUG
+    compiled_dir = compiled_domain_dir(root, resolved_domain)
     if not compiled_dir.exists():
-        print("Error: compiled/ directory not found. Run compile_notes.py first.", file=sys.stderr)
+        print(
+            f"Error: compiled domain directory not found: {compiled_dir.relative_to(root)}. "
+            "Run compile_notes.py first.",
+            file=sys.stderr,
+        )
         return 1
 
-    groups = _load_note_entries(root, domain=domain)
+    groups = _load_note_entries(root, domain=resolved_domain)
     today = date.today().isoformat()
 
     if as_json:
@@ -261,13 +265,13 @@ def run(
         print(json.dumps(output, indent=2))
         return 0
 
-    text = build_index_text(groups, today, domain=domain)
+    text = build_index_text(groups, today, domain=resolved_domain)
 
     if dry_run:
         print(text)
         return 0
 
-    dest = compiled_domain_dir(root, domain) / "index.md" if domain else root / "compiled" / "index.md"
+    dest = compiled_domain_dir(root, resolved_domain) / "index.md"
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(text, encoding="utf-8")
     total = sum(len(v) for v in groups.values())
