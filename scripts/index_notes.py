@@ -274,6 +274,9 @@ def run(
     dest = compiled_domain_dir(root, resolved_domain) / "index.md"
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(text, encoding="utf-8")
+    legacy_index = root / "compiled" / "index.md"
+    if legacy_index.exists():
+        legacy_index.unlink()
     total = sum(len(v) for v in groups.values())
     print(f"Index written : {dest.relative_to(root)} ({total} notes)")
     commit_pipeline_stage(

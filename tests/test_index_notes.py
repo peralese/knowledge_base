@@ -300,6 +300,13 @@ class RunIntegrationTests(unittest.TestCase):
         self.assertTrue((self.root / "compiled" / "domains" / "ai" / "index.md").exists())
         self.assertFalse((self.root / "compiled" / "index.md").exists())
 
+    def test_run_removes_legacy_root_index(self) -> None:
+        _write(self.root, "compiled/index.md", "# Legacy Index\n")
+        rc = run(self.root)
+        self.assertEqual(rc, 0)
+        self.assertFalse((self.root / "compiled" / "index.md").exists())
+        self.assertTrue((self.root / "compiled" / "domains" / "ai" / "index.md").exists())
+
     def test_run_returns_zero(self) -> None:
         self.assertEqual(run(self.root), 0)
 
