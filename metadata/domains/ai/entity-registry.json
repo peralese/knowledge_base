@@ -1,0 +1,114 @@
+{
+  "entities": [
+    {
+      "slug": "ollama",
+      "title": "Ollama",
+      "sources": [
+        "how-to-build-an-ai-agent-a-complete-guide-synthesis"
+      ],
+      "date_first_seen": "2026-04-22",
+      "date_updated": "2026-04-22",
+      "entity_type": "tool"
+    },
+    {
+      "slug": "anthropic",
+      "title": "Anthropic",
+      "sources": [
+        "how-to-build-an-ai-agent-a-complete-guide-synthesis"
+      ],
+      "date_first_seen": "2026-04-22",
+      "date_updated": "2026-04-22",
+      "entity_type": "company"
+    },
+    {
+      "slug": "llamaindex",
+      "title": "Llamaindex",
+      "sources": [
+        "how-to-build-an-ai-agent-a-complete-guide-synthesis"
+      ],
+      "date_first_seen": "2026-04-22",
+      "date_updated": "2026-04-22",
+      "entity_type": "framework"
+    },
+    {
+      "slug": "karpathy",
+      "title": "Karpathy",
+      "sources": [
+        "how-to-build-an-ai-agent-a-complete-guide-synthesis"
+      ],
+      "date_first_seen": "2026-04-22",
+      "date_updated": "2026-04-22",
+      "entity_type": "person"
+    },
+    {
+      "slug": "openclaw",
+      "title": "OpenClaw",
+      "sources": [
+        "how-to-harden-openclaw-security-best-practices-for-2026-synthesis"
+      ],
+      "date_first_seen": "2026-04-22",
+      "date_updated": "2026-04-22",
+      "entity_type": "product"
+    },
+    {
+      "slug": "soul-md",
+      "title": "SOUL.md",
+      "sources": [
+        "how-to-harden-openclaw-security-best-practices-for-2026-synthesis"
+      ],
+      "date_first_seen": "2026-04-22",
+      "date_updated": "2026-04-22",
+      "entity_type": "framework"
+    },
+    {
+      "slug": "aitoolsclub",
+      "title": "AIToolsClub",
+      "sources": [
+        "how-to-build-an-ai-agent-a-complete-guide-synthesis"
+      ],
+      "date_first_seen": "2026-04-25",
+      "date_updated": "2026-04-25",
+      "entity_type": "company"
+    },
+    {
+      "slug": "how-to-build-an-ai-agent-a-complete-guide",
+      "title": "How to Build an AI Agent: A Complete Guide",
+      "sources": [
+        "how-to-build-an-ai-agent-a-complete-guide-synthesis"
+      ],
+      "date_first_seen": "2026-04-25",
+      "date_updated": "2026-04-25",
+      "entity_type": "product"
+    },
+    {
+      "slug": "docker",
+      "title": "Docker",
+      "sources": [
+        "how-to-harden-openclaw-security-best-practices-for-2026-synthesis"
+      ],
+      "date_first_seen": "2026-04-25",
+      "date_updated": "2026-04-25",
+      "entity_type": "tool"
+    },
+    {
+      "slug": "karpathy-s-autoresearch",
+      "title": "Karpathy's Autoresearch",
+      "sources": [
+        "karpathy-s-autoresearch-went-viral-here-s-how-it-works-and-one-idea-to-try-synthesis"
+      ],
+      "date_first_seen": "2026-04-25",
+      "date_updated": "2026-04-25",
+      "entity_type": "framework"
+    },
+    {
+      "slug": "andrej-karpathy",
+      "title": "Andrej Karpathy",
+      "sources": [
+        "karpathy-s-autoresearch-went-viral-here-s-how-it-works-and-one-idea-to-try-synthesis"
+      ],
+      "date_first_seen": "2026-04-25",
+      "date_updated": "2026-04-25",
+      "entity_type": "person"
+    }
+  ]
+}

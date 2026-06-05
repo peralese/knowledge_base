@@ -2,7 +2,7 @@
 
 - Requested title: Using Claude Code: The unreasonable effectiveness of HTML Synthesis
 - Canonical title: Using Claude Code: The unreasonable effectiveness of HTML Synthesis
-- Canonical slug: x-com-synthesis
+- Canonical slug: using-claude-code-the-unreasonable-effectiveness-of-html-synthesis
 - Note category: source_summary
 - Repository phase: Phase 3 compilation workflow
 - Required generation method value: prompt_pack
@@ -10,7 +10,7 @@
 # Canonical Identity Rules
 
 - Use the exact canonical title provided: Using Claude Code: The unreasonable effectiveness of HTML Synthesis
-- Use the exact canonical topic slug provided: x-com-synthesis
+- Use the exact canonical topic slug provided: using-claude-code-the-unreasonable-effectiveness-of-html-synthesis
 - Do not invent, modify, pluralize, misspell, or rename the topic.
 - Do not create alternative topic identities.
 - Do not create additional topic files or variants.
