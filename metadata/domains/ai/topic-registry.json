@@ -71,6 +71,11 @@
         "Claude",
         "Claude code"
       ]
+    },
+    {
+      "slug": "open-ai",
+      "title": "Open AI",
+      "aliases": []
     }
   ]
 }

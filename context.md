@@ -1,40 +1,26 @@
 # Project Context
 
-## Project  
-Knowledge-Base  
+## Project
+knowledge_base
 
-## Current State  
-- Supports multiple local domains (ai, civil-war-history) with isolated reasoning spaces  
-- Ingests URLs/files/feeds/notes into raw/ directory  
-- Synthesizes source summaries with Ollama in compiled/source_summaries/  
-- Aggregates approved knowledge into topic/concept notes in compiled/  
-- Provides BM25 search and natural-language querying against compiled notes  
-- Generates compiled/index.md for Obsidian vault integration  
-- Runs health checks for wikilinks, orphans, and coverage  
+## Current State
+- Multi-domain support implemented; dashboard and pipeline isolate domains with domain-scoped raw/metadata/compiled/outputs/indexes directories.
+- Fully operational local-first pipeline: inbox/dashboard ingestion → Ollama synthesis → scoring/review → topic/concept aggregation → index; Obsidian opens compiled/ as the vault.
+- Retrieval complete: BM25 plus SQLite-based vector index (nomic-embed-text via Ollama) with hybrid default and graceful BM25 fallback when index is absent/stale.
+- Dashboard/CLI cover ingestion, review (interactive session, inline synthesis), query with saved searches and pinned topics; mobile share-to-inbox endpoints working.
+- Integrity/maintenance tooling complete: query feedback loop, cross-topic contradiction detection, gap ranking, staleness lint; background services provided for continuous processing and weekly lint.
 
-## In Progress  
-- Phase 2A: Graph Health Baseline, Concept Definitions, Wikilink Injection, Concepts/Entities Browser  
-- Phase 2B: Query Feedback Loop, Cross-topic Contradiction Detection, Gap Ranking, Staleness Lint  
-- Phase 2C: Mobile Share-to-Inbox, Review Workflow Improvements, Saved Searches/Pinned Topics  
-- Phase 2D: SQLite-vec vector index, hybrid retrieval (BM25 + vector), post-ingest sequence automation  
+## In Progress
+- No explicit in-progress work found
 
-## Open Issues  
-- Avoid managed vector databases (cloud)  
-- Avoid complex agent frameworks  
-- Avoid model fine-tuning  
-- Avoid auto-merge/auto-rewrite of contradictions  
-- Avoid heavy dashboard UI before graph richness  
-- Avoid auto-rewrite of notes  
+## Open Issues
+- Phase 2A (Knowledge Usability) items not marked complete: graph health baseline, concept definitions, wikilink injection, concepts/entities browser.
+- Embedding dependency: vector/hybrid retrieval requires ollama pull nomic-embed-text; without it, semantic recall relies on BM25 fallback.
+- Domains migration exists in docs/domains.md; execution status for existing data not stated.
+- Scripts referenced in post-ingest (define_concepts.py, inject_wikilinks.py) aren’t listed under Pipeline Scripts; operational status/documentation may be incomplete.
 
-## Next Step  
-Run post-ingest sequence:  
-```bash  
-python3 scripts/concept_aggregator.py --all  
-python3 scripts/define_concepts.py  
-python3 scripts/inject_wikilinks.py  
-python3 scripts/vector_index.py update  
-python3 scripts/graph_health.py  
-```  
+## Next Step
+- Inferred: Run python3 scripts/graph_health.py to capture a pre-Phase-2A baseline snapshot (wikilink density, stub ratio, orphan count) before making graph-enrichment changes
 
-## Suggested Resume Prompt  
-"Resume pipeline after source approval: run concept aggregator, define concepts, inject wikilinks, update vector index, and check graph health"
+## Suggested Resume Prompt
+"Resume knowledge_base: kick off Phase 2A by running scripts/graph_health.py for a baseline, then proceed to concept definitions and wikilink injection if those scripts aren’t already in place."

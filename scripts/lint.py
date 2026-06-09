@@ -65,7 +65,7 @@ from llm_driver import _check_model_available, call_ollama  # noqa: E402
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_MODEL = "qwen2.5:14b"
+DEFAULT_MODEL = "phi4:latest"
 
 PURE_CHECKS = ["wikilinks", "orphans", "orphan_summaries", "unapproved"]
 LLM_CHECKS  = ["coverage", "contradictions", "missing_concepts"]

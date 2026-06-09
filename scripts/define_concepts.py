@@ -25,7 +25,7 @@ from pathlib import Path
 from urllib.error import URLError
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_MODEL = "qwen2.5:14b"
+DEFAULT_MODEL = "phi4:latest"
 BATCH_COMMIT_SIZE = 25
 MIN_SOURCE_EXCERPTS = 2
 MIN_SENTENCES = 1

@@ -51,7 +51,7 @@ from urllib.error import URLError
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_MODEL = "qwen2.5:14b"
+DEFAULT_MODEL = "phi4:latest"
 OLLAMA_BASE_URL = "http://localhost:11434"
 
 COMPILED_DIRS = [

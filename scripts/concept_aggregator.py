@@ -31,7 +31,7 @@ from pathlib import Path
 from urllib.error import URLError
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_MODEL = "qwen2.5:14b"
+DEFAULT_MODEL = "phi4:latest"
 
 CONCEPTS_DIR = ROOT / "compiled" / "concepts"
 ENTITIES_DIR = ROOT / "compiled" / "entities"

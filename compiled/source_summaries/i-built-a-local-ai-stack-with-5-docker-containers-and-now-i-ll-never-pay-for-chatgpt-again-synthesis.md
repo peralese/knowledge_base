@@ -12,7 +12,7 @@ tags:
 confidence: "medium"
 confidence_score: 0.78
 generation_method: "ollama_local"
-approved: false
+approved: true
 ---
 
 ### Summary and Key Points from the Article

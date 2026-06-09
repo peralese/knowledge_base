@@ -36,7 +36,7 @@ from domains import DEFAULT_DOMAIN_SLUG, compiled_subdir, metadata_file  # noqa:
 REVIEW_QUEUE_PATH = ROOT / "metadata" / "review-queue.json"
 REVIEW_QUEUE_REPORT_PATH = ROOT / "metadata" / "review-queue.md"
 TMP_OUTPUT = ROOT / "tmp" / "synthesis-output.md"
-DEFAULT_MODEL = "qwen2.5:14b"
+DEFAULT_MODEL = "phi4:latest"
 
 
 def configure_domain_paths(domain: str, root: Path = ROOT) -> None:

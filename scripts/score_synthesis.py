@@ -28,8 +28,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 REVIEW_QUEUE_PATH = ROOT / "metadata" / "review-queue.json"
 REVIEW_QUEUE_REPORT_PATH = ROOT / "metadata" / "review-queue.md"
-DEFAULT_MODEL = "qwen2.5:14b"
-DEFAULT_AUTO_APPROVE_THRESHOLD = 0.85
+DEFAULT_MODEL = "phi4:latest"
+DEFAULT_AUTO_APPROVE_THRESHOLD = 0.0
 
 # Import llm_driver functions at module level so tests can patch them on this module.
 sys.path.insert(0, str(Path(__file__).parent))

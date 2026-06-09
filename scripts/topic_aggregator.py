@@ -30,7 +30,7 @@ TOPIC_REGISTRY_PATH = ROOT / "metadata" / "topic-registry.json"
 REVIEW_QUEUE_PATH = ROOT / "metadata" / "review-queue.json"
 TOPICS_DIR = ROOT / "compiled" / "topics"
 SOURCE_SUMMARIES_DIR = ROOT / "compiled" / "source_summaries"
-DEFAULT_MODEL = "qwen2.5:14b"
+DEFAULT_MODEL = "phi4:latest"
 
 # Import llm_driver at module level so tests can patch call_ollama on this module.
 sys.path.insert(0, str(Path(__file__).parent))
@@ -268,50 +268,63 @@ def _build_topic_note(
 # ---------------------------------------------------------------------------
 
 _NEW_TOPIC_TEMPLATE = """\
-You are synthesizing a topic note for "{topic_title}".
+You are writing a wiki article on "{topic_title}" for a personal knowledge base.
 
-Write a comprehensive topic note that captures the key insights, best practices, and \
-concepts from the source summary below. This note will grow over time as more sources \
-are added on this topic.
+Write it as flowing prose — like a Wikipedia article. Open with a strong introductory \
+paragraph that defines the topic and why it matters. Use inline [[wikilinks]] whenever \
+you mention a concept, tool, person, or related topic that deserves its own page \
+(e.g. [[Ollama]], [[RAG]], [[Andrej Karpathy]], [[vector search]]). \
+Do NOT use rigid section headers like "# Summary", "# Key Insights", or \
+"# Related Concepts". Instead use a single top-level "# {topic_title}" heading, \
+then write in natural paragraphs. Add subheadings only where content genuinely \
+calls for them (e.g. "## Architecture", "## Tradeoffs"). \
+Be specific: include real techniques, tradeoffs, and concrete details from the source \
+rather than vague generalities.
 
-Return ONLY the markdown body — no YAML frontmatter, no code fences. Use exactly these \
-sections in this order:
+Return ONLY the markdown body — no YAML frontmatter, no code fences.
 
-# Summary
-# Key Insights
-# Related Concepts
-
-Source summary to synthesize:
+Source summary:
 ---
 {source_summary}
 ---
 """
 
 _UPDATE_TOPIC_TEMPLATE = """\
-You are updating the topic note for "{topic_title}" with a new source summary.
+You are updating the wiki article on "{topic_title}" with new information from a source.
 
 Rules:
-- Preserve ALL existing insights from the current topic note.
-- Incorporate new insights from the new source summary.
-- Merge or consolidate any duplicate points — do not repeat them.
-- Keep the note concise and well-structured.
+- Maintain flowing prose with inline [[wikilinks]] throughout.
+- Weave new insights into the existing article — do not append a separate section.
+- If new information reinforces an existing point, strengthen the prose; do not repeat it.
+- If new information contradicts or refines an existing point, update it in place.
+- Add [[wikilinks]] for any new concepts, tools, or people mentioned.
+- Do NOT add a "New Findings" or "Update" section — the article should read as a \
+  single coherent piece after your edits.
 
-Return ONLY the updated markdown body — no YAML frontmatter, no code fences. Use exactly \
-these sections in this order:
+Return ONLY the updated markdown body — no YAML frontmatter, no code fences.
 
-# Summary
-# Key Insights
-# Related Concepts
-
-Current topic note body:
+Current article:
 ---
 {existing_body}
 ---
 
-New source summary to incorporate:
+New source to incorporate:
 ---
 {source_summary}
 ---
+"""
+
+_DISCOVER_TOPIC_TEMPLATE = """\
+Given the article title and excerpt below, propose a canonical topic for a personal \
+knowledge-base wiki. Choose a topic broad enough to accumulate future articles on \
+the same subject.
+
+Respond with EXACTLY two lines and nothing else:
+slug: <lowercase-hyphen-slug>
+title: <Title Cased Display Name>
+
+Article title: {title}
+Article excerpt: {excerpt}
 """
 
 
@@ -326,13 +339,49 @@ def build_aggregate_prompt(
             topic_title=topic_title,
             source_summary=new_source_summary,
         )
-    # Strip frontmatter from existing note before including in prompt
     existing_body = _strip_frontmatter(existing_note)
     return _UPDATE_TOPIC_TEMPLATE.format(
         topic_title=topic_title,
         existing_body=existing_body,
         source_summary=new_source_summary,
     )
+
+
+def _discover_topic(title: str, body: str, model: str) -> tuple[str, str] | None:
+    """Ask Ollama to propose a new topic slug and title for an unmatched article.
+
+    Returns (slug, display_title) or None on failure.
+    """
+    from urllib.error import URLError  # noqa: PLC0415
+    try:
+        _check_model_available(model)
+        excerpt = body[:500].strip()
+        prompt = _DISCOVER_TOPIC_TEMPLATE.format(title=title, excerpt=excerpt)
+        response = call_ollama(prompt, model, timeout=30)
+        slug: str | None = None
+        discovered_title: str | None = None
+        for line in response.splitlines():
+            line = line.strip()
+            if line.lower().startswith("slug:"):
+                raw = line.split(":", 1)[1].strip().lower()
+                slug = re.sub(r"[^a-z0-9-]", "", raw.replace(" ", "-")).strip("-")
+            elif line.lower().startswith("title:"):
+                discovered_title = line.split(":", 1)[1].strip().strip('"').strip("'")
+        if slug and discovered_title:
+            return slug, discovered_title
+    except (ConnectionError, ValueError, URLError, OSError):
+        pass
+    return None
+
+
+def _add_topic_to_registry(slug: str, title: str, root: Path = ROOT) -> None:
+    """Append a new topic entry to topic-registry.json if the slug is not already present."""
+    registry = load_topic_registry(root)
+    if any(str(t.get("slug", "")) == slug for t in registry.get("topics", [])):
+        return
+    registry.setdefault("topics", []).append({"slug": slug, "title": title, "aliases": []})
+    path = root / "metadata" / "topic-registry.json"
+    path.write_text(json.dumps(registry, indent=2) + "\n", encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -371,12 +420,10 @@ def aggregate_topic(request: AggregateRequest) -> Path:
         generation_method = "scaffold"
         source_link = f"[[{new_source_stem}]]"
         llm_body = (
-            f"# Summary\n\n"
-            f"Topic note for {topic_title}. See source summaries for details.\n\n"
-            f"# Key Insights\n\n"
-            f"- See {source_link} for insights.\n\n"
-            f"# Related Concepts\n\n"
-            f"- {topic_title}\n"
+            f"# {topic_title}\n\n"
+            f"{topic_title} is a topic in this knowledge base. "
+            f"See {source_link} for the source details. "
+            f"This note will be enriched as more sources are added.\n"
         )
 
     note_text = _build_topic_note(
@@ -423,8 +470,14 @@ def aggregate_for_source(
     topic_slug = explicit_topic_for_source(item, body, registry) or classify_to_topic(title, body, registry)
 
     if topic_slug is None:
-        print("  Topic       : no registry match — skipping aggregation")
-        return None
+        print("  Topic       : no registry match — asking LLM to propose topic...")
+        discovered = _discover_topic(title, body, model)
+        if discovered is None:
+            print("  Topic       : discovery failed — skipping aggregation")
+            return None
+        topic_slug, discovered_title = discovered
+        print(f"  Topic       : discovered '{topic_slug}' ({discovered_title})")
+        _add_topic_to_registry(topic_slug, discovered_title, root)
 
     source_id = str(item.get("source_id", ""))
     print(f"  Topic       : {topic_slug}")

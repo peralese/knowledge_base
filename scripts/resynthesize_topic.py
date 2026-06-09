@@ -11,7 +11,7 @@ from pathlib import Path
 from urllib.error import URLError
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_MODEL = "qwen2.5:14b"
+DEFAULT_MODEL = "phi4:latest"
 
 sys.path.insert(0, str(Path(__file__).parent))
 from git_ops import commit_pipeline_stage  # noqa: E402
@@ -159,22 +159,21 @@ def build_resynthesis_prompt(topic_title: str, source_summaries: list[tuple[str,
     joined = "\n\n---\n\n".join(
         f"Source: [[{stem}]]\n\n{body.strip()}" for stem, body in source_summaries
     )
-    return f"""You are maintaining a personal research wiki. Below are source summaries
-for the topic "{topic_title}".
+    return f"""You are writing a wiki article on "{topic_title}" for a personal knowledge base.
 
-Your task:
-1. Write a unified synthesis that captures the key knowledge across all sources
-2. Identify the main themes and how the sources relate to each other
-3. Note any contradictions or tensions between sources
-4. Identify gaps — important questions this set of sources does not answer
-5. Use [[wikilinks]] to reference specific source summaries when citing them
+Write it as flowing prose — like a Wikipedia article. Open with a strong introductory \
+paragraph that defines the topic and why it matters. Use inline [[wikilinks]] whenever \
+you mention a concept, tool, person, or related topic that deserves its own page \
+(e.g. [[Ollama]], [[RAG]], [[Andrej Karpathy]]). \
+Do NOT use rigid section headers like "## Overview", "## Key Themes", or \
+"## Source Relationships". Instead use a single top-level "# {topic_title}" heading, \
+then write in natural paragraphs. Add subheadings only where content genuinely \
+calls for them (e.g. "## Architecture", "## Tradeoffs"). \
+Be specific: include real techniques, tradeoffs, and concrete details from the sources \
+rather than vague generalities. If sources contradict each other, note it inline in prose \
+rather than in a separate section.
 
-Format your response as a markdown document with these sections:
-## Overview
-## Key Themes
-## Source Relationships
-## Contradictions & Tensions (if any)
-## Open Questions & Gaps
+Return ONLY the markdown body — no YAML frontmatter, no code fences.
 
 Source summaries:
 {joined}
