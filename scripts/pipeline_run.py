@@ -27,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from git_ops import commit_pipeline_stage  # noqa: E402
 from index_notes import run as rebuild_index  # noqa: E402
-from domains import DEFAULT_DOMAIN_SLUG  # noqa: E402
+from domains import DEFAULT_DOMAIN_SLUG, compiled_subdir, metadata_file  # noqa: E402
 from score_synthesis import (  # noqa: E402
     ScoreRequest,
     _find_compiled_note,
@@ -119,11 +119,12 @@ def run_for_item(
     queue = _update_status(queue, source_id, "synthesized", {"synthesized_at": datetime.now().isoformat()})
     save_queue(queue)
 
+    domain = _domain_for_item(item)
     commit_pipeline_stage(
         message=f"synth: {source_id} — {title} (confidence pending)",
         paths=[
-            root / "compiled" / "source_summaries" / f"{slug}-synthesis.md",
-            root / "metadata" / "review-queue.json",
+            compiled_subdir(root, domain, "source_summaries") / f"{slug}-synthesis.md",
+            metadata_file(root, domain, "review-queue.json"),
         ],
         no_commit=no_commit,
     )

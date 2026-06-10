@@ -1,26 +1,25 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 from textwrap import dedent
 
 
 ROOT = Path(__file__).resolve().parents[1]
 
+sys.path.insert(0, str(Path(__file__).parent))
+from domains import (  # noqa: E402
+    DEFAULT_DOMAIN_SLUG,
+    compiled_subdir,
+    ensure_domain_dirs,
+    ensure_domains_file,
+    metadata_file,
+    outputs_subdir,
+    raw_subdir,
+)
+
 DIRECTORIES = [
-    "raw/inbox",
-    "raw/inbox/browser",
-    "raw/inbox/clipboard",
-    "raw/inbox/feeds",
-    "raw/inbox/pdf-drop",
-    "raw/articles",
-    "raw/notes",
-    "raw/pdfs",
-    "compiled/source_summaries",
-    "compiled/concepts",
-    "compiled/topics",
-    "outputs/reports",
-    "outputs/answers",
     "templates",
     "metadata",
     "scripts",
@@ -145,8 +144,26 @@ TEMPLATE_FILES = {
     ),
 }
 
-STARTER_FILES = {
-    "raw/articles/aws-patch-manager-basics.md": dedent(
+def starter_files(root: Path, domain: str = DEFAULT_DOMAIN_SLUG) -> dict[str, str]:
+    """Return {relative_path: content} for starter notes, scoped to the given domain."""
+    raw_articles = raw_subdir(root, domain, "articles").relative_to(root)
+    compiled_topics = compiled_subdir(root, domain, "topics").relative_to(root)
+    outputs_answers = outputs_subdir(root, domain, "answers").relative_to(root)
+    manifest = metadata_file(root, domain, "source-manifest.json").relative_to(root)
+    return {
+        str(raw_articles / "aws-patch-manager-basics.md"):
+            _STARTER_FILE_CONTENT["aws-patch-manager-basics"].format(raw_articles=raw_articles),
+        str(raw_articles / "aws-inspector-overview.md"):
+            _STARTER_FILE_CONTENT["aws-inspector-overview"].format(raw_articles=raw_articles),
+        str(compiled_topics / "aws-patching-and-vulnerability-management-overview.md"):
+            _STARTER_FILE_CONTENT["aws-patching-topic"],
+        str(outputs_answers / "sample-question-answer.md"): _STARTER_FILE_CONTENT["sample-answer"],
+        str(manifest): _STARTER_FILE_CONTENT["source-manifest"].format(raw_articles=raw_articles),
+    }
+
+
+_STARTER_FILE_CONTENT = {
+    "aws-patch-manager-basics": dedent(
         """\
         ---
         title: "AWS Patch Manager Basics"
@@ -195,13 +212,13 @@ STARTER_FILES = {
 
         # Lineage
 
-        - Raw note path: `raw/articles/aws-patch-manager-basics.md`
+        - Raw note path: `{raw_articles}/aws-patch-manager-basics.md`
         - Original source: AWS Systems Manager Patch Manager documentation
         - Ingest method: manual markdown note
-        - Related sources: `raw/articles/aws-inspector-overview.md`
+        - Related sources: `{raw_articles}/aws-inspector-overview.md`
         """
     ),
-    "raw/articles/aws-inspector-overview.md": dedent(
+    "aws-inspector-overview": dedent(
         """\
         ---
         title: "AWS Inspector Overview"
@@ -250,13 +267,13 @@ STARTER_FILES = {
 
         # Lineage
 
-        - Raw note path: `raw/articles/aws-inspector-overview.md`
+        - Raw note path: `{raw_articles}/aws-inspector-overview.md`
         - Original source: Amazon Inspector documentation overview
         - Ingest method: manual markdown note
-        - Related sources: `raw/articles/aws-patch-manager-basics.md`
+        - Related sources: `{raw_articles}/aws-patch-manager-basics.md`
         """
     ),
-    "compiled/topics/aws-patching-and-vulnerability-management-overview.md": dedent(
+    "aws-patching-topic": dedent(
         """\
         ---
         title: "AWS Patching and Vulnerability Management Overview"
@@ -307,7 +324,7 @@ STARTER_FILES = {
         - Scope: introductory overview for AWS patching and vulnerability management
         """
     ),
-    "outputs/answers/sample-question-answer.md": dedent(
+    "sample-answer": dedent(
         """\
         ---
         title: "Sample Answer: How do AWS Patch Manager and Amazon Inspector work together?"
@@ -343,33 +360,33 @@ STARTER_FILES = {
         This output records the original prompt, the compiled note used for synthesis, and the raw notes used for verification. It is a generated artifact and must not overwrite raw source notes.
         """
     ),
-    "metadata/source-manifest.json": dedent(
+    "source-manifest": dedent(
         """\
-        {
+        {{
           "manifest_version": "0.1.0",
           "last_updated": "2026-04-03",
           "description": "Minimal source manifest for tracking raw source notes and preserving lineage.",
           "sources": [
-            {
+            {{
               "source_id": "src-aws-patch-manager-basics",
               "title": "AWS Patch Manager Basics",
-              "path": "raw/articles/aws-patch-manager-basics.md",
+              "path": "{raw_articles}/aws-patch-manager-basics.md",
               "status": "reviewed"
-            },
-            {
+            }},
+            {{
               "source_id": "src-aws-inspector-overview",
               "title": "AWS Inspector Overview",
-              "path": "raw/articles/aws-inspector-overview.md",
+              "path": "{raw_articles}/aws-inspector-overview.md",
               "status": "reviewed"
-            }
+            }}
           ]
-        }
+        }}
         """
     ),
 }
 
 
-def ensure_directories() -> list[Path]:
+def ensure_directories(domain: str = DEFAULT_DOMAIN_SLUG) -> list[Path]:
     created = []
     for relative_path in DIRECTORIES:
         path = ROOT / relative_path
@@ -378,7 +395,26 @@ def ensure_directories() -> list[Path]:
             created.append(path)
         else:
             path.mkdir(parents=True, exist_ok=True)
+
+    before = set(_domain_dir_listing(ROOT, domain))
+    ensure_domain_dirs(ROOT, domain)
+    after = set(_domain_dir_listing(ROOT, domain))
+    created.extend(sorted(after - before))
     return created
+
+
+def _domain_dir_listing(root: Path, domain: str) -> list[Path]:
+    listing: list[Path] = []
+    for base in (
+        root / "raw" / "domains" / domain,
+        root / "metadata" / "domains" / domain,
+        root / "compiled" / "domains" / domain,
+        root / "outputs" / "domains" / domain,
+        root / "indexes" / "domains" / domain,
+    ):
+        if base.exists():
+            listing.extend(p for p in base.rglob("*") if p.is_dir())
+    return listing
 
 
 def write_if_missing(relative_path: str, content: str) -> bool:
@@ -412,6 +448,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Create example starter notes and metadata files if they are missing.",
     )
+    parser.add_argument(
+        "--domain",
+        default=DEFAULT_DOMAIN_SLUG,
+        help=f"Domain slug to scaffold. Default: {DEFAULT_DOMAIN_SLUG}",
+    )
     return parser
 
 
@@ -419,11 +460,13 @@ def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
 
-    created_directories = ensure_directories()
+    ensure_domains_file(ROOT)
+    created_directories = ensure_directories(args.domain)
     created_templates = create_files(TEMPLATE_FILES) if args.with_templates else []
-    created_starters = create_files(STARTER_FILES) if args.with_starters else []
+    created_starters = create_files(starter_files(ROOT, args.domain)) if args.with_starters else []
 
     print(f"Project root: {ROOT}")
+    print(f"Domain: {args.domain}")
     print(f"Directories ensured: {len(DIRECTORIES)}")
     print(f"Directories newly created: {len(created_directories)}")
     print(f"Templates newly created: {len(created_templates)}")

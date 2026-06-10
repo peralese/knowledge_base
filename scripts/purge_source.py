@@ -10,10 +10,18 @@ Callers are responsible for enforcing any pre-conditions (e.g. rejected-only).
 from __future__ import annotations
 
 import json
+import sys
 from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+
+sys.path.insert(0, str(Path(__file__).parent))
+from domains import DEFAULT_DOMAIN_SLUG, compiled_subdir, metadata_domain_dir, metadata_file  # noqa: E402
+
+
+def _domain_or_legacy(domain_path: Path, legacy_path: Path) -> Path:
+    return domain_path if domain_path.exists() else legacy_path
 
 
 def purge_source(
@@ -21,6 +29,7 @@ def purge_source(
     root: Path = ROOT,
     *,
     dry_run: bool = False,
+    domain: str = DEFAULT_DOMAIN_SLUG,
 ) -> dict:
     """Remove all artifacts for a source from the knowledge base.
 
@@ -41,7 +50,10 @@ def purge_source(
 
     Raises ``ValueError`` if ``source_id`` is not found in the manifest.
     """
-    manifest_path = root / "metadata" / "source-manifest.json"
+    manifest_path = _domain_or_legacy(
+        metadata_file(root, domain, "source-manifest.json"),
+        root / "metadata" / "source-manifest.json",
+    )
     if not manifest_path.exists():
         raise ValueError(f"Manifest not found at {manifest_path}")
 
@@ -64,30 +76,39 @@ def purge_source(
         manifest["last_updated"] = date.today().isoformat()
         manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
         affected_paths.append(manifest_path)
-    removed.append("metadata/source-manifest.json entry")
+    removed.append(f"{manifest_path.relative_to(root)} entry")
 
     # 2. Prompt pack
-    prompt_pack = root / "metadata" / "prompts" / f"compile-{stem}-synthesis.md"
+    prompt_pack = _domain_or_legacy(
+        metadata_domain_dir(root, domain) / "prompts" / f"compile-{stem}-synthesis.md",
+        root / "metadata" / "prompts" / f"compile-{stem}-synthesis.md",
+    )
     if prompt_pack.exists():
         if not dry_run:
             prompt_pack.unlink()
             affected_paths.append(prompt_pack)
-        removed.append(f"metadata/prompts/compile-{stem}-synthesis.md")
+        removed.append(str(prompt_pack.relative_to(root)))
     else:
-        skipped.append(f"metadata/prompts/compile-{stem}-synthesis.md")
+        skipped.append(str(prompt_pack.relative_to(root)))
 
     # 3. Synthesis file
-    synthesis = root / "compiled" / "source_summaries" / f"{stem}-synthesis.md"
+    synthesis = _domain_or_legacy(
+        compiled_subdir(root, domain, "source_summaries") / f"{stem}-synthesis.md",
+        root / "compiled" / "source_summaries" / f"{stem}-synthesis.md",
+    )
     if synthesis.exists():
         if not dry_run:
             synthesis.unlink()
             affected_paths.append(synthesis)
-        removed.append(f"compiled/source_summaries/{stem}-synthesis.md")
+        removed.append(str(synthesis.relative_to(root)))
     else:
-        skipped.append(f"compiled/source_summaries/{stem}-synthesis.md")
+        skipped.append(str(synthesis.relative_to(root)))
 
     # 4. Queue entry
-    queue_path = root / "metadata" / "review-queue.json"
+    queue_path = _domain_or_legacy(
+        metadata_file(root, domain, "review-queue.json"),
+        root / "metadata" / "review-queue.json",
+    )
     queue_entry_removed = False
     if queue_path.exists():
         try:
@@ -100,12 +121,12 @@ def purge_source(
                             json.dumps(updated_queue, indent=2) + "\n", encoding="utf-8"
                         )
                         affected_paths.append(queue_path)
-                    removed.append("metadata/review-queue.json entry")
+                    removed.append(f"{queue_path.relative_to(root)} entry")
                     queue_entry_removed = True
         except (json.JSONDecodeError, OSError):
             pass
     if not queue_entry_removed:
-        skipped.append("metadata/review-queue.json entry")
+        skipped.append(f"{queue_path.relative_to(root)} entry")
 
     # 5. Raw source file
     path_rel: str = source.get("path", "")

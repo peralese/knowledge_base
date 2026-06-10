@@ -61,11 +61,23 @@ from urllib.error import URLError
 
 # llm_driver lives alongside lint.py in scripts/
 sys.path.insert(0, str(Path(__file__).parent))
+from domains import (  # noqa: E402
+    DEFAULT_DOMAIN_SLUG,
+    compiled_domain_dir,
+    compiled_subdir,
+    outputs_subdir,
+    raw_domain_dir,
+    raw_subdir,
+)
 from llm_driver import _check_model_available, call_ollama  # noqa: E402
 
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MODEL = "phi4:latest"
+
+
+def _domain_or_legacy(domain_path: Path, legacy_path: Path) -> Path:
+    return domain_path if domain_path.exists() else legacy_path
 
 PURE_CHECKS = ["wikilinks", "orphans", "orphan_summaries", "unapproved"]
 LLM_CHECKS  = ["coverage", "contradictions", "missing_concepts"]
@@ -73,9 +85,6 @@ PHASE_2B_CHECKS = ["cross_contradictions", "staleness"]
 ALL_CHECKS  = PURE_CHECKS + LLM_CHECKS + PHASE_2B_CHECKS
 
 WIKILINK_RE = re.compile(r"\[\[([^\]|#]+?)(?:[|#][^\]]+)?\]\]")
-
-CONTRADICTIONS_DIR = ROOT / "outputs" / "contradictions"
-STALENESS_DIR = ROOT / "outputs" / "staleness"
 
 # Minimum claim sentences in a topic before including it in cross-topic comparison
 MIN_CLAIMS_FOR_COMPARISON = 3
@@ -173,20 +182,22 @@ def _safe_float(value: object, default: float = 0.0) -> float:
 # Pure-Python checks
 # ---------------------------------------------------------------------------
 
-def _all_known_stems(root: Path) -> set[str]:
-    """Return stems of every .md file in compiled/ and raw/."""
+def _all_known_stems(root: Path, domain: str = DEFAULT_DOMAIN_SLUG) -> set[str]:
+    """Return stems of every .md file in compiled/ and raw/ for this domain."""
     stems: set[str] = set()
-    for pattern in ["compiled/**/*.md", "raw/**/*.md"]:
-        for p in root.glob(pattern):
+    compiled_dir = _domain_or_legacy(compiled_domain_dir(root, domain), root / "compiled")
+    raw_dir = _domain_or_legacy(raw_domain_dir(root, domain), root / "raw")
+    for directory in (compiled_dir, raw_dir):
+        for p in directory.glob("**/*.md"):
             stems.add(p.stem)
     return stems
 
 
-def check_dangling_wikilinks(root: Path) -> list[LintIssue]:
+def check_dangling_wikilinks(root: Path, domain: str = DEFAULT_DOMAIN_SLUG) -> list[LintIssue]:
     """Find [[wikilinks]] in compiled notes that point to non-existent files."""
-    known = _all_known_stems(root)
+    known = _all_known_stems(root, domain)
     issues: list[LintIssue] = []
-    compiled_dir = root / "compiled"
+    compiled_dir = _domain_or_legacy(compiled_domain_dir(root, domain), root / "compiled")
     if not compiled_dir.exists():
         return issues
     for path in sorted(compiled_dir.rglob("*.md")):
@@ -210,12 +221,12 @@ def check_dangling_wikilinks(root: Path) -> list[LintIssue]:
     return issues
 
 
-def check_orphaned_raw_notes(root: Path) -> list[LintIssue]:
+def check_orphaned_raw_notes(root: Path, domain: str = DEFAULT_DOMAIN_SLUG) -> list[LintIssue]:
     """Find raw notes not referenced by any compiled note's compiled_from list."""
     raw_dirs = [
-        root / "raw" / "articles",
-        root / "raw" / "notes",
-        root / "raw" / "pdfs",
+        _domain_or_legacy(raw_subdir(root, domain, "articles"), root / "raw" / "articles"),
+        _domain_or_legacy(raw_subdir(root, domain, "notes"), root / "raw" / "notes"),
+        _domain_or_legacy(raw_subdir(root, domain, "pdfs"), root / "raw" / "pdfs"),
     ]
     raw_stems: dict[str, Path] = {}
     for d in raw_dirs:
@@ -225,9 +236,9 @@ def check_orphaned_raw_notes(root: Path) -> list[LintIssue]:
 
     referenced: set[str] = set()
     compiled_dirs = [
-        root / "compiled" / "topics",
-        root / "compiled" / "concepts",
-        root / "compiled" / "source_summaries",
+        _domain_or_legacy(compiled_subdir(root, domain, "topics"), root / "compiled" / "topics"),
+        _domain_or_legacy(compiled_subdir(root, domain, "concepts"), root / "compiled" / "concepts"),
+        _domain_or_legacy(compiled_subdir(root, domain, "source_summaries"), root / "compiled" / "source_summaries"),
     ]
     for d in compiled_dirs:
         if not d.exists():
@@ -248,10 +259,10 @@ def check_orphaned_raw_notes(root: Path) -> list[LintIssue]:
     return issues
 
 
-def check_orphan_summaries(root: Path) -> list[LintIssue]:
+def check_orphan_summaries(root: Path, domain: str = DEFAULT_DOMAIN_SLUG) -> list[LintIssue]:
     """Find source summaries not linked to any topic note's compiled_from."""
-    summaries_dir = root / "compiled" / "source_summaries"
-    topics_dir = root / "compiled" / "topics"
+    summaries_dir = _domain_or_legacy(compiled_subdir(root, domain, "source_summaries"), root / "compiled" / "source_summaries")
+    topics_dir = _domain_or_legacy(compiled_subdir(root, domain, "topics"), root / "compiled" / "topics")
 
     if not summaries_dir.exists():
         return []
@@ -266,10 +277,11 @@ def check_orphan_summaries(root: Path) -> list[LintIssue]:
 
     issues: list[LintIssue] = []
     for stem in sorted(summary_stems - referenced):
+        rel = summaries_dir.relative_to(root) / f"{stem}.md"
         issues.append(LintIssue(
             check="orphan_summaries",
             severity="warning",
-            message=f"`compiled/source_summaries/{stem}.md` — not linked to any topic note",
+            message=f"`{rel}` — not linked to any topic note",
         ))
     return issues
 
@@ -308,14 +320,14 @@ def check_unapproved(root: Path) -> list[LintIssue]:
 # LLM-assisted checks
 # ---------------------------------------------------------------------------
 
-def check_coverage_gaps(root: Path, model: str) -> list[LintIssue]:
+def check_coverage_gaps(root: Path, model: str, domain: str = DEFAULT_DOMAIN_SLUG) -> list[LintIssue]:
     """Ask the LLM to identify topic gaps based on the wiki index."""
-    index_path = root / "compiled" / "index.md"
+    index_path = _domain_or_legacy(compiled_domain_dir(root, domain) / "index.md", root / "compiled" / "index.md")
     if not index_path.exists():
         return [LintIssue(
             check="coverage",
             severity="info",
-            message="compiled/index.md not found — run index_notes.py first",
+            message=f"{index_path.relative_to(root)} not found — run index_notes.py first",
         )]
 
     index_text = _strip_frontmatter(
@@ -360,10 +372,10 @@ def check_coverage_gaps(root: Path, model: str) -> list[LintIssue]:
     return issues
 
 
-def check_contradictions(root: Path, model: str) -> list[LintIssue]:
+def check_contradictions(root: Path, model: str, domain: str = DEFAULT_DOMAIN_SLUG) -> list[LintIssue]:
     """For each topic with 2+ source summaries, identify contradicting claims."""
-    topics_dir = root / "compiled" / "topics"
-    summaries_dir = root / "compiled" / "source_summaries"
+    topics_dir = _domain_or_legacy(compiled_subdir(root, domain, "topics"), root / "compiled" / "topics")
+    summaries_dir = _domain_or_legacy(compiled_subdir(root, domain, "source_summaries"), root / "compiled" / "source_summaries")
 
     if not topics_dir.exists() or not summaries_dir.exists():
         return []
@@ -483,16 +495,17 @@ def check_cross_topic_contradictions(
     root: Path,
     model: str,
     since: str | None = None,
+    domain: str = DEFAULT_DOMAIN_SLUG,
 ) -> list[LintIssue]:
     """Compare topic note claims pairwise to find cross-topic contradictions.
 
     Uses Ollama to compare claim sets. Returns candidate LintIssues and saves
-    a JSON report to outputs/contradictions/YYYY-MM-DD-HHMMSS.json.
+    a JSON report to outputs/domains/{domain}/contradictions/YYYY-MM-DD-HHMMSS.json.
     Only compares topic notes (not concept or entity notes).
     Topics with fewer than MIN_CLAIMS_FOR_COMPARISON claims are skipped.
     Only surfaces candidates with confidence >= CONTRADICTION_CONFIDENCE_THRESHOLD.
     """
-    topics_dir = root / "compiled" / "topics"
+    topics_dir = _domain_or_legacy(compiled_subdir(root, domain, "topics"), root / "compiled" / "topics")
     if not topics_dir.exists():
         return []
 
@@ -578,7 +591,7 @@ def check_cross_topic_contradictions(
                 all_candidates.append(candidate)
 
     # Save JSON report
-    contradictions_dir = root / "outputs" / "contradictions"
+    contradictions_dir = outputs_subdir(root, domain, "contradictions")
     contradictions_dir.mkdir(parents=True, exist_ok=True)
     report = {
         "timestamp": now_ts,
@@ -673,6 +686,7 @@ def check_staleness(
     root: Path,
     days: int = 0,
     fix: bool = False,
+    domain: str = DEFAULT_DOMAIN_SLUG,
 ) -> list[LintIssue]:
     """Flag topic notes that have newer approved sources not yet synthesized.
 
@@ -683,10 +697,10 @@ def check_staleness(
     3. That source is not already in the topic's compiled_from list
 
     No LLM calls — pure date and metadata comparison.
-    Saves a JSON report to outputs/staleness/YYYY-MM-DD-HHMMSS.json.
+    Saves a JSON report to outputs/domains/{domain}/staleness/YYYY-MM-DD-HHMMSS.json.
     """
-    topics_dir = root / "compiled" / "topics"
-    summaries_dir = root / "compiled" / "source_summaries"
+    topics_dir = _domain_or_legacy(compiled_subdir(root, domain, "topics"), root / "compiled" / "topics")
+    summaries_dir = _domain_or_legacy(compiled_subdir(root, domain, "source_summaries"), root / "compiled" / "source_summaries")
     if not topics_dir.exists():
         return []
 
@@ -785,7 +799,7 @@ def check_staleness(
             print(f"  {stale['resynthesize_command']}")
 
     # Save JSON report
-    staleness_dir = root / "outputs" / "staleness"
+    staleness_dir = outputs_subdir(root, domain, "staleness")
     staleness_dir.mkdir(parents=True, exist_ok=True)
     report = {
         "timestamp": now_ts,
@@ -821,14 +835,14 @@ def _build_concept_stub(slug: str, today: str) -> str:
     )
 
 
-def check_missing_concepts(root: Path, model: str, fix: bool = False) -> list[LintIssue]:
+def check_missing_concepts(root: Path, model: str, fix: bool = False, domain: str = DEFAULT_DOMAIN_SLUG) -> list[LintIssue]:
     """Ask the LLM to identify concepts referenced across notes with no concept page."""
-    index_path = root / "compiled" / "index.md"
+    index_path = _domain_or_legacy(compiled_domain_dir(root, domain) / "index.md", root / "compiled" / "index.md")
     if not index_path.exists():
         return [LintIssue(
             check="missing_concepts",
             severity="info",
-            message="compiled/index.md not found — run index_notes.py first",
+            message=f"{index_path.relative_to(root)} not found — run index_notes.py first",
         )]
 
     index_text = _strip_frontmatter(
@@ -859,7 +873,7 @@ def check_missing_concepts(root: Path, model: str, fix: bool = False) -> list[Li
     slugs = _parse_json_array(response)
     issues: list[LintIssue] = []
     today = date.today().isoformat()
-    concepts_dir = root / "compiled" / "concepts"
+    concepts_dir = compiled_subdir(root, domain, "concepts")
 
     for slug in slugs:
         if not isinstance(slug, str) or not slug.strip():
@@ -868,7 +882,7 @@ def check_missing_concepts(root: Path, model: str, fix: bool = False) -> list[Li
         issues.append(LintIssue(
             check="missing_concepts",
             severity="info",
-            message=f"`{slug}` — no concept page in compiled/concepts/",
+            message=f"`{slug}` — no concept page in {concepts_dir.relative_to(root)}/",
         ))
         if fix:
             stub_path = concepts_dir / f"{slug}.md"
@@ -945,8 +959,8 @@ def build_report(
     return body
 
 
-def file_report(report_text: str, root: Path, today: str, force: bool) -> Path:
-    dest = root / "outputs" / "reports" / f"lint-{today}.md"
+def file_report(report_text: str, root: Path, today: str, force: bool, domain: str = DEFAULT_DOMAIN_SLUG) -> Path:
+    dest = outputs_subdir(root, domain, "reports") / f"lint-{today}.md"
     if dest.exists() and not force:
         raise FileExistsError(
             f"Report already exists: {dest.relative_to(root)}. Use --force to overwrite."
@@ -974,6 +988,7 @@ def run(
     all_checks: bool = False,
     since: str | None = None,
     days: int = 0,
+    domain: str = DEFAULT_DOMAIN_SLUG,
 ) -> int:
     today = date.today().isoformat()
 
@@ -1012,17 +1027,17 @@ def run(
     issues: list[LintIssue] = []
 
     if "wikilinks" in checks_to_run:
-        found = check_dangling_wikilinks(root)
+        found = check_dangling_wikilinks(root, domain=domain)
         issues.extend(found)
         print(f"wikilinks        : {len(found)} issue{'s' if len(found) != 1 else ''}")
 
     if "orphans" in checks_to_run:
-        found = check_orphaned_raw_notes(root)
+        found = check_orphaned_raw_notes(root, domain=domain)
         issues.extend(found)
         print(f"orphans          : {len(found)} issue{'s' if len(found) != 1 else ''}")
 
     if "orphan_summaries" in checks_to_run:
-        found = check_orphan_summaries(root)
+        found = check_orphan_summaries(root, domain=domain)
         issues.extend(found)
         print(f"orphan_summaries : {len(found)} issue{'s' if len(found) != 1 else ''}")
 
@@ -1032,27 +1047,27 @@ def run(
         print(f"unapproved       : {len(found)} issue{'s' if len(found) != 1 else ''}")
 
     if "coverage" in checks_to_run:
-        found = check_coverage_gaps(root, model)
+        found = check_coverage_gaps(root, model, domain=domain)
         issues.extend(found)
         print(f"coverage         : {len(found)} gap{'s' if len(found) != 1 else ''} identified")
 
     if "contradictions" in checks_to_run:
-        found = check_contradictions(root, model)
+        found = check_contradictions(root, model, domain=domain)
         issues.extend(found)
         print(f"contradictions   : {len(found)} issue{'s' if len(found) != 1 else ''}")
 
     if "missing_concepts" in checks_to_run:
-        found = check_missing_concepts(root, model, fix=fix)
+        found = check_missing_concepts(root, model, fix=fix, domain=domain)
         issues.extend(found)
         print(f"missing_concepts : {len(found)} issue{'s' if len(found) != 1 else ''}")
 
     if "cross_contradictions" in checks_to_run:
-        found = check_cross_topic_contradictions(root, model, since=since)
+        found = check_cross_topic_contradictions(root, model, since=since, domain=domain)
         issues.extend(found)
         print(f"cross_contradictions: {len(found)} candidate{'s' if len(found) != 1 else ''}")
 
     if "staleness" in checks_to_run:
-        found = check_staleness(root, days=days, fix=fix)
+        found = check_staleness(root, days=days, fix=fix, domain=domain)
         issues.extend(found)
         print(f"staleness        : {len(found)} topic{'s' if len(found) != 1 else ''}")
 
@@ -1074,7 +1089,7 @@ def run(
 
     if report:
         try:
-            dest = file_report(report_text, root, today, force)
+            dest = file_report(report_text, root, today, force, domain=domain)
             print(f"Report filed  : {dest.relative_to(root)}")
         except FileExistsError as exc:
             print(f"Error: {exc}", file=sys.stderr)
@@ -1159,6 +1174,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Preview the report to stdout without filing.",
     )
+    parser.add_argument(
+        "--domain",
+        default=DEFAULT_DOMAIN_SLUG,
+        help=f"Domain slug. Default: {DEFAULT_DOMAIN_SLUG}",
+    )
     return parser
 
 
@@ -1179,6 +1199,7 @@ def main(argv: list[str] | None = None) -> int:
         all_checks=args.all,
         since=args.since,
         days=args.days,
+        domain=args.domain,
     )
 
 

@@ -19,7 +19,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-ANSWERS_DIR = ROOT / "outputs" / "answers"
+
+sys.path.insert(0, str(Path(__file__).parent))
+from domains import DEFAULT_DOMAIN_SLUG, outputs_subdir  # noqa: E402
+
+
+def _answers_dir(domain: str = DEFAULT_DOMAIN_SLUG) -> Path:
+    domain_dir = outputs_subdir(ROOT, domain, "answers")
+    legacy_dir = ROOT / "outputs" / "answers"
+    return domain_dir if domain_dir.exists() else legacy_dir
 
 
 # ---------------------------------------------------------------------------
@@ -90,20 +98,21 @@ def answer_date(fm_text: str) -> str:
 # Answer discovery
 # ---------------------------------------------------------------------------
 
-def resolve_answer_path(answer_id: str) -> Path:
+def resolve_answer_path(answer_id: str, domain: str = DEFAULT_DOMAIN_SLUG) -> Path:
     """Resolve an answer_id (stem or filename with .md) to a Path."""
     stem = answer_id.removesuffix(".md")
-    path = ANSWERS_DIR / f"{stem}.md"
+    path = _answers_dir(domain) / f"{stem}.md"
     if not path.exists():
         raise FileNotFoundError(f"Answer not found: {stem}")
     return path
 
 
-def list_answers() -> list[Path]:
+def list_answers(domain: str = DEFAULT_DOMAIN_SLUG) -> list[Path]:
     """Return all answer .md files, newest first."""
-    if not ANSWERS_DIR.exists():
+    answers_dir = _answers_dir(domain)
+    if not answers_dir.exists():
         return []
-    return sorted(ANSWERS_DIR.glob("*.md"), reverse=True)
+    return sorted(answers_dir.glob("*.md"), reverse=True)
 
 
 # ---------------------------------------------------------------------------
@@ -138,8 +147,8 @@ def _now_iso() -> str:
 # Subcommand implementations
 # ---------------------------------------------------------------------------
 
-def cmd_list(_args: argparse.Namespace) -> int:
-    paths = list_answers()
+def cmd_list(args: argparse.Namespace) -> int:
+    paths = list_answers(args.domain)
     if not paths:
         print("No saved answers found.")
         return 0
@@ -160,7 +169,7 @@ def cmd_list(_args: argparse.Namespace) -> int:
 
 def cmd_good(args: argparse.Namespace) -> int:
     try:
-        path = resolve_answer_path(args.answer_id)
+        path = resolve_answer_path(args.answer_id, args.domain)
     except FileNotFoundError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
@@ -171,7 +180,7 @@ def cmd_good(args: argparse.Namespace) -> int:
 
 def cmd_bad(args: argparse.Namespace) -> int:
     try:
-        path = resolve_answer_path(args.answer_id)
+        path = resolve_answer_path(args.answer_id, args.domain)
     except FileNotFoundError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
@@ -182,7 +191,7 @@ def cmd_bad(args: argparse.Namespace) -> int:
 
 def cmd_show(args: argparse.Namespace) -> int:
     try:
-        path = resolve_answer_path(args.answer_id)
+        path = resolve_answer_path(args.answer_id, args.domain)
     except FileNotFoundError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
@@ -206,10 +215,10 @@ def cmd_show(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_stats(_args: argparse.Namespace) -> int:
+def cmd_stats(args: argparse.Namespace) -> int:
     from datetime import date as date_cls  # noqa: PLC0415
 
-    paths = list_answers()
+    paths = list_answers(args.domain)
     total = len(paths)
     if total == 0:
         print("No saved answers found.")
@@ -268,6 +277,11 @@ def cmd_stats(_args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Phase 2B-1: Mark query answers as good or bad."
+    )
+    parser.add_argument(
+        "--domain",
+        default=DEFAULT_DOMAIN_SLUG,
+        help=f"Domain slug. Default: {DEFAULT_DOMAIN_SLUG}",
     )
     sub = parser.add_subparsers(dest="command")
 

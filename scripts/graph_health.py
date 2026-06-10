@@ -26,6 +26,15 @@ from datetime import date, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+
+sys.path.insert(0, str(Path(__file__).parent))
+from domains import (  # noqa: E402
+    DEFAULT_DOMAIN_SLUG,
+    compiled_subdir,
+    outputs_subdir,
+    raw_subdir,
+)
+
 WIKILINK_RE = re.compile(r"\[\[([^\]|#]+?)(?:[|#][^\]]+)?\]\]")
 # A stub has zero meaningful body lines (only headings and placeholders).
 # Threshold of 1 means any single line of real definition text is sufficient.
@@ -160,6 +169,10 @@ def _count_wikilinks(text: str) -> int:
 # Note collection helpers
 # ---------------------------------------------------------------------------
 
+def _domain_or_legacy(domain_path: Path, legacy_path: Path) -> Path:
+    return domain_path if domain_path.exists() else legacy_path
+
+
 def _read_notes(directory: Path) -> dict[str, str]:
     """Read all .md files in directory; return {stem: content}."""
     if not directory.exists():
@@ -191,11 +204,11 @@ def _all_wikilink_targets(all_notes: dict[str, dict[str, str]]) -> dict[str, set
 # Core metrics
 # ---------------------------------------------------------------------------
 
-def compute_metrics(root: Path) -> dict:
-    topics = _read_notes(root / "compiled" / "topics")
-    concepts = _read_notes(root / "compiled" / "concepts")
-    entities = _read_notes(root / "compiled" / "entities")
-    summaries = _read_notes(root / "compiled" / "source_summaries")
+def compute_metrics(root: Path, domain: str = DEFAULT_DOMAIN_SLUG) -> dict:
+    topics = _read_notes(_domain_or_legacy(compiled_subdir(root, domain, "topics"), root / "compiled" / "topics"))
+    concepts = _read_notes(_domain_or_legacy(compiled_subdir(root, domain, "concepts"), root / "compiled" / "concepts"))
+    entities = _read_notes(_domain_or_legacy(compiled_subdir(root, domain, "entities"), root / "compiled" / "entities"))
+    summaries = _read_notes(_domain_or_legacy(compiled_subdir(root, domain, "source_summaries"), root / "compiled" / "source_summaries"))
 
     # --- note counts ---
     counts = {
@@ -233,7 +246,7 @@ def compute_metrics(root: Path) -> dict:
         "source_summaries": summaries,
     }
     # Also scan raw articles for wikilink targets
-    raw_articles = _read_notes(root / "raw" / "articles")
+    raw_articles = _read_notes(_domain_or_legacy(raw_subdir(root, domain, "articles"), root / "raw" / "articles"))
     all_collections["raw_articles"] = raw_articles
 
     incoming = _all_wikilink_targets(all_collections)
@@ -589,29 +602,33 @@ def _flatten(m: dict) -> dict:
 # JSON snapshot I/O
 # ---------------------------------------------------------------------------
 
-SNAPSHOTS_DIR = ROOT / "outputs" / "graph_health"
-
 # Filename pattern: YYYY-MM-DD-HHMMSS.json
 # Lexicographic sort on this format is chronological.
 _SNAPSHOT_GLOB = "[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9].json"
 
 
-def save_snapshot(metrics: dict) -> Path:
-    SNAPSHOTS_DIR.mkdir(parents=True, exist_ok=True)
+def _snapshots_dir(root: Path, domain: str = DEFAULT_DOMAIN_SLUG) -> Path:
+    return outputs_subdir(root, domain, "graph_health")
+
+
+def save_snapshot(metrics: dict, root: Path = ROOT, domain: str = DEFAULT_DOMAIN_SLUG) -> Path:
+    snapshots_dir = _snapshots_dir(root, domain)
+    snapshots_dir.mkdir(parents=True, exist_ok=True)
     ts = metrics.get("timestamp", metrics["date"] + "-000000")
-    dest = SNAPSHOTS_DIR / f"{ts}.json"
+    dest = snapshots_dir / f"{ts}.json"
     dest.write_text(json.dumps(metrics, indent=2) + "\n", encoding="utf-8")
     return dest
 
 
-def load_prior_snapshot(current_timestamp: str) -> tuple[dict, str] | None:
+def load_prior_snapshot(current_timestamp: str, root: Path = ROOT, domain: str = DEFAULT_DOMAIN_SLUG) -> tuple[dict, str] | None:
     """Return (snapshot_data, filename_stem) of the most recent snapshot
     whose timestamp is strictly earlier than current_timestamp, or None.
 
     Snapshots with the legacy YYYY-MM-DD.json format are treated as having
     timestamp YYYY-MM-DD-000000 for ordering purposes.
     """
-    if not SNAPSHOTS_DIR.exists():
+    snapshots_dir = _snapshots_dir(root, domain)
+    if not snapshots_dir.exists():
         return None
 
     def _stem_to_ts(stem: str) -> str:
@@ -621,7 +638,7 @@ def load_prior_snapshot(current_timestamp: str) -> tuple[dict, str] | None:
         return stem
 
     candidates: list[tuple[str, Path]] = []
-    for path in SNAPSHOTS_DIR.glob("*.json"):
+    for path in snapshots_dir.glob("*.json"):
         ts = _stem_to_ts(path.stem)
         if ts < current_timestamp:
             candidates.append((ts, path))
@@ -638,11 +655,12 @@ def load_prior_snapshot(current_timestamp: str) -> tuple[dict, str] | None:
         return None
 
 
-def load_most_recent_snapshot(exclude_timestamp: str | None = None) -> dict | None:
+def load_most_recent_snapshot(exclude_timestamp: str | None = None, root: Path = ROOT, domain: str = DEFAULT_DOMAIN_SLUG) -> dict | None:
     """Return the most recent snapshot, optionally excluding a specific timestamp stem."""
-    if not SNAPSHOTS_DIR.exists():
+    snapshots_dir = _snapshots_dir(root, domain)
+    if not snapshots_dir.exists():
         return None
-    candidates = sorted(SNAPSHOTS_DIR.glob("*.json"), reverse=True)
+    candidates = sorted(snapshots_dir.glob("*.json"), reverse=True)
     for path in candidates:
         if exclude_timestamp and path.stem == exclude_timestamp:
             continue
@@ -657,15 +675,15 @@ def load_most_recent_snapshot(exclude_timestamp: str | None = None) -> dict | No
 # Main
 # ---------------------------------------------------------------------------
 
-def run(root: Path, json_only: bool, compare: bool, gaps: bool = False, top: int | None = None) -> int:
-    metrics = compute_metrics(root)
+def run(root: Path, json_only: bool, compare: bool, gaps: bool = False, top: int | None = None, domain: str = DEFAULT_DOMAIN_SLUG) -> int:
+    metrics = compute_metrics(root, domain)
     current_ts = metrics["timestamp"]
 
     # Always save the new snapshot first so it anchors future comparisons
-    snap_path = save_snapshot(metrics)
+    snap_path = save_snapshot(metrics, root, domain)
 
     if compare:
-        result = load_prior_snapshot(current_ts)
+        result = load_prior_snapshot(current_ts, root, domain)
         if result is None:
             print(
                 "No prior snapshot to compare against — this is the first recorded baseline.\n"
@@ -714,13 +732,18 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="With --gaps, show only the top N under-covered topics.",
     )
+    parser.add_argument(
+        "--domain",
+        default=DEFAULT_DOMAIN_SLUG,
+        help=f"Domain slug. Default: {DEFAULT_DOMAIN_SLUG}",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    return run(root=ROOT, json_only=args.json_only, compare=args.compare, gaps=args.gaps, top=args.top)
+    return run(root=ROOT, json_only=args.json_only, compare=args.compare, gaps=args.gaps, top=args.top, domain=args.domain)
 
 
 if __name__ == "__main__":

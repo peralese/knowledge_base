@@ -33,9 +33,14 @@ MAX_SENTENCES = 8
 EXCERPT_CONTEXT_CHARS = 500
 
 sys.path.insert(0, str(Path(__file__).parent))
+from domains import DEFAULT_DOMAIN_SLUG, compiled_subdir, raw_subdir  # noqa: E402
 from git_ops import commit_pipeline_stage  # noqa: E402
 from graph_health import is_stub, _strip_frontmatter  # noqa: E402
 from llm_driver import _check_model_available, call_ollama  # noqa: E402
+
+
+def _domain_or_legacy(domain_path: Path, legacy_path: Path) -> Path:
+    return domain_path if domain_path.exists() else legacy_path
 
 
 # ---------------------------------------------------------------------------
@@ -127,13 +132,13 @@ def _find_source_excerpts(
     return excerpts
 
 
-def _load_approved_sources(root: Path) -> dict[str, str]:
+def _load_approved_sources(root: Path, domain: str = DEFAULT_DOMAIN_SLUG) -> dict[str, str]:
     """Return {stem: content} for approved source summaries and raw articles."""
     sources: dict[str, str] = {}
     for directory in [
-        root / "compiled" / "source_summaries",
-        root / "raw" / "articles",
-        root / "raw" / "notes",
+        _domain_or_legacy(compiled_subdir(root, domain, "source_summaries"), root / "compiled" / "source_summaries"),
+        _domain_or_legacy(raw_subdir(root, domain, "articles"), root / "raw" / "articles"),
+        _domain_or_legacy(raw_subdir(root, domain, "notes"), root / "raw" / "notes"),
     ]:
         if not directory.exists():
             continue
@@ -218,10 +223,11 @@ def process_stubs(
     concept_filter: str | None,
     limit: int | None,
     no_commit: bool,
+    domain: str = DEFAULT_DOMAIN_SLUG,
 ) -> int:
-    concepts_dir = root / "compiled" / "concepts"
+    concepts_dir = _domain_or_legacy(compiled_subdir(root, domain, "concepts"), root / "compiled" / "concepts")
     if not concepts_dir.exists():
-        print("No compiled/concepts/ directory found — run concept_aggregator.py first.")
+        print(f"No {concepts_dir.relative_to(root)}/ directory found — run concept_aggregator.py first.")
         return 0
 
     # Collect stubs
@@ -255,7 +261,7 @@ def process_stubs(
         return 0
 
     # Load approved sources once
-    sources = _load_approved_sources(root)
+    sources = _load_approved_sources(root, domain)
     print(f"Approved sources loaded: {len(sources)}")
 
     if not dry_run:
@@ -325,7 +331,7 @@ def process_stubs(
         _do_commit(committed_paths, processed, total, no_commit, root)
 
     if not dry_run:
-        _print_summary(processed, total, skipped_few_sources, skipped_bad_output, root)
+        _print_summary(processed, total, skipped_few_sources, skipped_bad_output, root, domain)
 
     return 0
 
@@ -341,7 +347,7 @@ def _do_commit(paths: list[Path], processed: int, total: int, no_commit: bool, r
         print(f"  Warning: git commit failed: {exc}", file=sys.stderr)
 
 
-def _print_summary(processed: int, total: int, skipped_few: int, skipped_bad: int, root: Path) -> None:
+def _print_summary(processed: int, total: int, skipped_few: int, skipped_bad: int, root: Path, domain: str = DEFAULT_DOMAIN_SLUG) -> None:
     print("\n" + "=" * 50)
     print(f"Processed : {processed}/{total}")
     print(f"Skipped (< {MIN_SOURCE_EXCERPTS} excerpts) : {skipped_few}")
@@ -350,7 +356,7 @@ def _print_summary(processed: int, total: int, skipped_few: int, skipped_bad: in
     # Run graph_health and log new stub ratio
     try:
         from graph_health import compute_metrics  # noqa: PLC0415
-        m = compute_metrics(root)
+        m = compute_metrics(root, domain)
         ratio = m["stub_ratio_pct"]
         ratio_str = f"{ratio:.1f}%" if ratio is not None else "N/A"
         print(f"Stub ratio after run           : {ratio_str}")
@@ -392,6 +398,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_MODEL,
         help=f"Ollama model to use. Default: {DEFAULT_MODEL}",
     )
+    parser.add_argument(
+        "--domain",
+        default=DEFAULT_DOMAIN_SLUG,
+        help=f"Domain slug. Default: {DEFAULT_DOMAIN_SLUG}",
+    )
     return parser
 
 
@@ -405,6 +416,7 @@ def main(argv: list[str] | None = None) -> int:
         concept_filter=args.concept,
         limit=args.limit,
         no_commit=args.no_commit,
+        domain=args.domain,
     )
 
 

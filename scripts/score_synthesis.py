@@ -241,12 +241,15 @@ def update_queue_with_score(result: ScoreResult, no_commit: bool = False) -> Non
 
     slug = Path(str(item.get("source_note_path", ""))).stem
     label = "auto-approved" if result.auto_approved else "needs-review"
+    compiled_path = _find_compiled_note(item, ROOT)
+    paths = [REVIEW_QUEUE_PATH]
+    if compiled_path is not None:
+        paths.insert(0, compiled_path)
+    else:
+        paths.insert(0, ROOT / "compiled" / "source_summaries" / f"{slug}-synthesis.md")
     commit_pipeline_stage(
         message=f"score: {result.source_id} confidence={result.score:.2f} {label}",
-        paths=[
-            ROOT / "compiled" / "source_summaries" / f"{slug}-synthesis.md",
-            REVIEW_QUEUE_PATH,
-        ],
+        paths=paths,
         no_commit=no_commit,
     )
 

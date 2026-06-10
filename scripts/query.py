@@ -54,14 +54,6 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MODEL = "phi4:latest"
 OLLAMA_BASE_URL = "http://localhost:11434"
 
-COMPILED_DIRS = [
-    ROOT / "compiled" / "topics",
-    ROOT / "compiled" / "concepts",
-    ROOT / "compiled" / "source_summaries",
-]
-
-ANSWERS_DIR = ROOT / "outputs" / "answers"
-
 # Rough token budget: qwen2.5:14b has a 128k context window.
 # Reserve ~4k for the question + instructions + answer headroom.
 MAX_CONTEXT_CHARS = 120_000
@@ -462,23 +454,26 @@ def _hybrid_select_notes(
 def _resolve_retrieval_mode(
     retrieval: str | None,
     root: Path,
+    domain: str = DEFAULT_DOMAIN_SLUG,
 ) -> tuple[str, bool]:
     """Return (effective_mode, used_fallback). Auto-detects when retrieval is None."""
     sys.path.insert(0, str(Path(__file__).parent))
     from vector_index import index_is_fresh  # noqa: PLC0415
 
+    db_path = vector_index_path(root, domain)
+
     if retrieval is None:
-        if index_is_fresh():
+        if index_is_fresh(db_path):
             return "hybrid", False
         return "bm25", False
 
-    if retrieval == "hybrid" and not index_is_fresh():
+    if retrieval == "hybrid" and not index_is_fresh(db_path):
         sys.stderr.write(
             "Vector index not found or stale — using BM25 only. "
             "Run: python3 scripts/vector_index.py update\n"
         )
         return "bm25", True
-    if retrieval == "vector" and not index_is_fresh():
+    if retrieval == "vector" and not index_is_fresh(db_path):
         sys.stderr.write(
             "Vector index not found or stale — using BM25 only. "
             "Run: python3 scripts/vector_index.py update\n"
@@ -591,7 +586,7 @@ def run(
         print("Error: no compiled notes found. Run compile_notes.py first.", file=sys.stderr)
         return 1
 
-    effective_retrieval, _ = _resolve_retrieval_mode(retrieval, root)
+    effective_retrieval, _ = _resolve_retrieval_mode(retrieval, root, domain)
     resolve_top_n = top_n if top_n > 0 else _DEFAULT_TOP_N
 
     if top_n > 0 or retrieval is not None or effective_retrieval != "bm25":

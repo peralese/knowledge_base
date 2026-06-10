@@ -29,7 +29,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 sys.path.insert(0, str(Path(__file__).parent))
+from domains import DEFAULT_DOMAIN_SLUG, compiled_subdir, raw_subdir  # noqa: E402
 from git_ops import commit_pipeline_stage  # noqa: E402
+
+
+def _domain_or_legacy(domain_path: Path, legacy_path: Path) -> Path:
+    return domain_path if domain_path.exists() else legacy_path
 
 
 # ---------------------------------------------------------------------------
@@ -41,7 +46,7 @@ def _slug_to_display(slug: str) -> str:
     return slug.replace("-", " ").replace("_", " ").lower()
 
 
-def load_known_targets(root: Path) -> dict[str, str]:
+def load_known_targets(root: Path, domain: str = DEFAULT_DOMAIN_SLUG) -> dict[str, str]:
     """Return {match_name_lower: canonical_slug} for all concept and entity notes.
 
     Each concept/entity contributes two match keys:
@@ -50,7 +55,10 @@ def load_known_targets(root: Path) -> dict[str, str]:
     Longer names are preferred (handled by sort order in injection).
     """
     targets: dict[str, str] = {}
-    for directory in [root / "compiled" / "concepts", root / "compiled" / "entities"]:
+    for directory in [
+        _domain_or_legacy(compiled_subdir(root, domain, "concepts"), root / "compiled" / "concepts"),
+        _domain_or_legacy(compiled_subdir(root, domain, "entities"), root / "compiled" / "entities"),
+    ]:
         if not directory.exists():
             continue
         for path in directory.glob("*.md"):
@@ -189,15 +197,17 @@ def inject_wikilinks_into_body(
 # Note-level processing
 # ---------------------------------------------------------------------------
 
-def _should_annotate(path: Path, root: Path) -> bool:
+def _should_annotate(path: Path, root: Path, domain: str = DEFAULT_DOMAIN_SLUG) -> bool:
     """Return True if this note is eligible for wikilink injection."""
-    rel = path.relative_to(root)
-    parts = rel.parts
-    # Annotate: compiled/topics/
-    if parts[:2] == ("compiled", "topics"):
+    topics_dir = _domain_or_legacy(compiled_subdir(root, domain, "topics"), root / "compiled" / "topics")
+    articles_dir = _domain_or_legacy(raw_subdir(root, domain, "articles"), root / "raw" / "articles")
+    notes_dir = _domain_or_legacy(raw_subdir(root, domain, "notes"), root / "raw" / "notes")
+
+    # Annotate: topics/
+    if path.parent == topics_dir:
         return True
-    # Annotate: raw/articles/ and raw/notes/ if approved
-    if parts[0] == "raw" and parts[1] in ("articles", "notes"):
+    # Annotate: raw articles/ and notes/ if approved
+    if path.parent in (articles_dir, notes_dir):
         try:
             text = path.read_text(encoding="utf-8", errors="replace")
             return _is_approved(text)
@@ -227,12 +237,12 @@ def annotate_note(
     return injections
 
 
-def _collect_eligible_notes(root: Path) -> list[Path]:
+def _collect_eligible_notes(root: Path, domain: str = DEFAULT_DOMAIN_SLUG) -> list[Path]:
     eligible: list[Path] = []
     for directory in [
-        root / "compiled" / "topics",
-        root / "raw" / "articles",
-        root / "raw" / "notes",
+        _domain_or_legacy(compiled_subdir(root, domain, "topics"), root / "compiled" / "topics"),
+        _domain_or_legacy(raw_subdir(root, domain, "articles"), root / "raw" / "articles"),
+        _domain_or_legacy(raw_subdir(root, domain, "notes"), root / "raw" / "notes"),
     ]:
         if not directory.exists():
             continue
@@ -250,8 +260,9 @@ def run(
     dry_run: bool,
     note_path: Path | None,
     no_commit: bool,
+    domain: str = DEFAULT_DOMAIN_SLUG,
 ) -> int:
-    targets = load_known_targets(root)
+    targets = load_known_targets(root, domain)
     if not targets:
         print("No concept or entity notes found — run concept_aggregator.py first.")
         return 0
@@ -261,7 +272,7 @@ def run(
     if note_path is not None:
         notes = [note_path]
     else:
-        notes = [p for p in _collect_eligible_notes(root) if _should_annotate(p, root)]
+        notes = [p for p in _collect_eligible_notes(root, domain) if _should_annotate(p, root, domain)]
 
     print(f"Notes to annotate: {len(notes)}")
 
@@ -336,6 +347,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Skip git auto-commits.",
     )
+    parser.add_argument(
+        "--domain",
+        default=DEFAULT_DOMAIN_SLUG,
+        help=f"Domain slug. Default: {DEFAULT_DOMAIN_SLUG}",
+    )
     return parser
 
 
@@ -347,6 +363,7 @@ def main(argv: list[str] | None = None) -> int:
         dry_run=args.dry_run,
         note_path=args.note,
         no_commit=args.no_commit,
+        domain=args.domain,
     )
 
 

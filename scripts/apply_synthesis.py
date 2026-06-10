@@ -19,20 +19,22 @@ from domains import (  # noqa: E402
     domain_from_path,
     ensure_domain_dirs,
     metadata_domain_dir,
+    metadata_file,
     outputs_subdir,
+    raw_subdir,
 )
 
+
+def _domain_or_legacy(domain_path: Path, legacy_path: Path) -> Path:
+    return domain_path if domain_path.exists() else legacy_path
+
 CATEGORY_DESTINATIONS = {
-    "source_summary": Path("compiled/source_summaries"),
-    "concept": Path("compiled/concepts"),
-    "topic": Path("compiled/topics"),
+    "source_summary": "source_summaries",
+    "concept": "concepts",
+    "topic": "topics",
 }
 
-OUTPUT_DESTINATIONS = {
-    "compiled": Path("compiled/topics"),
-    "answer": Path("outputs/answers"),
-    "report": Path("outputs/reports"),
-}
+OUTPUT_DESTINATIONS = {"compiled", "answer", "report"}
 
 CITATION_ARTIFACT_PATTERN = re.compile(r":contentReference\[[^\]]*\]|\[oaicite:[^\]]*\]|\{index=\d+\}")
 COMMAND_SUBSTITUTION_PATTERN = re.compile(r"`?\$\([^)\n]*\)`?")
@@ -524,15 +526,16 @@ def sanitize_markdown_body(body: str) -> SanitizationResult:
     )
 
 
-def build_wikilink_index(root: Path) -> dict[str, list[str]]:
+def build_wikilink_index(root: Path, domain: str = "") -> dict[str, list[str]]:
     """Build a slug-indexed map of valid wikilink targets in the vault, excluding archives."""
+    domain = domain or DEFAULT_DOMAIN_SLUG
     search_dirs = [
-        root / "raw" / "articles",
-        root / "raw" / "notes",
-        root / "raw" / "pdfs",
-        root / "compiled" / "source_summaries",
-        root / "compiled" / "concepts",
-        root / "compiled" / "topics",
+        _domain_or_legacy(raw_subdir(root, domain, "articles"), root / "raw" / "articles"),
+        _domain_or_legacy(raw_subdir(root, domain, "notes"), root / "raw" / "notes"),
+        _domain_or_legacy(raw_subdir(root, domain, "pdfs"), root / "raw" / "pdfs"),
+        _domain_or_legacy(compiled_subdir(root, domain, "source_summaries"), root / "compiled" / "source_summaries"),
+        _domain_or_legacy(compiled_subdir(root, domain, "concepts"), root / "compiled" / "concepts"),
+        _domain_or_legacy(compiled_subdir(root, domain, "topics"), root / "compiled" / "topics"),
     ]
     index: dict[str, list[str]] = {}
 
@@ -587,9 +590,10 @@ def validate_wikilinks(
     source_notes: list[str],
     registry: dict[str, dict[str, object]],
     current_output_stem: str,
+    domain: str = "",
 ) -> None:
     """Validate wikilinks in a compiled note body and fail on unresolved or ambiguous targets."""
-    index = build_wikilink_index(root)
+    index = build_wikilink_index(root, domain)
     if current_output_stem:
         index.setdefault(slugify_title(current_output_stem), [])
         if current_output_stem not in index[slugify_title(current_output_stem)]:
@@ -654,8 +658,8 @@ def extract_prompt_pack_metadata(prompt_pack_path: Path) -> PromptPackMetadata:
     )
 
 
-def destination_dir_for_category(category: str) -> Path:
-    """Map a compiled category to the correct compiled/ destination."""
+def destination_dir_for_category(category: str) -> str:
+    """Map a compiled category to the correct compiled/ subdirectory name."""
     return CATEGORY_DESTINATIONS.get(category.strip().lower(), CATEGORY_DESTINATIONS["topic"])
 
 
@@ -668,18 +672,16 @@ def resolve_destination(
 ) -> Path:
     """Resolve the final output path for the applied synthesis."""
     safe_slug = slugify_title(canonical_slug)
+    domain = domain or DEFAULT_DOMAIN_SLUG
 
     if output_type == "compiled":
-        category_dir = destination_dir_for_category(note_category).parts[-1]
-        return (
-            compiled_subdir(root, domain, category_dir)
-            if domain
-            else root / destination_dir_for_category(note_category)
-        ) / f"{safe_slug}.md"
+        category_dir = destination_dir_for_category(note_category)
+        return compiled_subdir(root, domain, category_dir) / f"{safe_slug}.md"
 
-    if output_type == "answer" and domain:
+    if output_type == "answer":
         return outputs_subdir(root, domain, "answers") / f"{safe_slug}.md"
-    return root / OUTPUT_DESTINATIONS[output_type] / f"{safe_slug}.md"
+
+    return outputs_subdir(root, domain, "reports") / f"{safe_slug}.md"
 
 
 def extract_topics_from_body(body: str) -> list[str]:
@@ -834,7 +836,12 @@ def assemble_output_text(
     sanitization = sanitize_markdown_body(body)
     normalized_body = sanitization.text
     source_notes = prompt_pack_metadata.source_notes
-    registry = load_topic_registry(root / "metadata" / "topic-registry.json")
+    registry = load_topic_registry(
+        _domain_or_legacy(
+            metadata_file(root, prompt_pack_metadata.domain or DEFAULT_DOMAIN_SLUG, "topic-registry.json"),
+            root / "metadata" / "topic-registry.json",
+        )
+    )
 
     if output_type == "compiled":
         normalized_body = patch_source_wikilinks(normalized_body, source_notes, registry)
@@ -847,6 +854,7 @@ def assemble_output_text(
             source_notes,
             registry,
             current_output_stem=prompt_pack_metadata.canonical_slug,
+            domain=prompt_pack_metadata.domain,
         )
         topics = extract_topics_from_body(normalized_body)
         tags = dedupe_preserve_order(
@@ -903,7 +911,12 @@ def apply_synthesis(request: ApplySynthesisRequest) -> Path:
     canonical_title = prompt_pack_metadata.canonical_title
     canonical_slug = prompt_pack_metadata.canonical_slug
 
-    registry = load_topic_registry(request.root / "metadata" / "topic-registry.json")
+    registry = load_topic_registry(
+        _domain_or_legacy(
+            metadata_file(request.root, prompt_pack_metadata.domain or DEFAULT_DOMAIN_SLUG, "topic-registry.json"),
+            request.root / "metadata" / "topic-registry.json",
+        )
+    )
     if canonical_slug in registry:
         registry_entry = registry[canonical_slug]
         canonical_title = sanitize_title_value(str(registry_entry.get("title", canonical_title)))
@@ -916,8 +929,7 @@ def apply_synthesis(request: ApplySynthesisRequest) -> Path:
         note_category=prompt_pack_metadata.note_category,
         domain=prompt_pack_metadata.domain,
     )
-    if prompt_pack_metadata.domain:
-        ensure_domain_dirs(request.root, prompt_pack_metadata.domain)
+    ensure_domain_dirs(request.root, prompt_pack_metadata.domain or DEFAULT_DOMAIN_SLUG)
 
     if destination.exists() and not request.force:
         raise FileExistsError(f"Destination file already exists: {destination}. Use --force to overwrite.")

@@ -32,7 +32,17 @@ from urllib.error import URLError
 
 ROOT = Path(__file__).resolve().parents[1]
 OLLAMA_BASE_URL = "http://localhost:11434"
-BENCHMARKS_DIR = ROOT / "outputs" / "benchmarks"
+
+sys.path.insert(0, str(Path(__file__).parent))
+from domains import DEFAULT_DOMAIN_SLUG, compiled_subdir, outputs_subdir  # noqa: E402
+
+
+def _domain_or_legacy(domain_path: Path, legacy_path: Path) -> Path:
+    return domain_path if domain_path.exists() else legacy_path
+
+
+def _benchmarks_dir(root: Path, domain: str = DEFAULT_DOMAIN_SLUG) -> Path:
+    return outputs_subdir(root, domain, "benchmarks")
 
 # ---------------------------------------------------------------------------
 # Query test sets — tuned to the actual KB corpus topics
@@ -76,11 +86,11 @@ EMPTY_QUERIES = [
 # BM25 retrieval (no Ollama)
 # ---------------------------------------------------------------------------
 
-def _bm25_retrieval_latencies(queries: list[str], runs: int, root: Path) -> dict:
+def _bm25_retrieval_latencies(queries: list[str], runs: int, root: Path, domain: str = DEFAULT_DOMAIN_SLUG) -> dict:
     sys.path.insert(0, str(Path(__file__).parent))
     from search import build_index, load_documents, search as bm25_search  # noqa: PLC0415
 
-    docs = load_documents(root, include_raw=False)
+    docs = load_documents(root, include_raw=False, domain=domain)
     if not docs:
         return {"error": "no compiled documents found"}
 
@@ -150,11 +160,11 @@ def _call_ollama_no_stream(prompt: str, model: str, timeout: int = 90) -> str:
     return str(data.get("response", ""))
 
 
-def _build_prompt_for_query(question: str, root: Path, topic: str = "") -> str:
+def _build_prompt_for_query(question: str, root: Path, topic: str = "", domain: str = DEFAULT_DOMAIN_SLUG) -> str:
     sys.path.insert(0, str(Path(__file__).parent))
     from query_engine import build_query_prompt, load_context  # noqa: PLC0415
 
-    context, _ = load_context(topic or None, root)
+    context, _ = load_context(topic or None, root, domain)
     if not context:
         context = "[No context loaded]"
     return build_query_prompt(question, context)
@@ -166,6 +176,7 @@ def _end_to_end_latencies(
     model: str,
     root: Path,
     scoped: bool = False,
+    domain: str = DEFAULT_DOMAIN_SLUG,
 ) -> dict:
     latencies_ms: list[float] = []
     substantive_count = 0
@@ -178,7 +189,7 @@ def _end_to_end_latencies(
         for _ in range(runs):
             t0 = time.perf_counter()
             try:
-                prompt = _build_prompt_for_query(question, root, topic)
+                prompt = _build_prompt_for_query(question, root, topic, domain)
                 response = _call_ollama_no_stream(prompt, model)
                 elapsed = (time.perf_counter() - t0) * 1000
                 latencies_ms.append(elapsed)
@@ -335,18 +346,17 @@ def run_benchmark(
     ollama_runs: int = 3,
     model: str = "qwen2.5:7b",
     output_path: Path | None = None,
+    domain: str = DEFAULT_DOMAIN_SLUG,
 ) -> dict:
     now = datetime.now()
     timestamp = now.strftime("%Y-%m-%d-%H%M%S")
     today = now.strftime("%Y-%m-%d")
 
     # Corpus size
-    corpus = {
-        "topics": len(list((root / "compiled" / "topics").glob("*.md"))) if (root / "compiled" / "topics").exists() else 0,
-        "concepts": len(list((root / "compiled" / "concepts").glob("*.md"))) if (root / "compiled" / "concepts").exists() else 0,
-        "entities": len(list((root / "compiled" / "entities").glob("*.md"))) if (root / "compiled" / "entities").exists() else 0,
-        "source_summaries": len(list((root / "compiled" / "source_summaries").glob("*.md"))) if (root / "compiled" / "source_summaries").exists() else 0,
-    }
+    corpus = {}
+    for name in ("topics", "concepts", "entities", "source_summaries"):
+        directory = _domain_or_legacy(compiled_subdir(root, domain, name), root / "compiled" / name)
+        corpus[name] = len(list(directory.glob("*.md"))) if directory.exists() else 0
     corpus["total"] = sum(corpus.values())
 
     print(f"Benchmark — BM25 retrieval ({runs} runs per query type)")
@@ -361,7 +371,7 @@ def run_benchmark(
         ("empty", EMPTY_QUERIES, False),
     ]:
         print(f"  BM25 {label}...", end=" ", flush=True)
-        bm25_results[label] = _bm25_retrieval_latencies(queries, runs, root)
+        bm25_results[label] = _bm25_retrieval_latencies(queries, runs, root, domain)
         avg = bm25_results[label].get("avg_ms", 0)
         print(f"{avg:.3f}ms avg")
 
@@ -377,7 +387,7 @@ def run_benchmark(
             ("empty", EMPTY_QUERIES),
         ]:
             print(f"  E2E {label}...", end=" ", flush=True)
-            e2e_results[label] = _end_to_end_latencies(queries, ollama_runs, model, root)
+            e2e_results[label] = _end_to_end_latencies(queries, ollama_runs, model, root, domain=domain)
             avg = e2e_results[label].get("avg_ms", 0)
             rate = e2e_results[label].get("substantive_rate", "?")
             print(f"{avg:.0f}ms avg  substantive: {rate}")
@@ -395,7 +405,7 @@ def run_benchmark(
     }
 
     # Save JSON snapshot
-    save_dir = output_path.parent if output_path else BENCHMARKS_DIR
+    save_dir = output_path.parent if output_path else _benchmarks_dir(root, domain)
     save_dir.mkdir(parents=True, exist_ok=True)
     out_path = output_path or (save_dir / f"{timestamp}-query.json")
     out_path.write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
@@ -439,6 +449,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Custom output path for JSON results. Default: outputs/benchmarks/TIMESTAMP-query.json",
     )
+    parser.add_argument(
+        "--domain",
+        default=DEFAULT_DOMAIN_SLUG,
+        help=f"Domain slug. Default: {DEFAULT_DOMAIN_SLUG}",
+    )
     return parser
 
 
@@ -452,6 +467,7 @@ def main(argv: list[str] | None = None) -> int:
         ollama_runs=args.ollama_runs,
         model=args.model,
         output_path=args.output,
+        domain=args.domain,
     )
     return 0
 

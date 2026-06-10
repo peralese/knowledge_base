@@ -42,7 +42,7 @@ REVIEW_QUEUE_REPORT_PATH = ROOT / "metadata" / "review-queue.md"
 sys.path.insert(0, str(Path(__file__).parent))
 from git_ops import commit_pipeline_stage  # noqa: E402
 from purge_source import purge_source  # noqa: E402
-from domains import DEFAULT_DOMAIN_SLUG, compiled_subdir, metadata_file  # noqa: E402
+from domains import DEFAULT_DOMAIN_SLUG, compiled_subdir, metadata_domain_dir, metadata_file, raw_subdir  # noqa: E402
 
 
 def configure_domain_paths(domain: str, root: Path = ROOT) -> None:
@@ -526,17 +526,6 @@ def cmd_reject(source_id: str, *, reason: str, root: Path = ROOT, no_commit: boo
 # Purge command
 # ---------------------------------------------------------------------------
 
-def _load_queue_from_root(root: Path) -> list[dict]:
-    queue_path = root / "metadata" / "review-queue.json"
-    if not queue_path.exists():
-        return []
-    try:
-        data = json.loads(queue_path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return []
-    return data if isinstance(data, list) else []
-
-
 def _purge_one(
     source_id: str,
     queue: list[dict],
@@ -544,6 +533,7 @@ def _purge_one(
     dry_run: bool,
     force: bool,
     root: Path,
+    domain: str = DEFAULT_DOMAIN_SLUG,
 ) -> bool:
     """Purge a single source.  Returns True if the purge ran (or dry-ran)."""
     entry = next((e for e in queue if e.get("source_id") == source_id), None)
@@ -562,7 +552,7 @@ def _purge_one(
         return False
 
     try:
-        result = purge_source(source_id, root, dry_run=dry_run)
+        result = purge_source(source_id, root, dry_run=dry_run, domain=domain)
     except ValueError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return False
@@ -596,8 +586,9 @@ def cmd_purge(
     force: bool,
     root: Path = ROOT,
     no_commit: bool = False,
+    domain: str = DEFAULT_DOMAIN_SLUG,
 ) -> int:
-    queue = _load_queue_from_root(root)
+    queue = load_queue()
 
     targets: list[str]
     if all_rejected:
@@ -620,8 +611,8 @@ def cmd_purge(
 
     purged: list[str] = []
     for sid in targets:
-        current_queue = _load_queue_from_root(root)
-        ok = _purge_one(sid, current_queue, dry_run=dry_run, force=force, root=root)
+        current_queue = load_queue()
+        ok = _purge_one(sid, current_queue, dry_run=dry_run, force=force, root=root, domain=domain)
         if ok and not dry_run:
             purged.append(sid)
 
@@ -645,8 +636,13 @@ def cmd_purge(
     try:
         commit_pipeline_stage(
             message=msg,
-            paths=["metadata/source-manifest.json", "metadata/review-queue.json",
-                   "metadata/prompts", "compiled/source_summaries", "raw/articles"],
+            paths=[
+                metadata_file(root, domain, "source-manifest.json").relative_to(root),
+                metadata_file(root, domain, "review-queue.json").relative_to(root),
+                metadata_domain_dir(root, domain) / "prompts",
+                compiled_subdir(root, domain, "source_summaries"),
+                raw_subdir(root, domain, "articles"),
+            ],
             no_commit=no_commit,
             root=root,
         )
@@ -810,6 +806,7 @@ def main(argv: list[str] | None = None) -> int:
             force=args.force,
             root=ROOT,
             no_commit=args.no_commit,
+            domain=args.domain,
         )
 
     parser.print_help()

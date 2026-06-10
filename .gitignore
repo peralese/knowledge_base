@@ -13,10 +13,10 @@ build/
 .env.*
 
 # Inbox — transient staging area, not persisted
-raw/inbox/
+raw/domains/*/inbox/
 
 # Archive — large HTML source files, not needed in repo
-raw/archive/
+raw/domains/*/archive/
 
 # Backup directories
 backup/
@@ -41,7 +41,7 @@ Thumbs.db
 *.bin
 
 # Outputs — keep reports, exclude large generated files
-outputs/answers/
+outputs/domains/*/answers/
 
 # Misc runtime
 .pytest_cache/
