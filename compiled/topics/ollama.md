@@ -16,7 +16,7 @@ approved: true
 
 # Ollama
 
-Ollama is a Docker-based container designed for hosting large language models (LLMs), such as `gpt-oss`, which mirrors the capabilities of OpenAI's models like O3-mini. The primary objective of Ollama is to provide users with an efficient, local environment capable of running AI-driven text tasks without relying on cloud services like ChatGPT. By deploying Ollama alongside complementary Docker containers, individuals can establish a comprehensive AI stack tailored for privacy and control.
+[[ollama]] is a [[docker]]-based container designed for hosting [[large-language-models]] (LLMs), such as `gpt-oss`, which mirrors the capabilities of OpenAI's models like O3-mini. The primary objective of Ollama is to provide users with an efficient, local environment capable of running AI-driven text tasks without relying on cloud services like ChatGPT. By deploying Ollama alongside complementary Docker containers, individuals can establish a comprehensive AI stack tailored for privacy and control.
 
 The concept behind the Ollama setup was first detailed in an article by Yash Patel, published on XDA Developers. Patel outlines how he built his local AI stack using five Docker containers, with Ollama serving as the cornerstone component responsible for managing large language models. This approach not only enhances data privacy but also offers a cost-effective alternative to cloud-based solutions.
 
