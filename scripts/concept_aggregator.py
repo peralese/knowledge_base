@@ -33,15 +33,10 @@ from urllib.error import URLError
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MODEL = "phi4:latest"
 
-CONCEPTS_DIR = ROOT / "compiled" / "concepts"
-ENTITIES_DIR = ROOT / "compiled" / "entities"
-CONCEPT_REGISTRY_PATH = ROOT / "metadata" / "concept-registry.json"
-ENTITY_REGISTRY_PATH = ROOT / "metadata" / "entity-registry.json"
-SOURCE_SUMMARIES_DIR = ROOT / "compiled" / "source_summaries"
-
 VALID_ENTITY_TYPES = {"tool", "company", "person", "framework", "product"}
 
 sys.path.insert(0, str(Path(__file__).parent))
+from domains import DEFAULT_DOMAIN_SLUG, compiled_subdir, metadata_file  # noqa: E402
 from git_ops import commit_pipeline_stage  # noqa: E402
 from llm_driver import _check_model_available, call_ollama  # noqa: E402
 
@@ -359,12 +354,13 @@ def extract_concepts_and_entities(
     root: Path = ROOT,
     dry_run: bool = False,
     no_commit: bool = False,
+    domain: str = DEFAULT_DOMAIN_SLUG,
 ) -> dict:
     """Extract concepts and entities from one source summary. Returns paths written."""
-    concepts_dir = root / "compiled" / "concepts"
-    entities_dir = root / "compiled" / "entities"
-    concept_registry_path = root / "metadata" / "concept-registry.json"
-    entity_registry_path = root / "metadata" / "entity-registry.json"
+    concepts_dir = compiled_subdir(root, domain, "concepts")
+    entities_dir = compiled_subdir(root, domain, "entities")
+    concept_registry_path = metadata_file(root, domain, "concept-registry.json")
+    entity_registry_path = metadata_file(root, domain, "entity-registry.json")
 
     today = date.today().isoformat()
     generation_method = "ollama_local"
@@ -494,12 +490,14 @@ def extract_for_source(
     if not _yaml_bool(fm.get("approved", False)):
         return {"concepts_written": [], "entities_written": [], "skipped": "not approved"}
     _, body = _split_frontmatter(text)
+    domain = str(item.get("domain", "")).strip() or DEFAULT_DOMAIN_SLUG
     return extract_concepts_and_entities(
         body,
         source_summary_path.stem,
         model=model,
         root=root,
         no_commit=no_commit,
+        domain=domain,
     )
 
 
@@ -508,9 +506,9 @@ def extract_for_source(
 # ---------------------------------------------------------------------------
 
 def cmd_extract_one(
-    source: str, *, model: str, root: Path, dry_run: bool, no_commit: bool
+    source: str, *, model: str, root: Path, dry_run: bool, no_commit: bool, domain: str = DEFAULT_DOMAIN_SLUG
 ) -> int:
-    summaries_dir = root / "compiled" / "source_summaries"
+    summaries_dir = compiled_subdir(root, domain, "source_summaries")
     candidates = [
         summaries_dir / source,
         summaries_dir / f"{source}.md",
@@ -527,7 +525,7 @@ def cmd_extract_one(
         return 0
 
     result = extract_concepts_and_entities(
-        body, path.stem, model=model, root=root, dry_run=dry_run, no_commit=no_commit
+        body, path.stem, model=model, root=root, dry_run=dry_run, no_commit=no_commit, domain=domain
     )
     if dry_run:
         extraction = result.get("extraction", {})
@@ -541,8 +539,8 @@ def cmd_extract_one(
     return 0
 
 
-def _all_approved_summaries(root: Path) -> list[Path]:
-    summaries_dir = root / "compiled" / "source_summaries"
+def _all_approved_summaries(root: Path, domain: str = DEFAULT_DOMAIN_SLUG) -> list[Path]:
+    summaries_dir = compiled_subdir(root, domain, "source_summaries")
     if not summaries_dir.exists():
         return []
     results = []
@@ -554,11 +552,11 @@ def _all_approved_summaries(root: Path) -> list[Path]:
     return results
 
 
-def _already_extracted(source_stem: str, root: Path) -> bool:
+def _already_extracted(source_stem: str, root: Path, domain: str = DEFAULT_DOMAIN_SLUG) -> bool:
     """Return True if this source_stem appears in any concept or entity registry entry."""
     for reg_path, key in [
-        (root / "metadata" / "concept-registry.json", "concepts"),
-        (root / "metadata" / "entity-registry.json", "entities"),
+        (metadata_file(root, domain, "concept-registry.json"), "concepts"),
+        (metadata_file(root, domain, "entity-registry.json"), "entities"),
     ]:
         reg = load_registry(reg_path)
         for entry in reg.get(key, []):
@@ -568,21 +566,21 @@ def _already_extracted(source_stem: str, root: Path) -> bool:
 
 
 def cmd_extract_all(
-    *, model: str, root: Path, dry_run: bool, no_commit: bool
+    *, model: str, root: Path, dry_run: bool, no_commit: bool, domain: str = DEFAULT_DOMAIN_SLUG
 ) -> int:
-    paths = _all_approved_summaries(root)
+    paths = _all_approved_summaries(root, domain)
     if not paths:
         print("No approved source summaries found.")
         return 0
 
     processed = 0
     for path in paths:
-        if not dry_run and _already_extracted(path.stem, root):
+        if not dry_run and _already_extracted(path.stem, root, domain):
             continue
         text = path.read_text(encoding="utf-8", errors="replace")
         _, body = _split_frontmatter(text)
         result = extract_concepts_and_entities(
-            body, path.stem, model=model, root=root, dry_run=dry_run, no_commit=no_commit
+            body, path.stem, model=model, root=root, dry_run=dry_run, no_commit=no_commit, domain=domain
         )
         if dry_run:
             extraction = result.get("extraction", {})
@@ -614,6 +612,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--dry-run", action="store_true", help="Print extraction without writing files.")
     parser.add_argument("--no-commit", action="store_true", dest="no_commit", help="Skip git auto-commit.")
     parser.add_argument("--model", default=DEFAULT_MODEL, help=f"Ollama model. Default: {DEFAULT_MODEL}")
+    parser.add_argument("--domain", default=DEFAULT_DOMAIN_SLUG, help=f"Domain slug. Default: {DEFAULT_DOMAIN_SLUG}")
     return parser
 
 
@@ -621,8 +620,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     if args.all:
-        return cmd_extract_all(model=args.model, root=ROOT, dry_run=args.dry_run, no_commit=args.no_commit)
-    return cmd_extract_one(args.source, model=args.model, root=ROOT, dry_run=args.dry_run, no_commit=args.no_commit)
+        return cmd_extract_all(model=args.model, root=ROOT, dry_run=args.dry_run, no_commit=args.no_commit, domain=args.domain)
+    return cmd_extract_one(args.source, model=args.model, root=ROOT, dry_run=args.dry_run, no_commit=args.no_commit, domain=args.domain)
 
 
 if __name__ == "__main__":

@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MODEL = "phi4:latest"
 
 sys.path.insert(0, str(Path(__file__).parent))
+from domains import DEFAULT_DOMAIN_SLUG, compiled_subdir, metadata_file  # noqa: E402
 from git_ops import commit_pipeline_stage  # noqa: E402
 from llm_driver import _check_model_available, call_ollama  # noqa: E402
 
@@ -99,14 +100,18 @@ def _wiki_targets(text: str) -> list[str]:
     return targets
 
 
-def _source_path(target: str, root: Path) -> Path | None:
+def _source_path(target: str, root: Path, domain: str = DEFAULT_DOMAIN_SLUG) -> Path | None:
     cleaned = target.strip()
+    summaries_dir = compiled_subdir(root, domain, "source_summaries")
     candidates = [
         root / cleaned,
+        summaries_dir / cleaned,
+        summaries_dir / f"{cleaned}.md",
         root / "compiled" / "source_summaries" / cleaned,
         root / "compiled" / "source_summaries" / f"{cleaned}.md",
     ]
     if cleaned.endswith(".md"):
+        candidates.append(summaries_dir / Path(cleaned).name)
         candidates.append(root / "compiled" / "source_summaries" / Path(cleaned).name)
     for candidate in candidates:
         if candidate.exists() and candidate.is_file():
@@ -114,11 +119,11 @@ def _source_path(target: str, root: Path) -> Path | None:
     return None
 
 
-def _linked_source_paths(topic_text: str, root: Path) -> list[Path]:
+def _linked_source_paths(topic_text: str, root: Path, domain: str = DEFAULT_DOMAIN_SLUG) -> list[Path]:
     paths: list[Path] = []
     fm, _ = _split_frontmatter(topic_text)
     for target in _wiki_targets(topic_text):
-        path = _source_path(target, root)
+        path = _source_path(target, root, domain)
         if path and path not in paths:
             paths.append(path)
 
@@ -127,7 +132,7 @@ def _linked_source_paths(topic_text: str, root: Path) -> list[Path]:
         compiled_from = [compiled_from]
     if isinstance(compiled_from, list):
         for stem in compiled_from:
-            path = _source_path(str(stem), root)
+            path = _source_path(str(stem), root, domain)
             if path and path not in paths:
                 paths.append(path)
     return paths
@@ -142,8 +147,10 @@ def _approved_sources(paths: list[Path]) -> list[Path]:
     return approved
 
 
-def _title_for_slug(slug: str, root: Path) -> str:
-    registry_path = root / "metadata" / "topic-registry.json"
+def _title_for_slug(slug: str, root: Path, domain: str = DEFAULT_DOMAIN_SLUG) -> str:
+    registry_path = metadata_file(root, domain, "topic-registry.json")
+    if not registry_path.exists():
+        registry_path = root / "metadata" / "topic-registry.json"
     if registry_path.exists():
         try:
             registry = json.loads(registry_path.read_text(encoding="utf-8"))
@@ -200,17 +207,17 @@ def _render_frontmatter(data: dict[str, object]) -> str:
     return "\n".join(lines)
 
 
-def topic_status(topic_slug: str, root: Path = ROOT) -> dict[str, object]:
-    topic_path = root / "compiled" / "topics" / f"{topic_slug}.md"
+def topic_status(topic_slug: str, root: Path = ROOT, domain: str = DEFAULT_DOMAIN_SLUG) -> dict[str, object]:
+    topic_path = compiled_subdir(root, domain, "topics") / f"{topic_slug}.md"
     if not topic_path.exists():
-        raise TopicNotFoundError(f"Topic note not found: compiled/topics/{topic_slug}.md")
+        raise TopicNotFoundError(f"Topic note not found: compiled/domains/{domain}/topics/{topic_slug}.md")
     topic_text = topic_path.read_text(encoding="utf-8", errors="replace")
     fm, _ = _split_frontmatter(topic_text)
-    sources = _linked_source_paths(topic_text, root)
+    sources = _linked_source_paths(topic_text, root, domain)
     approved = _approved_sources(sources)
     return {
         "slug": topic_slug,
-        "display_name": str(fm.get("title") or _title_for_slug(topic_slug, root)),
+        "display_name": str(fm.get("title") or _title_for_slug(topic_slug, root, domain)),
         "date_updated": str(fm.get("date_updated") or fm.get("date_compiled") or ""),
         "synthesis_version": int(str(fm.get("synthesis_version", "1")) or "1"),
         "source_count": len(sources),
@@ -226,15 +233,16 @@ def resynthesize_topic(
     dry_run: bool = False,
     force: bool = False,
     no_commit: bool = False,
+    domain: str = DEFAULT_DOMAIN_SLUG,
 ) -> ResynthesisResult:
-    topic_path = root / "compiled" / "topics" / f"{topic_slug}.md"
+    topic_path = compiled_subdir(root, domain, "topics") / f"{topic_slug}.md"
     if not topic_path.exists():
-        raise TopicNotFoundError(f"Topic note not found: compiled/topics/{topic_slug}.md")
+        raise TopicNotFoundError(f"Topic note not found: compiled/domains/{domain}/topics/{topic_slug}.md")
 
     topic_text = topic_path.read_text(encoding="utf-8", errors="replace")
     fm, _ = _split_frontmatter(topic_text)
-    topic_title = str(fm.get("title") or _title_for_slug(topic_slug, root))
-    all_sources = _linked_source_paths(topic_text, root)
+    topic_title = str(fm.get("title") or _title_for_slug(topic_slug, root, domain))
+    all_sources = _linked_source_paths(topic_text, root, domain)
     sources = _approved_sources(all_sources)
 
     if len(sources) < 2 and not force:
@@ -305,8 +313,8 @@ def resynthesize_topic(
     )
 
 
-def _topic_slugs(root: Path) -> list[str]:
-    topics_dir = root / "compiled" / "topics"
+def _topic_slugs(root: Path, domain: str = DEFAULT_DOMAIN_SLUG) -> list[str]:
+    topics_dir = compiled_subdir(root, domain, "topics")
     return sorted(path.stem for path in topics_dir.glob("*.md")) if topics_dir.exists() else []
 
 
@@ -318,6 +326,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--force", action="store_true", help="Allow re-synthesis with fewer than 2 sources.")
     parser.add_argument("--model", default=DEFAULT_MODEL, help=f"Ollama model. Default: {DEFAULT_MODEL}")
     parser.add_argument("--no-commit", action="store_true", help="Write files without auto-committing.")
+    parser.add_argument("--domain", default=DEFAULT_DOMAIN_SLUG, help=f"Domain slug. Default: {DEFAULT_DOMAIN_SLUG}")
     return parser
 
 
@@ -327,7 +336,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.all and not args.topic_slug:
         parser.error("provide a topic slug or --all")
 
-    slugs = _topic_slugs(ROOT) if args.all else [args.topic_slug]
+    slugs = _topic_slugs(ROOT, args.domain) if args.all else [args.topic_slug]
     rc = 0
     for slug in slugs:
         try:
@@ -337,6 +346,7 @@ def main(argv: list[str] | None = None) -> int:
                 dry_run=args.dry_run,
                 force=args.force,
                 no_commit=args.no_commit,
+                domain=args.domain,
             )
         except ResynthesisError as exc:
             print(f"{slug}: {exc}", file=sys.stderr)

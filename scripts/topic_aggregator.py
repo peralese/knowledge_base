@@ -26,16 +26,25 @@ from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TOPIC_REGISTRY_PATH = ROOT / "metadata" / "topic-registry.json"
-REVIEW_QUEUE_PATH = ROOT / "metadata" / "review-queue.json"
-TOPICS_DIR = ROOT / "compiled" / "topics"
-SOURCE_SUMMARIES_DIR = ROOT / "compiled" / "source_summaries"
 DEFAULT_MODEL = "phi4:latest"
 
 # Import llm_driver at module level so tests can patch call_ollama on this module.
 sys.path.insert(0, str(Path(__file__).parent))
+from domains import DEFAULT_DOMAIN_SLUG, compiled_subdir, metadata_file  # noqa: E402, PLC0415
 from git_ops import commit_pipeline_stage  # noqa: E402, PLC0415
 from llm_driver import _check_model_available, call_ollama  # noqa: E402, PLC0415
+
+
+def _topics_dir(root: Path, domain: str) -> Path:
+    return compiled_subdir(root, domain, "topics")
+
+
+def _source_summaries_dir(root: Path, domain: str) -> Path:
+    return compiled_subdir(root, domain, "source_summaries")
+
+
+def _topic_registry_path(root: Path, domain: str) -> Path:
+    return metadata_file(root, domain, "topic-registry.json")
 
 
 # ---------------------------------------------------------------------------
@@ -51,15 +60,16 @@ class AggregateRequest:
     force: bool = False
     root: Path = field(default_factory=lambda: ROOT)
     no_commit: bool = False
+    domain: str = DEFAULT_DOMAIN_SLUG
 
 
 # ---------------------------------------------------------------------------
 # Registry helpers
 # ---------------------------------------------------------------------------
 
-def load_topic_registry(root: Path = ROOT) -> dict[str, object]:
+def load_topic_registry(root: Path = ROOT, domain: str = DEFAULT_DOMAIN_SLUG) -> dict[str, object]:
     """Load topic-registry.json as a raw dict."""
-    path = root / "metadata" / "topic-registry.json"
+    path = _topic_registry_path(root, domain)
     if not path.exists():
         return {"topics": []}
     try:
@@ -152,9 +162,9 @@ def explicit_topic_for_source(item: dict[str, object], raw_note_body: str, regis
 # Topic note I/O
 # ---------------------------------------------------------------------------
 
-def load_topic_note(topic_slug: str, root: Path = ROOT) -> str | None:
+def load_topic_note(topic_slug: str, root: Path = ROOT, domain: str = DEFAULT_DOMAIN_SLUG) -> str | None:
     """Return the full text of an existing topic note, or None if it doesn't exist."""
-    path = root / "compiled" / "topics" / f"{topic_slug}.md"
+    path = _topics_dir(root, domain) / f"{topic_slug}.md"
     if not path.exists():
         return None
     try:
@@ -374,13 +384,14 @@ def _discover_topic(title: str, body: str, model: str) -> tuple[str, str] | None
     return None
 
 
-def _add_topic_to_registry(slug: str, title: str, root: Path = ROOT) -> None:
+def _add_topic_to_registry(slug: str, title: str, root: Path = ROOT, domain: str = DEFAULT_DOMAIN_SLUG) -> None:
     """Append a new topic entry to topic-registry.json if the slug is not already present."""
-    registry = load_topic_registry(root)
+    registry = load_topic_registry(root, domain)
     if any(str(t.get("slug", "")) == slug for t in registry.get("topics", [])):
         return
     registry.setdefault("topics", []).append({"slug": slug, "title": title, "aliases": []})
-    path = root / "metadata" / "topic-registry.json"
+    path = _topic_registry_path(root, domain)
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(registry, indent=2) + "\n", encoding="utf-8")
 
 
@@ -397,13 +408,13 @@ def aggregate_topic(request: AggregateRequest) -> Path:
     """
     from urllib.error import URLError  # noqa: PLC0415
 
-    registry = load_topic_registry(request.root)
+    registry = load_topic_registry(request.root, request.domain)
     topic_title = _title_for_slug(request.topic_slug, registry)
-    existing_md = load_topic_note(request.topic_slug, request.root)
+    existing_md = load_topic_note(request.topic_slug, request.root, request.domain)
     new_source_summary = request.new_source_summary_path.read_text(encoding="utf-8")
     new_source_stem = request.new_source_summary_path.stem
 
-    output_path = request.root / "compiled" / "topics" / f"{request.topic_slug}.md"
+    output_path = _topics_dir(request.root, request.domain) / f"{request.topic_slug}.md"
 
     if output_path.exists() and not request.force and existing_md is None:
         # Should not happen but guard against it
@@ -461,12 +472,13 @@ def aggregate_for_source(
     """
     title = str(item.get("title", ""))
     raw_note_path = root / str(item.get("source_note_path", ""))
+    domain = str(item.get("domain", "")).strip() or DEFAULT_DOMAIN_SLUG
 
     body = ""
     if raw_note_path.exists():
         body = raw_note_path.read_text(encoding="utf-8", errors="replace")
 
-    registry = load_topic_registry(root)
+    registry = load_topic_registry(root, domain)
     topic_slug = explicit_topic_for_source(item, body, registry) or classify_to_topic(title, body, registry)
 
     if topic_slug is None:
@@ -477,7 +489,7 @@ def aggregate_for_source(
             return None
         topic_slug, discovered_title = discovered
         print(f"  Topic       : discovered '{topic_slug}' ({discovered_title})")
-        _add_topic_to_registry(topic_slug, discovered_title, root)
+        _add_topic_to_registry(topic_slug, discovered_title, root, domain)
 
     source_id = str(item.get("source_id", ""))
     print(f"  Topic       : {topic_slug}")
@@ -489,6 +501,7 @@ def aggregate_for_source(
         model=model,
         root=root,
         no_commit=no_commit,
+        domain=domain,
     ))
     print(f"  Topic note  : {result_path.relative_to(root)}")
     return result_path
@@ -515,7 +528,8 @@ def _find_source_summary(item: dict[str, object], root: Path) -> Path | None:
     if not note_path_str:
         return None
     slug = Path(note_path_str).stem
-    candidate = root / "compiled" / "source_summaries" / f"{slug}-synthesis.md"
+    domain = str(item.get("domain", "")).strip() or DEFAULT_DOMAIN_SLUG
+    candidate = _source_summaries_dir(root, domain) / f"{slug}-synthesis.md"
     return candidate if candidate.exists() else None
 
 
@@ -542,7 +556,6 @@ def cmd_aggregate_one(source_id: str, *, model: str, root: Path, no_commit: bool
 
 def cmd_aggregate_all(*, model: str, root: Path, no_commit: bool = False) -> int:
     queue = _load_queue(root)
-    registry = load_topic_registry(root)
     candidates = [e for e in queue if e.get("review_status") in {"synthesized", "approved"}]
 
     if not candidates:
@@ -554,7 +567,9 @@ def cmd_aggregate_all(*, model: str, root: Path, no_commit: bool = False) -> int
     for item in candidates:
         title = str(item.get("title", ""))
         raw_note_path = root / str(item.get("source_note_path", ""))
+        domain = str(item.get("domain", "")).strip() or DEFAULT_DOMAIN_SLUG
         body = raw_note_path.read_text(encoding="utf-8", errors="replace") if raw_note_path.exists() else ""
+        registry = load_topic_registry(root, domain)
         topic_slug = explicit_topic_for_source(item, body, registry) or classify_to_topic(title, body, registry)
         if topic_slug is None:
             continue
@@ -574,6 +589,7 @@ def cmd_aggregate_all(*, model: str, root: Path, no_commit: bool = False) -> int
                 model=model,
                 root=root,
                 no_commit=no_commit,
+                domain=domain,
             ))
             print(f"  Topic note  : {result_path.relative_to(root)}")
         except Exception as exc:  # noqa: BLE001
@@ -588,8 +604,8 @@ def cmd_aggregate_all(*, model: str, root: Path, no_commit: bool = False) -> int
     return 0
 
 
-def cmd_list(root: Path) -> int:
-    topics_dir = root / "compiled" / "topics"
+def cmd_list(root: Path, domain: str = DEFAULT_DOMAIN_SLUG) -> int:
+    topics_dir = _topics_dir(root, domain)
     if not topics_dir.exists() or not any(topics_dir.glob("*.md")):
         print("No topic notes found.")
         return 0
@@ -646,6 +662,11 @@ def build_parser() -> argparse.ArgumentParser:
         dest="no_commit",
         help="Skip git auto-commit after aggregation.",
     )
+    parser.add_argument(
+        "--domain",
+        default=DEFAULT_DOMAIN_SLUG,
+        help=f"Domain slug. Default: {DEFAULT_DOMAIN_SLUG}",
+    )
     return parser
 
 
@@ -654,7 +675,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.list:
-        return cmd_list(ROOT)
+        return cmd_list(ROOT, args.domain)
 
     if args.all:
         return cmd_aggregate_all(model=args.model, root=ROOT, no_commit=args.no_commit)
