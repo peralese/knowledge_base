@@ -128,5 +128,23 @@
     "review_action": "approved",
     "review_method": "auto",
     "reviewed_at": "2026-06-10T23:16:34.954816"
+  },
+  {
+    "source_id": "SRC-20260610-0005",
+    "title": "I added this open-source tool to my local AI stack, and my local LLM finally has persistent memory",
+    "source_note_path": "raw/domains/ai/articles/i-added-this-open-source-tool-to-my-local-ai-stack-and-my-local-llm-finally-has-persistent-memory.md",
+    "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/ai/inbox/browser/i-added-this-open-source-tool-to-my-local-ai-stack-and-my-local-llm-finally-has-persistent-memory.md",
+    "adapter": "browser",
+    "source_type": "article",
+    "origin": "web",
+    "topic_slug": "",
+    "domain": "ai",
+    "queued_at": "2026-06-10T23:21:04.976700",
+    "review_status": "pending_review",
+    "validation_status": "validated",
+    "validation_issues": [],
+    "review_action": "approved",
+    "review_method": "manual",
+    "reviewed_at": "2026-06-10T23:21:16.808001"
   }
 ]

@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.2.0",
-  "last_updated": "2026-06-03",
+  "last_updated": "2026-06-10",
   "description": "Source manifest for tracking ingested raw notes and preserving lineage.",
   "sources": [
     {
@@ -145,6 +145,76 @@
       "input_path": "/Users/erickperales/Projects/knowledge_base/raw/inbox/browser/using-claude-code-the-unreasonable-effectiveness-of-html.md",
       "status": "raw",
       "archive_path": "raw/archive/using-claude-code-the-unreasonable-effectiveness-of-html--archived-20260514-222623.md"
+    },
+    {
+      "source_id": "SRC-20260610-0001",
+      "title": "What is the Model Context Protocol (MCP) - Test",
+      "filename": "what-is-the-model-context-protocol-mcp-test.md",
+      "path": "raw/domains/ai/articles/what-is-the-model-context-protocol-mcp-test.md",
+      "source_type": "article",
+      "origin": "web",
+      "date_ingested": "2026-06-10",
+      "domain": "ai",
+      "canonical_url": "https://modelcontextprotocol.io/docs/getting-started/intro",
+      "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/ai/inbox/browser/what-is-the-model-context-protocol-mcp-test.md",
+      "status": "raw",
+      "archive_path": "raw/domains/ai/archive/what-is-the-model-context-protocol-mcp-test--archived-20260610-215241.md"
+    },
+    {
+      "source_id": "SRC-20260610-0002",
+      "title": "What is the Model Context Protocol (MCP)?",
+      "filename": "what-is-the-model-context-protocol-mcp.md",
+      "path": "raw/domains/ai/articles/what-is-the-model-context-protocol-mcp.md",
+      "source_type": "article",
+      "origin": "web",
+      "date_ingested": "2026-06-10",
+      "domain": "ai",
+      "canonical_url": "https://modelcontextprotocol.io/docs/getting-started/intro",
+      "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/ai/inbox/browser/what-is-the-model-context-protocol-mcp.md",
+      "status": "raw",
+      "archive_path": "raw/domains/ai/archive/what-is-the-model-context-protocol-mcp--archived-20260610-215756.md"
+    },
+    {
+      "source_id": "SRC-20260610-0003",
+      "title": "Loop Engineering",
+      "filename": "loop-engineering.md",
+      "path": "raw/domains/ai/articles/loop-engineering.md",
+      "source_type": "article",
+      "origin": "web",
+      "date_ingested": "2026-06-10",
+      "domain": "ai",
+      "canonical_url": "https://addyosmani.com/blog/loop-engineering/",
+      "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/ai/inbox/browser/loop-engineering.md",
+      "status": "raw",
+      "archive_path": "raw/domains/ai/archive/loop-engineering--archived-20260610-221905.md"
+    },
+    {
+      "source_id": "SRC-20260610-0004",
+      "title": "The biggest local LLM on your machine is useless if it can't call a single tool, no matter how many parameters it has",
+      "filename": "the-biggest-local-llm-on-your-machine-is-useless-if-it-can-t-call-a-single-tool-no-matter-how-many-parameters-it-has.md",
+      "path": "raw/domains/ai/articles/the-biggest-local-llm-on-your-machine-is-useless-if-it-can-t-call-a-single-tool-no-matter-how-many-parameters-it-has.md",
+      "source_type": "article",
+      "origin": "web",
+      "date_ingested": "2026-06-10",
+      "domain": "ai",
+      "canonical_url": "https://flip.it/WgwO8T",
+      "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/ai/inbox/browser/the-biggest-local-llm-on-your-machine-is-useless-if-it-can-t-call-a-single-tool-no-matter-how-many-parameters-it-has.md",
+      "status": "raw",
+      "archive_path": "raw/domains/ai/archive/the-biggest-local-llm-on-your-machine-is-useless-if-it-can-t-call-a-single-tool-no-matter-how-many-parameters-it-has--archived-20260610-231440.md"
+    },
+    {
+      "source_id": "SRC-20260610-0005",
+      "title": "I added this open-source tool to my local AI stack, and my local LLM finally has persistent memory",
+      "filename": "i-added-this-open-source-tool-to-my-local-ai-stack-and-my-local-llm-finally-has-persistent-memory.md",
+      "path": "raw/domains/ai/articles/i-added-this-open-source-tool-to-my-local-ai-stack-and-my-local-llm-finally-has-persistent-memory.md",
+      "source_type": "article",
+      "origin": "web",
+      "date_ingested": "2026-06-10",
+      "domain": "ai",
+      "canonical_url": "https://flip.it/PlAzWx",
+      "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/ai/inbox/browser/i-added-this-open-source-tool-to-my-local-ai-stack-and-my-local-llm-finally-has-persistent-memory.md",
+      "status": "raw",
+      "archive_path": "raw/domains/ai/archive/i-added-this-open-source-tool-to-my-local-ai-stack-and-my-local-llm-finally-has-persistent-memory--archived-20260610-232104.md"
     }
   ]
 }

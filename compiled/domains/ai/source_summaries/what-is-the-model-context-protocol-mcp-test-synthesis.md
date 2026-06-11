@@ -11,9 +11,9 @@ tags:
   - "source_summary"
   - "what-is-the-model-context-protocol-mcp-test"
 confidence: "medium"
-confidence_score: null
+confidence_score: 0.92
 generation_method: "ollama_local"
-approved: false
+approved: true
 ---
 
 # Summary

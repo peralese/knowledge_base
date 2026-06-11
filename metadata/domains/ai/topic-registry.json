@@ -76,6 +76,22 @@
       "slug": "open-ai",
       "title": "Open AI",
       "aliases": []
+    },
+    {
+      "slug": "mcp",
+      "title": "MCP",
+      "aliases": [],
+      "keywords": [
+        "Model Context Protocol"
+      ]
+    },
+    {
+      "slug": "loop-engineering",
+      "title": "Loop Engineering",
+      "aliases": [],
+      "keywords": [
+        "Loop"
+      ]
     }
   ]
 }
