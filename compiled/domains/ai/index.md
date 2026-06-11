@@ -2,13 +2,13 @@
 title: "AI Wiki Index"
 note_type: "index"
 domain: "ai"
-generated_on: "2026-06-09"
-note_count: 39
+generated_on: "2026-06-10"
+note_count: 40
 ---
 
 # AI Wiki Index
 
-_Generated on 2026-06-09 — 39 topics_
+_Generated on 2026-06-10 — 40 topics_
 
 ## Topics
 
@@ -16,6 +16,7 @@ _Generated on 2026-06-09 — 39 topics_
 - [[auto-research]] — Auto research, a groundbreaking approach in machine learning developed by [[andrej-karpathy]], automates the process of…
 - [[books]] — Books have long been a cornerstone of intellectual and technological advancement, serving as repositories of knowledge…
 - [[llm-knowledge-bases]] — In an era where data is abundant yet fragmented, the concept of Large Language Model (LLM) knowledge bases emerges as a…
+- [[mcp]] — The Model Context Protocol (MCP) represents a pivotal open-source standard in artificial intelligence, designed…
 - [[ollama]] — [[ollama]] is a [[docker]]-based container designed for hosting [[large-language-models]] (LLMs), such as `gpt-oss`…
 - [[openclaw-security]] — [[openclaw]] Desktop is a powerful tool for developers and researchers, but like any sophisticated software, it…
 
