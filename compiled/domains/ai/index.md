@@ -3,12 +3,12 @@ title: "AI Wiki Index"
 note_type: "index"
 domain: "ai"
 generated_on: "2026-06-10"
-note_count: 47
+note_count: 52
 ---
 
 # AI Wiki Index
 
-_Generated on 2026-06-10 — 47 topics_
+_Generated on 2026-06-10 — 52 topics_
 
 ## Topics
 
@@ -16,6 +16,7 @@ _Generated on 2026-06-10 — 47 topics_
 - [[auto-research]] — Auto research, a groundbreaking approach in machine learning developed by [[andrej-karpathy]], automates the process of…
 - [[books]] — Books have long been a cornerstone of intellectual and technological advancement, serving as repositories of knowledge…
 - [[llm-knowledge-bases]] — In an era where data is abundant yet fragmented, the concept of Large Language Model (LLM) knowledge bases emerges as a…
+- [[loop-engineering]] — In the ever-evolving landscape of software development, Loop Engineering stands out as a transformative methodology…
 - [[mcp]] — The Model Context Protocol (MCP) represents a pivotal open-source standard in artificial intelligence, designed…
 - [[ollama]] — [[ollama]] is a [[docker]]-based container designed for hosting [[large-language-models]] (LLMs), such as `gpt-oss`…
 - [[openclaw-security]] — [[openclaw]] Desktop is a powerful tool for developers and researchers, but like any sophisticated software, it…
@@ -24,6 +25,7 @@ _Generated on 2026-06-10 — 47 topics_
 
 - [[agent-architecture]] — Definition not yet written. Update this stub with content from the sources below.
 - [[agent-development-kit]] — Definition not yet written. Update this stub with content from the sources below.
+- [[agent-harness-engineering]] — Definition not yet written. Update this stub with content from the sources below.
 - [[agent-quality-framework]] — Definition not yet written. Update this stub with content from the sources below.
 - [[ai-application-integration]] — Definition not yet written. Update this stub with content from the sources below.
 - [[api-key-hygiene]] — Definition not yet written. Update this stub with content from the sources below.
@@ -31,6 +33,8 @@ _Generated on 2026-06-10 — 47 topics_
 - [[auto-ml]] — Definition not yet written. Update this stub with content from the sources below.
 - [[bm25-scoring]] — Definition not yet written. Update this stub with content from the sources below.
 - [[ci-cd-pipelines]] — Definition not yet written. Update this stub with content from the sources below.
+- [[cognitive-surrender]] — Definition not yet written. Update this stub with content from the sources below.
+- [[comprehension-debt]] — Definition not yet written. Update this stub with content from the sources below.
 - [[context-engineering]] — Context engineering is the practice of dynamically assembling and managing information relevant to an AI agent's…
 - [[deep-observability-trinity]] — Definition not yet written. Update this stub with content from the sources below.
 - [[deep-observability]] — Deep observability refers to the comprehensive monitoring and analysis framework used in AI systems, encompassing logs…
@@ -39,6 +43,7 @@ _Generated on 2026-06-10 — 47 topics_
 - [[large-language-models-llms]] — Definition not yet written. Update this stub with content from the sources below.
 - [[large-language-models]] — Definition not yet written. Update this stub with content from the sources below.
 - [[logging-and-auditing]] — Definition not yet written. Update this stub with content from the sources below.
+- [[loop-engineering]] — Definition not yet written. Update this stub with content from the sources below.
 - [[model-context-protocol-mcp]] — Definition not yet written. Update this stub with content from the sources below.
 - [[model-context-protocol]] — Definition not yet written. Update this stub with content from the sources below.
 - [[network-hardening]] — Network hardening involves restricting outbound network access through configurations such as Docker networks to…
