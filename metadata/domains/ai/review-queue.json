@@ -140,11 +140,12 @@
     "topic_slug": "",
     "domain": "ai",
     "queued_at": "2026-06-10T23:21:04.976700",
-    "review_status": "pending_review",
+    "review_status": "synthesized",
     "validation_status": "validated",
     "validation_issues": [],
     "review_action": "approved",
     "review_method": "manual",
-    "reviewed_at": "2026-06-10T23:21:16.808001"
+    "reviewed_at": "2026-06-10T23:21:16.808001",
+    "synthesized_at": "2026-06-10T23:22:54.019558"
   }
 ]
