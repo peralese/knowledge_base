@@ -4,32 +4,6 @@
   "description": "Source manifest for tracking ingested raw notes and preserving lineage.",
   "sources": [
     {
-      "source_id": "SRC-20260419-0001",
-      "title": "I built a local AI stack with 5 Docker containers, and now I'll never pay for ChatGPT again",
-      "filename": "i-built-a-local-ai-stack-with-5-docker-containers-and-now-i-ll-never-pay-for-chatgpt-again.md",
-      "path": "raw/articles/i-built-a-local-ai-stack-with-5-docker-containers-and-now-i-ll-never-pay-for-chatgpt-again.md",
-      "source_type": "article",
-      "origin": "web",
-      "date_ingested": "2026-04-19",
-      "canonical_url": "https://www.xda-developers.com/local-ai-stack-with-docker-containers/?utm_source=flipboard&utm_content=topic/technology",
-      "input_path": "/home/peralese/Projects/Knowledge_Base/raw/inbox/browser/i-built-a-local-ai-stack-with-5-docker-containers-and-now-i-ll-never-pay-for-chatgpt-again.md",
-      "status": "raw",
-      "archive_path": "raw/archive/i-built-a-local-ai-stack-with-5-docker-containers-and-now-i-ll-never-pay-for-chatgpt-again--archived-20260419-161944.md"
-    },
-    {
-      "source_id": "SRC-20260419-0002",
-      "title": "12 AI Books I\u2019M Reading In 2026 That Are Quietly Shaping The Next Decade Of Builders   By Snehal Singh   Medium",
-      "filename": "12-ai-books-i-m-reading-in-2026-that-are-quietly-shaping-the-next-decade-of-builders-by-snehal-singh-medium.md",
-      "path": "raw/articles/12-ai-books-i-m-reading-in-2026-that-are-quietly-shaping-the-next-decade-of-builders-by-snehal-singh-medium.md",
-      "source_type": "article",
-      "origin": "web",
-      "date_ingested": "2026-04-19",
-      "canonical_url": "https://medium.com/@snehal_singh/12-ai-books-im-reading-in-2026-that-are-quietly-shaping-the-next-decade-of-builders-4a4bbc985f54",
-      "input_path": "/home/peralese/Projects/Knowledge_Base/raw/inbox/browser/12-ai-books-i-m-reading-in-2026-that-are-quietly-shaping-the-next-decade-of-builders-by-snehal-singh-medium.md",
-      "status": "raw",
-      "archive_path": "raw/archive/12-ai-books-i-m-reading-in-2026-that-are-quietly-shaping-the-next-decade-of-builders-by-snehal-singh-medium--archived-20260419-163446.md"
-    },
-    {
       "source_id": "SRC-20260419-0003",
       "title": "How to Build an AI Agent: A Complete Guide",
       "filename": "how-to-build-an-ai-agent-a-complete-guide.md",

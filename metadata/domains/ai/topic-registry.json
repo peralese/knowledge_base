@@ -26,24 +26,11 @@
       "aliases": []
     },
     {
-      "slug": "books",
-      "title": "Books",
-      "aliases": []
-    },
-    {
       "slug": "agents",
       "title": "Agents",
       "aliases": [],
       "keywords": [
         "AI Agents"
-      ]
-    },
-    {
-      "slug": "ollama",
-      "title": "Ollama",
-      "aliases": [],
-      "keywords": [
-        "local LLM"
       ]
     },
     {
