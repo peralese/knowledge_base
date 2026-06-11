@@ -54,7 +54,11 @@
     "review_method": "manual",
     "reviewed_at": "2026-06-10T21:53:51.169174",
     "domain": "ai",
-    "synthesized_at": "2026-06-10T22:29:40.859199"
+    "synthesized_at": "2026-06-10T22:29:40.859199",
+    "confidence_score": 0.92,
+    "confidence_band": "high",
+    "confidence_reasoning": "The synthesis accurately represents the source material with clear emphasis on MCP's role as a standard for connecting AI applications to external systems (40%). It captures all key points including integration capabilities, benefits for developers, and ecosystem support (30%). The note is well-structured, organized, and easy to read, effectively summarizing the primary insights from the original document (30%).",
+    "scored_at": "2026-06-10T22:38:21.829920"
   },
   {
     "source_id": "SRC-20260610-0002",
@@ -101,5 +105,21 @@
     "confidence_band": "high",
     "confidence_reasoning": "The synthesis note accurately reflects the source material, capturing key components of loop engineering such as automation and memory systems, which accounts for its high accuracy score. It provides a comprehensive overview of essential elements like worktrees, sub-agents, and plugins, ensuring completeness. The note is clear, well-structured, and easy to read, with coherent sections on summary, insights, related concepts, notes, lineage, and source notes.",
     "scored_at": "2026-06-10T22:34:17.299015"
+  },
+  {
+    "source_id": "SRC-20260610-0004",
+    "title": "The biggest local LLM on your machine is useless if it can't call a single tool, no matter how many parameters it has",
+    "source_note_path": "raw/domains/ai/articles/the-biggest-local-llm-on-your-machine-is-useless-if-it-can-t-call-a-single-tool-no-matter-how-many-parameters-it-has.md",
+    "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/ai/inbox/browser/the-biggest-local-llm-on-your-machine-is-useless-if-it-can-t-call-a-single-tool-no-matter-how-many-parameters-it-has.md",
+    "adapter": "browser",
+    "source_type": "article",
+    "origin": "web",
+    "topic_slug": "",
+    "domain": "ai",
+    "queued_at": "2026-06-10T23:14:40.372363",
+    "review_status": "synthesized",
+    "validation_status": "validated",
+    "validation_issues": [],
+    "synthesized_at": "2026-06-10T23:16:20.118225"
   }
 ]
