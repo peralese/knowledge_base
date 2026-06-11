@@ -146,6 +146,10 @@
     "review_action": "approved",
     "review_method": "manual",
     "reviewed_at": "2026-06-10T23:21:16.808001",
-    "synthesized_at": "2026-06-10T23:22:54.019558"
+    "synthesized_at": "2026-06-10T23:22:54.019558",
+    "confidence_score": 0.9,
+    "confidence_band": "high",
+    "confidence_reasoning": "The synthesis is highly accurate, capturing the essence of the source material by describing the integration of AnythingLLM into a local AI stack for persistent memory in LLMs (40%). It captures key points such as automatic and manual memories, workspace management, and integration with local models (30%). The note is well-structured and readable, clearly presenting insights and related concepts (30%).",
+    "scored_at": "2026-06-10T23:24:39.827009"
   }
 ]

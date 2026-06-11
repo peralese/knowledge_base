@@ -11,9 +11,9 @@ tags:
   - "source_summary"
   - "i-added-this-open-source-tool-to-my-local-ai-stack-and-my-local-llm-finally-has-persistent-memory"
 confidence: "medium"
-confidence_score: null
+confidence_score: 0.9
 generation_method: "ollama_local"
-approved: false
+approved: true
 ---
 
 # Summary
