@@ -133,7 +133,8 @@
       "title": "Model Context Protocol (MCP)",
       "sources": [
         "how-to-build-an-ai-agent-a-complete-guide-synthesis",
-        "what-is-the-model-context-protocol-mcp-synthesis"
+        "what-is-the-model-context-protocol-mcp-synthesis",
+        "what-is-the-model-context-protocol-mcp-test-synthesis"
       ],
       "date_first_seen": "2026-04-25",
       "date_updated": "2026-06-10"
@@ -251,6 +252,60 @@
       "title": "Cognitive Surrender",
       "sources": [
         "loop-engineering-synthesis"
+      ],
+      "date_first_seen": "2026-06-10",
+      "date_updated": "2026-06-10"
+    },
+    {
+      "slug": "integration-capability",
+      "title": "Integration Capability",
+      "sources": [
+        "what-is-the-model-context-protocol-mcp-test-synthesis"
+      ],
+      "date_first_seen": "2026-06-10",
+      "date_updated": "2026-06-10"
+    },
+    {
+      "slug": "developer-benefits",
+      "title": "Developer Benefits",
+      "sources": [
+        "what-is-the-model-context-protocol-mcp-test-synthesis"
+      ],
+      "date_first_seen": "2026-06-10",
+      "date_updated": "2026-06-10"
+    },
+    {
+      "slug": "ecosystem-support",
+      "title": "Ecosystem Support",
+      "sources": [
+        "what-is-the-model-context-protocol-mcp-test-synthesis"
+      ],
+      "date_first_seen": "2026-06-10",
+      "date_updated": "2026-06-10"
+    },
+    {
+      "slug": "tool-calling-capabilities",
+      "title": "Tool-Calling Capabilities",
+      "sources": [
+        "the-biggest-local-llm-on-your-machine-is-useless-if-it-can-t-call-a-single-tool-no-matter-how-many-parameters-it-has-synthesis"
+      ],
+      "date_first_seen": "2026-06-10",
+      "date_updated": "2026-06-10"
+    },
+    {
+      "slug": "model-size-vs-functionality",
+      "title": "Model Size vs. Functionality",
+      "sources": [
+        "the-biggest-local-llm-on-your-machine-is-useless-if-it-can-t-call-a-single-tool-no-matter-how-many-parameters-it-has-synthesis"
+      ],
+      "date_first_seen": "2026-06-10",
+      "date_updated": "2026-06-10"
+    },
+    {
+      "slug": "quantization",
+      "title": "Quantization",
+      "sources": [
+        "the-biggest-local-llm-on-your-machine-is-useless-if-it-can-t-call-a-single-tool-no-matter-how-many-parameters-it-has-synthesis"
       ],
       "date_first_seen": "2026-06-10",
       "date_updated": "2026-06-10"

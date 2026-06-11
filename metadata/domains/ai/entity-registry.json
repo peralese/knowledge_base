@@ -114,7 +114,8 @@
       "slug": "claude",
       "title": "Claude",
       "sources": [
-        "what-is-the-model-context-protocol-mcp-synthesis"
+        "what-is-the-model-context-protocol-mcp-synthesis",
+        "what-is-the-model-context-protocol-mcp-test-synthesis"
       ],
       "date_first_seen": "2026-06-10",
       "date_updated": "2026-06-10",
@@ -124,7 +125,8 @@
       "slug": "chatgpt",
       "title": "ChatGPT",
       "sources": [
-        "what-is-the-model-context-protocol-mcp-synthesis"
+        "what-is-the-model-context-protocol-mcp-synthesis",
+        "what-is-the-model-context-protocol-mcp-test-synthesis"
       ],
       "date_first_seen": "2026-06-10",
       "date_updated": "2026-06-10",
@@ -159,6 +161,36 @@
       "date_first_seen": "2026-06-10",
       "date_updated": "2026-06-10",
       "entity_type": "platform"
+    },
+    {
+      "slug": "gemma-4-e2b",
+      "title": "Gemma 4 E2B",
+      "sources": [
+        "the-biggest-local-llm-on-your-machine-is-useless-if-it-can-t-call-a-single-tool-no-matter-how-many-parameters-it-has-synthesis"
+      ],
+      "date_first_seen": "2026-06-10",
+      "date_updated": "2026-06-10",
+      "entity_type": "product"
+    },
+    {
+      "slug": "nvidia-nemotron-3-super",
+      "title": "Nvidia Nemotron 3 Super",
+      "sources": [
+        "the-biggest-local-llm-on-your-machine-is-useless-if-it-can-t-call-a-single-tool-no-matter-how-many-parameters-it-has-synthesis"
+      ],
+      "date_first_seen": "2026-06-10",
+      "date_updated": "2026-06-10",
+      "entity_type": "product"
+    },
+    {
+      "slug": "mistral-devstral",
+      "title": "Mistral's Devstral",
+      "sources": [
+        "the-biggest-local-llm-on-your-machine-is-useless-if-it-can-t-call-a-single-tool-no-matter-how-many-parameters-it-has-synthesis"
+      ],
+      "date_first_seen": "2026-06-10",
+      "date_updated": "2026-06-10",
+      "entity_type": "product"
     }
   ]
 }
