@@ -132,10 +132,11 @@
       "slug": "model-context-protocol",
       "title": "Model Context Protocol (MCP)",
       "sources": [
-        "how-to-build-an-ai-agent-a-complete-guide-synthesis"
+        "how-to-build-an-ai-agent-a-complete-guide-synthesis",
+        "what-is-the-model-context-protocol-mcp-synthesis"
       ],
       "date_first_seen": "2026-04-25",
-      "date_updated": "2026-04-25"
+      "date_updated": "2026-06-10"
     },
     {
       "slug": "agent-development-kit",
@@ -199,6 +200,60 @@
       ],
       "date_first_seen": "2026-04-25",
       "date_updated": "2026-04-25"
+    },
+    {
+      "slug": "ai-application-integration",
+      "title": "AI Application Integration",
+      "sources": [
+        "what-is-the-model-context-protocol-mcp-synthesis"
+      ],
+      "date_first_seen": "2026-06-10",
+      "date_updated": "2026-06-10"
+    },
+    {
+      "slug": "open-source-standards-in-ai",
+      "title": "Open-source Standards in AI",
+      "sources": [
+        "what-is-the-model-context-protocol-mcp-synthesis"
+      ],
+      "date_first_seen": "2026-06-10",
+      "date_updated": "2026-06-10"
+    },
+    {
+      "slug": "loop-engineering",
+      "title": "Loop Engineering",
+      "sources": [
+        "loop-engineering-synthesis"
+      ],
+      "date_first_seen": "2026-06-10",
+      "date_updated": "2026-06-10"
+    },
+    {
+      "slug": "agent-harness-engineering",
+      "title": "Agent Harness Engineering",
+      "sources": [
+        "loop-engineering-synthesis"
+      ],
+      "date_first_seen": "2026-06-10",
+      "date_updated": "2026-06-10"
+    },
+    {
+      "slug": "comprehension-debt",
+      "title": "Comprehension Debt",
+      "sources": [
+        "loop-engineering-synthesis"
+      ],
+      "date_first_seen": "2026-06-10",
+      "date_updated": "2026-06-10"
+    },
+    {
+      "slug": "cognitive-surrender",
+      "title": "Cognitive Surrender",
+      "sources": [
+        "loop-engineering-synthesis"
+      ],
+      "date_first_seen": "2026-06-10",
+      "date_updated": "2026-06-10"
     }
   ]
 }

@@ -109,6 +109,56 @@
       "date_first_seen": "2026-04-25",
       "date_updated": "2026-04-25",
       "entity_type": "person"
+    },
+    {
+      "slug": "claude",
+      "title": "Claude",
+      "sources": [
+        "what-is-the-model-context-protocol-mcp-synthesis"
+      ],
+      "date_first_seen": "2026-06-10",
+      "date_updated": "2026-06-10",
+      "entity_type": "tool"
+    },
+    {
+      "slug": "chatgpt",
+      "title": "ChatGPT",
+      "sources": [
+        "what-is-the-model-context-protocol-mcp-synthesis"
+      ],
+      "date_first_seen": "2026-06-10",
+      "date_updated": "2026-06-10",
+      "entity_type": "tool"
+    },
+    {
+      "slug": "visual-studio-code",
+      "title": "Visual Studio Code",
+      "sources": [
+        "what-is-the-model-context-protocol-mcp-synthesis"
+      ],
+      "date_first_seen": "2026-06-10",
+      "date_updated": "2026-06-10",
+      "entity_type": "development tool"
+    },
+    {
+      "slug": "cursor",
+      "title": "Cursor",
+      "sources": [
+        "what-is-the-model-context-protocol-mcp-synthesis"
+      ],
+      "date_first_seen": "2026-06-10",
+      "date_updated": "2026-06-10",
+      "entity_type": "platform"
+    },
+    {
+      "slug": "mcpjam",
+      "title": "MCPJam",
+      "sources": [
+        "what-is-the-model-context-protocol-mcp-synthesis"
+      ],
+      "date_first_seen": "2026-06-10",
+      "date_updated": "2026-06-10",
+      "entity_type": "platform"
     }
   ]
 }
