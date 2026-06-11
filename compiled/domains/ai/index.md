@@ -3,12 +3,12 @@ title: "AI Wiki Index"
 note_type: "index"
 domain: "ai"
 generated_on: "2026-06-10"
-note_count: 62
+note_count: 71
 ---
 
 # AI Wiki Index
 
-_Generated on 2026-06-10 — 62 topics_
+_Generated on 2026-06-10 — 71 topics_
 
 ## Topics
 
@@ -17,6 +17,7 @@ _Generated on 2026-06-10 — 62 topics_
 - [[auto-research]] — Auto research, a groundbreaking approach in machine learning developed by [[andrej-karpathy]], automates the process of…
 - [[books]] — Books have long been a cornerstone of intellectual and technological advancement, serving as repositories of knowledge…
 - [[llm-knowledge-bases]] — In an era where data is abundant yet fragmented, the concept of Large Language Model (LLM) knowledge bases emerges as a…
+- [[local-ai-stack]] — In an era where artificial intelligence (AI) is rapidly transforming various sectors, the concept of a "Local AI Stack"…
 - [[loop-engineering]] — In the ever-evolving landscape of software development, Loop Engineering stands out as a transformative methodology…
 - [[mcp]] — The Model Context Protocol (MCP) is a pivotal open-source standard in artificial intelligence designed to streamline…
 - [[ollama]] — [[ollama]] is a [[docker]]-based container designed for hosting [[large-language-models]] (LLMs), such as `gpt-oss`…
@@ -32,6 +33,7 @@ _Generated on 2026-06-10 — 62 topics_
 - [[api-key-hygiene]] — Definition not yet written. Update this stub with content from the sources below.
 - [[api-key-management]] — Definition not yet written. Update this stub with content from the sources below.
 - [[auto-ml]] — Definition not yet written. Update this stub with content from the sources below.
+- [[automatic-and-manual-memories]] — Definition not yet written. Update this stub with content from the sources below.
 - [[bm25-scoring]] — Definition not yet written. Update this stub with content from the sources below.
 - [[ci-cd-pipelines]] — Definition not yet written. Update this stub with content from the sources below.
 - [[cognitive-surrender]] — Definition not yet written. Update this stub with content from the sources below.
@@ -53,10 +55,12 @@ _Generated on 2026-06-10 — 62 topics_
 - [[model-size-vs-functionality]] — Definition not yet written. Update this stub with content from the sources below.
 - [[network-hardening]] — Network hardening involves restricting outbound network access through configurations such as Docker networks to…
 - [[open-source-standards-in-ai]] — Definition not yet written. Update this stub with content from the sources below.
+- [[persistent-memory]] — Definition not yet written. Update this stub with content from the sources below.
 - [[quantization]] — Definition not yet written. Update this stub with content from the sources below.
 - [[retrieval-augmented-generation]] — Definition not yet written. Update this stub with content from the sources below.
 - [[skill-vetting]] — Skill vetting in the context of AI/ML security involves assessing and validating third-party skills or models to ensure…
 - [[tool-calling-capabilities]] — Definition not yet written. Update this stub with content from the sources below.
+- [[workspace-and-global-memories]] — Definition not yet written. Update this stub with content from the sources below.
 - [[zero-trust]] — Definition not yet written. Update this stub with content from the sources below.
 
 ## Entities
@@ -64,17 +68,22 @@ _Generated on 2026-06-10 — 62 topics_
 - [[aitoolsclub]] — Description not yet written. Update this stub with content from the sources below.
 - [[andrej-karpathy]] — Description not yet written. Update this stub with content from the sources below.
 - [[anthropic]] — Description not yet written. Update this stub with content from the sources below.
+- [[anythingllm]] — Description not yet written. Update this stub with content from the sources below.
 - [[chatgpt]] — Description not yet written. Update this stub with content from the sources below.
 - [[claude]] — Description not yet written. Update this stub with content from the sources below.
 - [[cursor]] — Description not yet written. Update this stub with content from the sources below.
 - [[docker]] — Description not yet written. Update this stub with content from the sources below.
 - [[gemma-4-e2b]] — Description not yet written. Update this stub with content from the sources below.
 - [[how-to-build-an-ai-agent-a-complete-guide]] — Description not yet written. Update this stub with content from the sources below.
+- [[jan-ai]] — Description not yet written. Update this stub with content from the sources below.
 - [[karpathy-s-autoresearch]] — Description not yet written. Update this stub with content from the sources below.
 - [[karpathy]] — Description not yet written. Update this stub with content from the sources below.
+- [[llamacpp]] — Description not yet written. Update this stub with content from the sources below.
 - [[llamaindex]] — Description not yet written. Update this stub with content from the sources below.
+- [[lm-studio]] — Description not yet written. Update this stub with content from the sources below.
 - [[mcpjam]] — Description not yet written. Update this stub with content from the sources below.
 - [[mistral-devstral]] — Description not yet written. Update this stub with content from the sources below.
+- [[nolen-jonker]] — Description not yet written. Update this stub with content from the sources below.
 - [[nvidia-nemotron-3-super]] — Description not yet written. Update this stub with content from the sources below.
 - [[ollama]] — Description not yet written. Update this stub with content from the sources below.
 - [[openclaw]] — Description not yet written. Update this stub with content from the sources below.
