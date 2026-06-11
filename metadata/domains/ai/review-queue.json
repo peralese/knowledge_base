@@ -11,7 +11,8 @@
     "synthesized_at": "2026-05-15T22:26:05.370404",
     "review_action": "rejected",
     "review_method": "manual",
-    "reviewed_at": "2026-05-15T22:40:27.121778"
+    "reviewed_at": "2026-05-15T22:40:27.121778",
+    "domain": "ai"
   },
   {
     "source_id": "SRC-20260526-0001",
@@ -33,7 +34,8 @@
     "review_action": "rejected",
     "review_method": "manual",
     "reviewed_at": "2026-06-03T20:15:05.039624",
-    "rejection_reason": "rejected in dashboard"
+    "rejection_reason": "rejected in dashboard",
+    "domain": "ai"
   },
   {
     "source_id": "SRC-20260610-0001",
@@ -45,12 +47,14 @@
     "origin": "web",
     "topic_slug": "mcp",
     "queued_at": "2026-06-10T21:52:41.259978",
-    "review_status": "pending_review",
+    "review_status": "synthesized",
     "validation_status": "validated",
     "validation_issues": [],
     "review_action": "approved",
     "review_method": "manual",
-    "reviewed_at": "2026-06-10T21:53:51.169174"
+    "reviewed_at": "2026-06-10T21:53:51.169174",
+    "domain": "ai",
+    "synthesized_at": "2026-06-10T22:29:40.859199"
   },
   {
     "source_id": "SRC-20260610-0002",
@@ -68,6 +72,29 @@
     "review_action": "approved",
     "review_method": "manual",
     "reviewed_at": "2026-06-10T21:58:03.612910",
-    "synthesized_at": "2026-06-10T22:15:19.486430"
+    "synthesized_at": "2026-06-10T22:15:19.486430",
+    "domain": "ai",
+    "confidence_score": 0.92,
+    "confidence_band": "high",
+    "confidence_reasoning": "The synthesis accurately represents the source material, capturing key points about MCP's purpose and functionalities (Accuracy). It includes integration capabilities, ecosystem support, and benefits for stakeholders, ensuring completeness (Completeness). The structure is clear with distinct sections, enhancing readability (Clarity).",
+    "scored_at": "2026-06-10T22:22:32.118725"
+  },
+  {
+    "source_id": "SRC-20260610-0003",
+    "title": "Loop Engineering",
+    "source_note_path": "raw/domains/ai/articles/loop-engineering.md",
+    "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/ai/inbox/browser/loop-engineering.md",
+    "adapter": "browser",
+    "source_type": "article",
+    "origin": "web",
+    "topic_slug": "loop-engineering",
+    "queued_at": "2026-06-10T22:19:05.706769",
+    "review_status": "pending_review",
+    "validation_status": "validated",
+    "validation_issues": [],
+    "review_action": "approved",
+    "review_method": "manual",
+    "reviewed_at": "2026-06-10T22:19:22.322189",
+    "domain": "ai"
   }
 ]
