@@ -3,7 +3,6 @@ title: "MCP"
 note_type: "topic"
 compiled_from: 
   - "what-is-the-model-context-protocol-mcp-synthesis"
-  - "what-is-the-model-context-protocol-mcp-test-synthesis"
 date_compiled: "2026-06-10"
 date_updated: "2026-06-10"
 topics:
@@ -45,9 +44,7 @@ In summary, the Model Context Protocol (MCP) plays a crucial role in modernizing
 # Source Notes
 
 - [[what-is-the-model-context-protocol-mcp-synthesis]]
-- [[what-is-the-model-context-protocol-mcp-test-synthesis]]
 
 # Lineage
 
 - [[what-is-the-model-context-protocol-mcp-synthesis]]
-- [[what-is-the-model-context-protocol-mcp-test-synthesis]]

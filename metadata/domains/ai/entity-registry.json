@@ -114,8 +114,7 @@
       "slug": "claude",
       "title": "Claude",
       "sources": [
-        "what-is-the-model-context-protocol-mcp-synthesis",
-        "what-is-the-model-context-protocol-mcp-test-synthesis"
+        "what-is-the-model-context-protocol-mcp-synthesis"
       ],
       "date_first_seen": "2026-06-10",
       "date_updated": "2026-06-10",
@@ -125,8 +124,7 @@
       "slug": "chatgpt",
       "title": "ChatGPT",
       "sources": [
-        "what-is-the-model-context-protocol-mcp-synthesis",
-        "what-is-the-model-context-protocol-mcp-test-synthesis"
+        "what-is-the-model-context-protocol-mcp-synthesis"
       ],
       "date_first_seen": "2026-06-10",
       "date_updated": "2026-06-10",

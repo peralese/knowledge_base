@@ -133,8 +133,7 @@
       "title": "Model Context Protocol (MCP)",
       "sources": [
         "how-to-build-an-ai-agent-a-complete-guide-synthesis",
-        "what-is-the-model-context-protocol-mcp-synthesis",
-        "what-is-the-model-context-protocol-mcp-test-synthesis"
+        "what-is-the-model-context-protocol-mcp-synthesis"
       ],
       "date_first_seen": "2026-04-25",
       "date_updated": "2026-06-10"
@@ -252,33 +251,6 @@
       "title": "Cognitive Surrender",
       "sources": [
         "loop-engineering-synthesis"
-      ],
-      "date_first_seen": "2026-06-10",
-      "date_updated": "2026-06-10"
-    },
-    {
-      "slug": "integration-capability",
-      "title": "Integration Capability",
-      "sources": [
-        "what-is-the-model-context-protocol-mcp-test-synthesis"
-      ],
-      "date_first_seen": "2026-06-10",
-      "date_updated": "2026-06-10"
-    },
-    {
-      "slug": "developer-benefits",
-      "title": "Developer Benefits",
-      "sources": [
-        "what-is-the-model-context-protocol-mcp-test-synthesis"
-      ],
-      "date_first_seen": "2026-06-10",
-      "date_updated": "2026-06-10"
-    },
-    {
-      "slug": "ecosystem-support",
-      "title": "Ecosystem Support",
-      "sources": [
-        "what-is-the-model-context-protocol-mcp-test-synthesis"
       ],
       "date_first_seen": "2026-06-10",
       "date_updated": "2026-06-10"

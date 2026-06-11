@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.2.0",
-  "last_updated": "2026-06-10",
+  "last_updated": "2026-06-11",
   "description": "Source manifest for tracking ingested raw notes and preserving lineage.",
   "sources": [
     {
@@ -145,20 +145,6 @@
       "input_path": "/Users/erickperales/Projects/knowledge_base/raw/inbox/browser/using-claude-code-the-unreasonable-effectiveness-of-html.md",
       "status": "raw",
       "archive_path": "raw/archive/using-claude-code-the-unreasonable-effectiveness-of-html--archived-20260514-222623.md"
-    },
-    {
-      "source_id": "SRC-20260610-0001",
-      "title": "What is the Model Context Protocol (MCP) - Test",
-      "filename": "what-is-the-model-context-protocol-mcp-test.md",
-      "path": "raw/domains/ai/articles/what-is-the-model-context-protocol-mcp-test.md",
-      "source_type": "article",
-      "origin": "web",
-      "date_ingested": "2026-06-10",
-      "domain": "ai",
-      "canonical_url": "https://modelcontextprotocol.io/docs/getting-started/intro",
-      "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/ai/inbox/browser/what-is-the-model-context-protocol-mcp-test.md",
-      "status": "raw",
-      "archive_path": "raw/domains/ai/archive/what-is-the-model-context-protocol-mcp-test--archived-20260610-215241.md"
     },
     {
       "source_id": "SRC-20260610-0002",
