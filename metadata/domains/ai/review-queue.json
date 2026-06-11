@@ -34,5 +34,40 @@
     "review_method": "manual",
     "reviewed_at": "2026-06-03T20:15:05.039624",
     "rejection_reason": "rejected in dashboard"
+  },
+  {
+    "source_id": "SRC-20260610-0001",
+    "title": "What is the Model Context Protocol (MCP) - Test",
+    "source_note_path": "raw/domains/ai/articles/what-is-the-model-context-protocol-mcp-test.md",
+    "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/ai/inbox/browser/what-is-the-model-context-protocol-mcp-test.md",
+    "adapter": "browser",
+    "source_type": "article",
+    "origin": "web",
+    "topic_slug": "mcp",
+    "queued_at": "2026-06-10T21:52:41.259978",
+    "review_status": "pending_review",
+    "validation_status": "validated",
+    "validation_issues": [],
+    "review_action": "approved",
+    "review_method": "manual",
+    "reviewed_at": "2026-06-10T21:53:51.169174"
+  },
+  {
+    "source_id": "SRC-20260610-0002",
+    "title": "What is the Model Context Protocol (MCP)?",
+    "source_note_path": "raw/domains/ai/articles/what-is-the-model-context-protocol-mcp.md",
+    "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/ai/inbox/browser/what-is-the-model-context-protocol-mcp.md",
+    "adapter": "browser",
+    "source_type": "article",
+    "origin": "web",
+    "topic_slug": "mcp",
+    "queued_at": "2026-06-10T21:57:56.854937",
+    "review_status": "synthesized",
+    "validation_status": "validated",
+    "validation_issues": [],
+    "review_action": "approved",
+    "review_method": "manual",
+    "reviewed_at": "2026-06-10T21:58:03.612910",
+    "synthesized_at": "2026-06-10T22:15:19.486430"
   }
 ]
