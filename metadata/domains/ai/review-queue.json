@@ -120,6 +120,13 @@
     "review_status": "synthesized",
     "validation_status": "validated",
     "validation_issues": [],
-    "synthesized_at": "2026-06-10T23:16:20.118225"
+    "synthesized_at": "2026-06-10T23:16:20.118225",
+    "confidence_score": 0.95,
+    "confidence_band": "high",
+    "confidence_reasoning": "The synthesis accurately represents the source material by covering key points such as tool-calling capabilities, model size versus functionality, quantization, and practical examples, demonstrating high completeness (30%). The clarity is excellent with a well-structured format and readability (30%), making it easy to understand. Accuracy is maintained throughout, faithfully capturing the essence of the source document's message (40%).",
+    "scored_at": "2026-06-10T23:16:34.954816",
+    "review_action": "approved",
+    "review_method": "auto",
+    "reviewed_at": "2026-06-10T23:16:34.954816"
   }
 ]

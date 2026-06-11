@@ -11,9 +11,9 @@ tags:
   - "source_summary"
   - "the-biggest-local-llm-on-your-machine-is-useless-if-it-can-t-call-a-single-tool-no-matter-how-many-parameters-it-has"
 confidence: "medium"
-confidence_score: null
+confidence_score: 0.95
 generation_method: "ollama_local"
-approved: false
+approved: true
 ---
 
 The article discusses the importance of tool-calling capabilities in local large language models (LLMs) for practical applications, emphasizing that model size isn't as crucial as functionality. Here are the key points:
