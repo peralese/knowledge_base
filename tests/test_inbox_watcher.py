@@ -239,7 +239,7 @@ class ScanInboxTests(unittest.TestCase):
         mod.REVIEW_QUEUE_REPORT_PATH = self.root / "metadata" / "review-queue.md"
         try:
             self._drop("my-article.md", "# My Article\n\nSome content.\n")
-            state = scan_inbox(self.root / "raw" / "inbox", {}, "article")
+            state = scan_inbox(self.root / "raw" / "inbox", {}, "article", auto_process=False)
             self.assertEqual(len(state), 1)
             output = self.root / "raw" / "articles" / "my-article.md"
             self.assertTrue(output.exists(), f"Expected {output}")
@@ -259,7 +259,7 @@ class ScanInboxTests(unittest.TestCase):
         try:
             p = self._drop("already-done.md", "# Already Done\n\nContent.\n")
             existing_state = {str(p.resolve()): "2026-04-10T09:00:00"}
-            state = scan_inbox(self.root / "raw" / "inbox", existing_state, "article")
+            state = scan_inbox(self.root / "raw" / "inbox", existing_state, "article", auto_process=False)
             # State unchanged — file was skipped
             self.assertEqual(state, existing_state)
         finally:
@@ -271,7 +271,7 @@ class ScanInboxTests(unittest.TestCase):
         mod.ROOT = self.root
         try:
             (self.root / "raw" / "inbox" / "data.csv").write_text("a,b,c", encoding="utf-8")
-            state = scan_inbox(self.root / "raw" / "inbox", {}, "article")
+            state = scan_inbox(self.root / "raw" / "inbox", {}, "article", auto_process=False)
             self.assertEqual(state, {})
         finally:
             mod.ROOT = original_root
@@ -292,7 +292,7 @@ class ScanInboxTests(unittest.TestCase):
         try:
             self._drop("article-one.md", "# Article One\n\nContent one.\n")
             self._drop("article-two.txt", "Article Two\n\nContent two.\n")
-            state = scan_inbox(self.root / "raw" / "inbox", {}, "article")
+            state = scan_inbox(self.root / "raw" / "inbox", {}, "article", auto_process=False)
             self.assertEqual(len(state), 2)
             queue = load_review_queue()
             self.assertEqual(len(queue), 2)
@@ -315,7 +315,7 @@ class ScanInboxTests(unittest.TestCase):
                 '---\ntitle: "Web Clip"\ncanonical_url: "https://example.com"\n---\n\nBody.\n',
                 encoding="utf-8",
             )
-            state = scan_inbox(self.root / "raw" / "inbox", {}, "article")
+            state = scan_inbox(self.root / "raw" / "inbox", {}, "article", auto_process=False)
             self.assertEqual(len(state), 1)
             queue = load_review_queue()
             self.assertEqual(queue[0]["adapter"], "browser")
@@ -368,7 +368,7 @@ class IngestFileOptionalMetadataTests(unittest.TestCase):
                 encoding="utf-8",
             )
             from scripts.inbox_watcher import ingest_file
-            outcome = ingest_file(staged, "article")
+            outcome = ingest_file(staged, "article", auto_process=False)
             self.assertTrue(outcome.processed)
             output = self.root / "raw" / "articles" / "my-article.md"
             self.assertTrue(output.exists())
@@ -398,7 +398,7 @@ class IngestFileOptionalMetadataTests(unittest.TestCase):
                 encoding="utf-8",
             )
             from scripts.inbox_watcher import ingest_file
-            outcome = ingest_file(staged, "article")
+            outcome = ingest_file(staged, "article", auto_process=False)
             self.assertTrue(outcome.processed)
 
             output = self.root / "raw" / "articles" / "my-article.md"
@@ -428,7 +428,7 @@ class IngestFileOptionalMetadataTests(unittest.TestCase):
                 encoding="utf-8",
             )
             from scripts.inbox_watcher import ingest_file
-            outcome = ingest_file(staged, "article")
+            outcome = ingest_file(staged, "article", auto_process=False)
             self.assertTrue(outcome.processed)
         finally:
             mod.ROOT = original_root

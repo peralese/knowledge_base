@@ -1476,6 +1476,7 @@ async function submitIngest() {
   const msgEl = document.getElementById('ingest-msg');
   const type = document.querySelector('input[name="source-type"]:checked').value;
   const title = document.getElementById('title-input').value.trim();
+  const domain = document.getElementById('domain-select').value;
   const topicSlug = document.getElementById('topic-select').value;
   const notes = document.getElementById('notes-input').value.trim();
   const meta = _collectMeta();

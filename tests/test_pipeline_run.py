@@ -104,7 +104,7 @@ class RunForItemTests(unittest.TestCase):
 
     @patch("scripts.pipeline_run.aggregate_for_source")
     @patch("scripts.pipeline_run.update_queue_with_score")
-    @patch("scripts.pipeline_run.score_synthesis")
+    @patch("scripts.pipeline_run.run_score_synthesis")
     @patch("scripts.pipeline_run.load_queue")
     @patch("scripts.pipeline_run.synthesize_item", return_value=True)
     def test_all_stages_called_in_order(
@@ -141,7 +141,7 @@ class RunForItemTests(unittest.TestCase):
 
     @patch("scripts.pipeline_run.aggregate_for_source")
     @patch("scripts.pipeline_run.update_queue_with_score")
-    @patch("scripts.pipeline_run.score_synthesis")
+    @patch("scripts.pipeline_run.run_score_synthesis")
     @patch("scripts.pipeline_run.load_queue")
     @patch("scripts.pipeline_run.synthesize_item", return_value=True)
     def test_auto_approve_fires_at_threshold(
@@ -163,7 +163,7 @@ class RunForItemTests(unittest.TestCase):
 
     @patch("scripts.pipeline_run.aggregate_for_source")
     @patch("scripts.pipeline_run.update_queue_with_score")
-    @patch("scripts.pipeline_run.score_synthesis")
+    @patch("scripts.pipeline_run.run_score_synthesis")
     @patch("scripts.pipeline_run.load_queue")
     @patch("scripts.pipeline_run.synthesize_item", return_value=True)
     def test_auto_approve_does_not_fire_below_threshold(
@@ -185,7 +185,7 @@ class RunForItemTests(unittest.TestCase):
 
     @patch("scripts.pipeline_run.aggregate_for_source", side_effect=RuntimeError("Ollama down"))
     @patch("scripts.pipeline_run.update_queue_with_score")
-    @patch("scripts.pipeline_run.score_synthesis")
+    @patch("scripts.pipeline_run.run_score_synthesis")
     @patch("scripts.pipeline_run.load_queue")
     @patch("scripts.pipeline_run.synthesize_item", return_value=True)
     def test_aggregation_failure_does_not_crash(
@@ -208,7 +208,7 @@ class RunForItemTests(unittest.TestCase):
 
     @patch("scripts.pipeline_run.aggregate_for_source")
     @patch("scripts.pipeline_run.update_queue_with_score")
-    @patch("scripts.pipeline_run.score_synthesis", side_effect=ConnectionError("no ollama"))
+    @patch("scripts.pipeline_run.run_score_synthesis", side_effect=ConnectionError("no ollama"))
     @patch("scripts.pipeline_run.load_queue")
     @patch("scripts.pipeline_run.synthesize_item", return_value=True)
     def test_score_failure_is_non_fatal(

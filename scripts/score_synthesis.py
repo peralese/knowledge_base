@@ -35,7 +35,13 @@ DEFAULT_AUTO_APPROVE_THRESHOLD = 0.0
 sys.path.insert(0, str(Path(__file__).parent))
 from git_ops import commit_pipeline_stage  # noqa: E402, PLC0415
 from llm_driver import _check_model_available, call_ollama  # noqa: E402, PLC0415
-from domains import compiled_subdir  # noqa: E402, PLC0415
+from domains import compiled_subdir, metadata_file  # noqa: E402, PLC0415
+
+
+def configure_domain_paths(domain: str, root: Path = ROOT) -> None:
+    global REVIEW_QUEUE_PATH, REVIEW_QUEUE_REPORT_PATH
+    REVIEW_QUEUE_PATH = metadata_file(root, domain, "review-queue.json")
+    REVIEW_QUEUE_REPORT_PATH = metadata_file(root, domain, "review-queue.md")
 
 
 # ---------------------------------------------------------------------------
@@ -216,10 +222,17 @@ def update_entry_with_score(entry: dict[str, object], result: ScoreResult) -> di
         "confidence_band": result.band,
         "confidence_reasoning": result.reasoning,
         "scored_at": now,
+    }
+    # A human reviewer's decision (e.g. approved/rejected before synthesis ran)
+    # takes precedence over the scorer's review fields.
+    if entry.get("review_method") == "manual":
+        return {**entry, **extra}
+
+    extra.update({
         "review_action": None,
         "review_method": None,
         "reviewed_at": None,
-    }
+    })
     if result.auto_approved:
         extra.update({
             "review_action": "approved",

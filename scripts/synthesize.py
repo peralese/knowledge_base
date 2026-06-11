@@ -265,8 +265,9 @@ def synthesize_item(
         print(f"  Error: source note not found: {raw_note_path}")
         return False
 
-    # Step 1 — prompt-pack
-    prompt_pack_path = _generate_prompt_pack(raw_note_path, compile_title, force, root)
+    # Step 1 — prompt-pack (always regenerate; it's a transient intermediate
+    # artifact, and a stale one from a prior failed attempt must not block retries)
+    prompt_pack_path = _generate_prompt_pack(raw_note_path, compile_title, True, root)
     if prompt_pack_path is None:
         return False
     print(f"  Prompt-pack : {prompt_pack_path.relative_to(root)}")

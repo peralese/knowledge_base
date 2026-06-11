@@ -28,10 +28,12 @@ sys.path.insert(0, str(Path(__file__).parent))
 from git_ops import commit_pipeline_stage  # noqa: E402
 from index_notes import run as rebuild_index  # noqa: E402
 from domains import DEFAULT_DOMAIN_SLUG, compiled_subdir, metadata_file  # noqa: E402
+import score_synthesis  # noqa: E402
+import synthesize  # noqa: E402
 from score_synthesis import (  # noqa: E402
     ScoreRequest,
     _find_compiled_note,
-    score_synthesis,
+    score_synthesis as run_score_synthesis,
     update_queue_with_score,
 )
 from synthesize import (  # noqa: E402
@@ -43,9 +45,16 @@ from synthesize import (  # noqa: E402
 )
 from concept_aggregator import extract_for_source as extract_concepts  # noqa: E402
 from topic_aggregator import _find_source_summary, aggregate_for_source  # noqa: E402
+from review import _patch_note_approved  # noqa: E402
 
 DEFAULT_THRESHOLD = 0.85
 DEFAULT_INTERVAL = 30
+
+
+def configure_queue_paths(domain: str, root: Path = ROOT) -> None:
+    """Point synthesize/score_synthesis queue I/O at the given domain's review queue."""
+    synthesize.configure_domain_paths(domain, root)
+    score_synthesis.configure_domain_paths(domain, root)
 
 
 def _domain_for_item(item: dict[str, object]) -> str:
@@ -138,7 +147,7 @@ def run_for_item(
         _log(source_id, "score", "SKIP   compiled note not found")
     else:
         try:
-            result = score_synthesis(ScoreRequest(
+            result = run_score_synthesis(ScoreRequest(
                 source_id=source_id,
                 compiled_note_path=compiled_path,
                 model=model,
@@ -153,6 +162,14 @@ def run_for_item(
         except Exception as exc:
             _log(source_id, "score", f"ERROR  {exc}")
             # Non-fatal — continue to aggregation
+
+    # ---- 2b. Honor a pre-existing manual review decision ----------------------
+    queue = load_queue()
+    updated_item = next((e for e in queue if e.get("source_id") == source_id), item)
+    if updated_item.get("review_method") == "manual" and compiled_path is not None:
+        approved = updated_item.get("review_action") == "approved"
+        _patch_note_approved(compiled_path, approved=approved)
+        _log(source_id, "review", f"OK     manual decision preserved ({updated_item.get('review_action')})")
 
     # ---- 3. Topic aggregation ------------------------------------------------
     queue = load_queue()
@@ -208,7 +225,16 @@ def run_index_rebuild(root: Path, no_commit: bool = False, domain: str = DEFAULT
 # CLI commands
 # ---------------------------------------------------------------------------
 
-def cmd_run_one(source_id: str, *, model: str, threshold: float, root: Path, no_commit: bool = False) -> int:
+def cmd_run_one(
+    source_id: str,
+    *,
+    model: str,
+    threshold: float,
+    root: Path,
+    domain: str = DEFAULT_DOMAIN_SLUG,
+    no_commit: bool = False,
+) -> int:
+    configure_queue_paths(domain, root)
     queue = load_queue()
     item = next((e for e in queue if e.get("source_id") == source_id), None)
     if item is None:
@@ -232,7 +258,10 @@ def _pending_items(queue: list[dict[str, object]]) -> list[dict[str, object]]:
     return [e for e in queue if e.get("review_status") == "pending_review"]
 
 
-def cmd_run_all(*, model: str, threshold: float, root: Path, no_commit: bool = False) -> int:
+def cmd_run_all(
+    *, model: str, threshold: float, root: Path, domain: str = DEFAULT_DOMAIN_SLUG, no_commit: bool = False
+) -> int:
+    configure_queue_paths(domain, root)
     queue = load_queue()
     items = _pending_items(queue)
     if not items:
@@ -254,7 +283,16 @@ def cmd_run_all(*, model: str, threshold: float, root: Path, no_commit: bool = F
     return 0 if failed == 0 else 1
 
 
-def cmd_watch(*, interval: int, model: str, threshold: float, root: Path, no_commit: bool = False) -> int:
+def cmd_watch(
+    *,
+    interval: int,
+    model: str,
+    threshold: float,
+    root: Path,
+    domain: str = DEFAULT_DOMAIN_SLUG,
+    no_commit: bool = False,
+) -> int:
+    configure_queue_paths(domain, root)
     print(f"Watching queue every {interval}s (Ctrl-C to stop)…")
     try:
         while True:
@@ -322,6 +360,11 @@ def build_parser() -> argparse.ArgumentParser:
         dest="no_commit",
         help="Skip git auto-commits for all pipeline steps.",
     )
+    parser.add_argument(
+        "--domain",
+        default=DEFAULT_DOMAIN_SLUG,
+        help=f"Domain slug whose review queue to operate on. Default: {DEFAULT_DOMAIN_SLUG}",
+    )
     return parser
 
 
@@ -335,17 +378,27 @@ def main(argv: list[str] | None = None) -> int:
             model=args.model,
             threshold=args.threshold,
             root=ROOT,
+            domain=args.domain,
             no_commit=args.no_commit,
         )
 
     if args.all:
-        return cmd_run_all(model=args.model, threshold=args.threshold, root=ROOT, no_commit=args.no_commit)
+        return cmd_run_all(
+            model=args.model, threshold=args.threshold, root=ROOT, domain=args.domain, no_commit=args.no_commit
+        )
 
     if not args.source_id:
         parser.print_help()
         return 1
 
-    return cmd_run_one(args.source_id, model=args.model, threshold=args.threshold, root=ROOT, no_commit=args.no_commit)
+    return cmd_run_one(
+        args.source_id,
+        model=args.model,
+        threshold=args.threshold,
+        root=ROOT,
+        domain=args.domain,
+        no_commit=args.no_commit,
+    )
 
 
 if __name__ == "__main__":

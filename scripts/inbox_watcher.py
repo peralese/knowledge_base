@@ -7,8 +7,13 @@ metadata/.watcher-state.json so the watcher is safe to stop and restart.
 
 Phase 1 ingestion automation extends this with a second stage after ingest:
 every ingested note is validated against the repository raw-note shape and
-queued for human review in metadata/review-queue.json and metadata/review-queue.md.
-Auto-synthesis is intentionally not triggered.
+queued for review in metadata/review-queue.json and metadata/review-queue.md.
+
+By default, validated notes are then run through the full pipeline
+(synthesize -> score -> topic-aggregate -> concept/entity extraction -> index
+rebuild) automatically via pipeline_run.run_for_item — no manual trigger
+needed. Notes with validation issues are left at "pending_review" for manual
+attention. Pass --no-auto-process to restore the old queue-only behavior.
 
 Title derivation (in priority order):
   1. YAML frontmatter `title:` field (for markdown files)
@@ -53,6 +58,8 @@ from domains import (  # noqa: E402
     metadata_file,
     raw_domain_dir,
 )
+from pipeline_run import run_for_item, run_index_rebuild, DEFAULT_THRESHOLD  # noqa: E402
+from synthesize import DEFAULT_MODEL  # noqa: E402
 
 INBOX_DIR = ROOT / "raw" / "inbox"
 STATE_PATH = ROOT / "metadata" / ".watcher-state.json"
@@ -95,6 +102,8 @@ class IngestOutcome:
     source_type: str = ""
     origin: str = ""
     title: str = ""
+    domain: str = ""
+    pipeline_ran: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -457,8 +466,8 @@ def queue_review_item(
     validation_issues: list[str],
     topic_slug: str = "",
     domain: str = "",
-) -> None:
-    """Add or update a pending review entry for an ingested note."""
+) -> dict[str, object]:
+    """Add or update a pending review entry for an ingested note. Returns the entry."""
     queue = load_review_queue_for_domain(ROOT, domain) if domain else load_review_queue()
     text = source_note_path.read_text(encoding="utf-8", errors="replace")
     frontmatter = _parse_frontmatter(text)
@@ -471,6 +480,7 @@ def queue_review_item(
         "source_type": source_type,
         "origin": origin,
         "topic_slug": topic_slug,
+        "domain": domain or DEFAULT_DOMAIN_SLUG,
         "queued_at": datetime.now().isoformat(),
         "review_status": "pending_review",
         "validation_status": "validated" if not validation_issues else "needs_review",
@@ -488,11 +498,14 @@ def queue_review_item(
         queue.append(entry)
     else:
         queue[existing_index] = {**queue[existing_index], **entry}
+        entry = queue[existing_index]
 
     if domain:
         save_review_queue_for_domain(queue, ROOT, domain)
     else:
         save_review_queue(queue)
+
+    return entry
 
 
 def render_review_queue(entries: list[dict[str, object]]) -> str:
@@ -532,7 +545,16 @@ def render_review_queue(entries: list[dict[str, object]]) -> str:
 # Ingest dispatch
 # ---------------------------------------------------------------------------
 
-def ingest_file(path: Path, source_type: str, domain: str = "") -> IngestOutcome:
+def ingest_file(
+    path: Path,
+    source_type: str,
+    domain: str = "",
+    *,
+    auto_process: bool = True,
+    model: str = DEFAULT_MODEL,
+    threshold: float = DEFAULT_THRESHOLD,
+    no_commit: bool = False,
+) -> IngestOutcome:
     """Call ingest_source(), validate the result, and queue it for review."""
     sys.path.insert(0, str(Path(__file__).parent))
     from ingest import ingest_source, IngestRequest  # noqa: PLC0415
@@ -597,7 +619,7 @@ def ingest_file(path: Path, source_type: str, domain: str = "") -> IngestOutcome
     try:
         result = ingest_source(IngestRequest(**ingest_kwargs))
         validation_issues = validate_ingested_note(result)
-        queue_review_item(
+        entry = queue_review_item(
             source_note_path=result,
             inbox_path=path,
             title=title,
@@ -614,6 +636,16 @@ def ingest_file(path: Path, source_type: str, domain: str = "") -> IngestOutcome
             + ("validated" if not validation_issues else f"needs review ({len(validation_issues)} issue(s))")
         )
         print(f"  Queue       : {'metadata/domains/' + resolved_domain + '/review-queue.md' if resolved_domain else 'metadata/review-queue.md'}")
+
+        pipeline_ran = False
+        if auto_process:
+            if validation_issues:
+                print("  Pipeline    : skipped (validation issues — needs manual review)")
+            else:
+                print("  Pipeline    : running synthesize -> score -> aggregate -> index...")
+                pipeline_ran = run_for_item(entry, model=model, threshold=threshold, root=ROOT, no_commit=no_commit)
+                print(f"  Pipeline    : {'done' if pipeline_ran else 'failed (see log above)'}")
+
         return IngestOutcome(
             processed=True,
             output_path=result,
@@ -622,6 +654,8 @@ def ingest_file(path: Path, source_type: str, domain: str = "") -> IngestOutcome
             source_type=resolved_source_type,
             origin=origin,
             title=title,
+            domain=resolved_domain,
+            pipeline_ran=pipeline_ran,
         )
     except FileExistsError as exc:
         print(f"  Skipped (already exists): {exc}")
@@ -652,12 +686,18 @@ def scan_inbox(
     state: dict[str, str],
     source_type: str,
     domain: str = "",
+    *,
+    auto_process: bool = True,
+    model: str = DEFAULT_MODEL,
+    threshold: float = DEFAULT_THRESHOLD,
+    no_commit: bool = False,
 ) -> dict[str, str]:
     """Check for new files in inbox and ingest them. Returns updated state."""
     if not inbox.exists():
         return state
 
     updated = dict(state)
+    domains_to_reindex: set[str] = set()
     for path in sorted(inbox.rglob("*")):
         if not path.is_file():
             continue
@@ -670,15 +710,38 @@ def scan_inbox(
 
         ts = datetime.now().strftime("%H:%M:%S")
         print(f"[{ts}] New file: {path.name}")
-        outcome = ingest_file(path, source_type, domain=derive_domain(path, domain))
+        outcome = ingest_file(
+            path,
+            source_type,
+            domain=derive_domain(path, domain),
+            auto_process=auto_process,
+            model=model,
+            threshold=threshold,
+            no_commit=no_commit,
+        )
         if outcome.processed:
             updated[key] = datetime.now().isoformat()
             updated.pop(legacy_key, None)  # replace legacy key if present
+        if outcome.pipeline_ran and outcome.domain:
+            domains_to_reindex.add(outcome.domain)
+
+    for reindex_domain in domains_to_reindex:
+        run_index_rebuild(ROOT, no_commit=no_commit, domain=reindex_domain)
 
     return updated
 
 
-def watch(interval: int, source_type: str, once: bool, domain: str = DEFAULT_DOMAIN_SLUG) -> None:
+def watch(
+    interval: int,
+    source_type: str,
+    once: bool,
+    domain: str = DEFAULT_DOMAIN_SLUG,
+    *,
+    auto_process: bool = True,
+    model: str = DEFAULT_MODEL,
+    threshold: float = DEFAULT_THRESHOLD,
+    no_commit: bool = False,
+) -> None:
     """Main watcher loop."""
     state = load_state()
     resolved_domain = get_domain(domain, ROOT).slug
@@ -687,15 +750,17 @@ def watch(interval: int, source_type: str, once: bool, domain: str = DEFAULT_DOM
     for directory in [watched_inbox, *ADAPTER_DIRECTORIES.values()]:
         directory.mkdir(parents=True, exist_ok=True)
 
+    scan_kwargs = dict(auto_process=auto_process, model=model, threshold=threshold, no_commit=no_commit)
+
     if once:
-        state = scan_inbox(watched_inbox, state, source_type, resolved_domain)
+        state = scan_inbox(watched_inbox, state, source_type, resolved_domain, **scan_kwargs)
         save_state(state)
         return
 
     print(f"Watching {watched_inbox.relative_to(ROOT)}  (interval: {interval}s, Ctrl-C to stop)")
     try:
         while True:
-            new_state = scan_inbox(watched_inbox, state, source_type, resolved_domain)
+            new_state = scan_inbox(watched_inbox, state, source_type, resolved_domain, **scan_kwargs)
             if new_state != state:
                 save_state(new_state)
                 state = new_state
@@ -733,13 +798,45 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_DOMAIN_SLUG,
         help=f"Domain slug to watch. Defaults to {DEFAULT_DOMAIN_SLUG}.",
     )
+    parser.add_argument(
+        "--no-auto-process",
+        action="store_true",
+        dest="no_auto_process",
+        help="Queue ingested items for review only; do not auto-run synthesize/score/aggregate/index.",
+    )
+    parser.add_argument(
+        "--model",
+        default=DEFAULT_MODEL,
+        help=f"Ollama model name for auto-processing. Default: {DEFAULT_MODEL}",
+    )
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        default=DEFAULT_THRESHOLD,
+        help=f"Auto-approve confidence threshold (0.0-1.0). Default: {DEFAULT_THRESHOLD}",
+    )
+    parser.add_argument(
+        "--no-commit",
+        action="store_true",
+        dest="no_commit",
+        help="Skip git auto-commits for pipeline steps.",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    watch(interval=args.interval, source_type=args.source_type, once=args.once, domain=args.domain)
+    watch(
+        interval=args.interval,
+        source_type=args.source_type,
+        once=args.once,
+        domain=args.domain,
+        auto_process=not args.no_auto_process,
+        model=args.model,
+        threshold=args.threshold,
+        no_commit=args.no_commit,
+    )
     return 0
 
 

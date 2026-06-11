@@ -38,6 +38,15 @@ from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from pydantic import BaseModel
 from urllib.error import URLError
 
+# Identify as a real browser; many sites 403 the generic "python-httpx" UA
+# or an obviously-a-bot UA string.
+FETCH_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    )
+}
+
 ROOT = Path(__file__).resolve().parent
 DASHBOARD_DIR = ROOT / "dashboard"
 TOPIC_REGISTRY_PATH = ROOT / "metadata" / "topic-registry.json"
@@ -81,7 +90,6 @@ from resynthesize_topic import (  # noqa: E402
     resynthesize_topic,
     topic_status,
 )
-from stage_to_inbox import StageRequest, stage_feed  # noqa: E402
 from purge_source import purge_source  # noqa: E402
 from domains import (  # noqa: E402
     DEFAULT_DOMAIN_SLUG,
@@ -472,7 +480,9 @@ def _ingest_via_inbox(
         inbox_watcher.ROOT = ROOT
         inbox_watcher.REVIEW_QUEUE_PATH = metadata_file(ROOT, domain, "review-queue.json")
         inbox_watcher.REVIEW_QUEUE_REPORT_PATH = metadata_file(ROOT, domain, "review-queue.md")
-        outcome = inbox_watcher.ingest_file(staged_path, source_type.strip() or "article", domain=domain)
+        outcome = inbox_watcher.ingest_file(
+            staged_path, source_type.strip() or "article", domain=domain, auto_process=False
+        )
     finally:
         inbox_watcher.ROOT = original_root
         inbox_watcher.REVIEW_QUEUE_PATH = original_queue_path
@@ -717,6 +727,7 @@ def _recent_entity_activity(root: Path, limit: int = 10) -> list[dict]:
 class ShareURLRequest(BaseModel):
     url: str
     note: str = ""
+    domain: str = DEFAULT_DOMAIN_SLUG
 
 
 class SavedSearchRequest(BaseModel):
@@ -737,7 +748,7 @@ def fetch_title(url: str):
             url,
             follow_redirects=True,
             timeout=5,
-            headers={"User-Agent": "Mozilla/5.0 (compatible; KBDashboard/1.0)"},
+            headers=FETCH_HEADERS,
         )
         response.raise_for_status()
         title = _extract_page_title(response.text)
@@ -1130,7 +1141,7 @@ def ingest_url(body: IngestURLRequest):
 
     # Download the page
     try:
-        response = httpx.get(url, follow_redirects=True, timeout=30)
+        response = httpx.get(url, follow_redirects=True, timeout=30, headers=FETCH_HEADERS)
         response.raise_for_status()
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail=f"Failed to fetch URL: {exc}")
@@ -1162,10 +1173,10 @@ def ingest_url(body: IngestURLRequest):
         license_=body.license or "",
         canonical_url=url,
         topic_slug=body.topic_slug,
-        domain=domain,
+        domain=body.domain,
     )
 
-    return {"status": "queued", "filename": destination.name, "domain": domain}
+    return {"status": "queued", "filename": destination.name, "domain": body.domain}
 
 
 @app.post("/api/ingest/file")
@@ -1336,7 +1347,7 @@ def share_url(body: ShareURLRequest):
             url,
             follow_redirects=True,
             timeout=10,
-            headers={"User-Agent": "Mozilla/5.0 (compatible; KBDashboard/1.0)"},
+            headers=FETCH_HEADERS,
         )
         response.raise_for_status()
         title = _extract_page_title(response.text) or ""
@@ -1348,30 +1359,28 @@ def share_url(body: ShareURLRequest):
     if not title:
         title = _fallback_title_for_url(url)
 
+    content_type = response.headers.get("content-type", "")
+    raw_content = response.text
+    if "html" in content_type or raw_content.lstrip().startswith("<"):
+        text = normalize_text(html_to_text(raw_content))
+    else:
+        text = normalize_text(raw_content)
+
     note = body.note.strip()
-    inbox_id = f"INX-{date.today().strftime('%Y%m%d')}-{uuid.uuid4().hex[:8]}"
-    content = note if note else f"[Shared from mobile — {inbox_id}]"
+    if note:
+        text = f"<!-- notes: {note} -->\n\n{text}"
 
-    # Write to inbox using same format as stage_to_inbox.py (feeds adapter)
-    req = StageRequest(
-        adapter="feeds",
-        text=json.dumps({
-            "title": title,
-            "canonical_url": url,
-            "content": content,
-            "inbox_id": inbox_id,
-        }),
+    destination = _ingest_via_inbox(
         title=title,
+        text=text,
+        origin="url",
+        source_type="article",
         canonical_url=url,
-        root=ROOT,
+        domain=body.domain,
     )
-    try:
-        written = stage_feed(req)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to write to inbox: {exc}")
 
-    logger.info("Mobile share queued: %s → %s", url, written)
-    return {"status": "queued", "inbox_id": inbox_id, "file": str(written)}
+    logger.info("Mobile share queued: %s → %s", url, destination)
+    return {"status": "queued", "filename": destination.name, "domain": body.domain}
 
 
 # ---------------------------------------------------------------------------
