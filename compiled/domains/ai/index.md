@@ -3,16 +3,17 @@ title: "AI Wiki Index"
 note_type: "index"
 domain: "ai"
 generated_on: "2026-06-10"
-note_count: 55
+note_count: 62
 ---
 
 # AI Wiki Index
 
-_Generated on 2026-06-10 — 55 topics_
+_Generated on 2026-06-10 — 62 topics_
 
 ## Topics
 
 - [[agents]] — Agents are autonomous systems designed to reason, plan, and take action with minimal human intervention. They represent…
+- [[ai-tools]] — In the rapidly evolving field of artificial intelligence, large language models (LLMs) have become a cornerstone for…
 - [[auto-research]] — Auto research, a groundbreaking approach in machine learning developed by [[andrej-karpathy]], automates the process of…
 - [[books]] — Books have long been a cornerstone of intellectual and technological advancement, serving as repositories of knowledge…
 - [[llm-knowledge-bases]] — In an era where data is abundant yet fragmented, the concept of Large Language Model (LLM) knowledge bases emerges as a…
@@ -49,10 +50,13 @@ _Generated on 2026-06-10 — 55 topics_
 - [[loop-engineering]] — Definition not yet written. Update this stub with content from the sources below.
 - [[model-context-protocol-mcp]] — Definition not yet written. Update this stub with content from the sources below.
 - [[model-context-protocol]] — Definition not yet written. Update this stub with content from the sources below.
+- [[model-size-vs-functionality]] — Definition not yet written. Update this stub with content from the sources below.
 - [[network-hardening]] — Network hardening involves restricting outbound network access through configurations such as Docker networks to…
 - [[open-source-standards-in-ai]] — Definition not yet written. Update this stub with content from the sources below.
+- [[quantization]] — Definition not yet written. Update this stub with content from the sources below.
 - [[retrieval-augmented-generation]] — Definition not yet written. Update this stub with content from the sources below.
 - [[skill-vetting]] — Skill vetting in the context of AI/ML security involves assessing and validating third-party skills or models to ensure…
+- [[tool-calling-capabilities]] — Definition not yet written. Update this stub with content from the sources below.
 - [[zero-trust]] — Definition not yet written. Update this stub with content from the sources below.
 
 ## Entities
@@ -64,11 +68,14 @@ _Generated on 2026-06-10 — 55 topics_
 - [[claude]] — Description not yet written. Update this stub with content from the sources below.
 - [[cursor]] — Description not yet written. Update this stub with content from the sources below.
 - [[docker]] — Description not yet written. Update this stub with content from the sources below.
+- [[gemma-4-e2b]] — Description not yet written. Update this stub with content from the sources below.
 - [[how-to-build-an-ai-agent-a-complete-guide]] — Description not yet written. Update this stub with content from the sources below.
 - [[karpathy-s-autoresearch]] — Description not yet written. Update this stub with content from the sources below.
 - [[karpathy]] — Description not yet written. Update this stub with content from the sources below.
 - [[llamaindex]] — Description not yet written. Update this stub with content from the sources below.
 - [[mcpjam]] — Description not yet written. Update this stub with content from the sources below.
+- [[mistral-devstral]] — Description not yet written. Update this stub with content from the sources below.
+- [[nvidia-nemotron-3-super]] — Description not yet written. Update this stub with content from the sources below.
 - [[ollama]] — Description not yet written. Update this stub with content from the sources below.
 - [[openclaw]] — Description not yet written. Update this stub with content from the sources below.
 - [[soul-md]] — Description not yet written. Update this stub with content from the sources below.
