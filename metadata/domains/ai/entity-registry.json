@@ -191,6 +191,56 @@
       "date_first_seen": "2026-06-10",
       "date_updated": "2026-06-10",
       "entity_type": "product"
+    },
+    {
+      "slug": "nolen-jonker",
+      "title": "Nolen Jonker",
+      "sources": [
+        "i-added-this-open-source-tool-to-my-local-ai-stack-and-my-local-llm-finally-has-persistent-memory-synthesis"
+      ],
+      "date_first_seen": "2026-06-10",
+      "date_updated": "2026-06-10",
+      "entity_type": "person"
+    },
+    {
+      "slug": "anythingllm",
+      "title": "AnythingLLM",
+      "sources": [
+        "i-added-this-open-source-tool-to-my-local-ai-stack-and-my-local-llm-finally-has-persistent-memory-synthesis"
+      ],
+      "date_first_seen": "2026-06-10",
+      "date_updated": "2026-06-10",
+      "entity_type": "tool"
+    },
+    {
+      "slug": "lm-studio",
+      "title": "LM Studio",
+      "sources": [
+        "i-added-this-open-source-tool-to-my-local-ai-stack-and-my-local-llm-finally-has-persistent-memory-synthesis"
+      ],
+      "date_first_seen": "2026-06-10",
+      "date_updated": "2026-06-10",
+      "entity_type": "tool"
+    },
+    {
+      "slug": "jan-ai",
+      "title": "Jan AI",
+      "sources": [
+        "i-added-this-open-source-tool-to-my-local-ai-stack-and-my-local-llm-finally-has-persistent-memory-synthesis"
+      ],
+      "date_first_seen": "2026-06-10",
+      "date_updated": "2026-06-10",
+      "entity_type": "tool"
+    },
+    {
+      "slug": "llamacpp",
+      "title": "llama.cpp",
+      "sources": [
+        "i-added-this-open-source-tool-to-my-local-ai-stack-and-my-local-llm-finally-has-persistent-memory-synthesis"
+      ],
+      "date_first_seen": "2026-06-10",
+      "date_updated": "2026-06-10",
+      "entity_type": "tool"
     }
   ]
 }

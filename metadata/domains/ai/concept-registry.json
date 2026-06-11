@@ -309,6 +309,33 @@
       ],
       "date_first_seen": "2026-06-10",
       "date_updated": "2026-06-10"
+    },
+    {
+      "slug": "persistent-memory",
+      "title": "Persistent Memory",
+      "sources": [
+        "i-added-this-open-source-tool-to-my-local-ai-stack-and-my-local-llm-finally-has-persistent-memory-synthesis"
+      ],
+      "date_first_seen": "2026-06-10",
+      "date_updated": "2026-06-10"
+    },
+    {
+      "slug": "automatic-and-manual-memories",
+      "title": "Automatic and Manual Memories",
+      "sources": [
+        "i-added-this-open-source-tool-to-my-local-ai-stack-and-my-local-llm-finally-has-persistent-memory-synthesis"
+      ],
+      "date_first_seen": "2026-06-10",
+      "date_updated": "2026-06-10"
+    },
+    {
+      "slug": "workspace-and-global-memories",
+      "title": "Workspace and Global Memories",
+      "sources": [
+        "i-added-this-open-source-tool-to-my-local-ai-stack-and-my-local-llm-finally-has-persistent-memory-synthesis"
+      ],
+      "date_first_seen": "2026-06-10",
+      "date_updated": "2026-06-10"
     }
   ]
 }
