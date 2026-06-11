@@ -3,12 +3,12 @@ title: "AI Wiki Index"
 note_type: "index"
 domain: "ai"
 generated_on: "2026-06-10"
-note_count: 40
+note_count: 47
 ---
 
 # AI Wiki Index
 
-_Generated on 2026-06-10 — 40 topics_
+_Generated on 2026-06-10 — 47 topics_
 
 ## Topics
 
@@ -25,6 +25,7 @@ _Generated on 2026-06-10 — 40 topics_
 - [[agent-architecture]] — Definition not yet written. Update this stub with content from the sources below.
 - [[agent-development-kit]] — Definition not yet written. Update this stub with content from the sources below.
 - [[agent-quality-framework]] — Definition not yet written. Update this stub with content from the sources below.
+- [[ai-application-integration]] — Definition not yet written. Update this stub with content from the sources below.
 - [[api-key-hygiene]] — Definition not yet written. Update this stub with content from the sources below.
 - [[api-key-management]] — Definition not yet written. Update this stub with content from the sources below.
 - [[auto-ml]] — Definition not yet written. Update this stub with content from the sources below.
@@ -41,6 +42,7 @@ _Generated on 2026-06-10 — 40 topics_
 - [[model-context-protocol-mcp]] — Definition not yet written. Update this stub with content from the sources below.
 - [[model-context-protocol]] — Definition not yet written. Update this stub with content from the sources below.
 - [[network-hardening]] — Network hardening involves restricting outbound network access through configurations such as Docker networks to…
+- [[open-source-standards-in-ai]] — Definition not yet written. Update this stub with content from the sources below.
 - [[retrieval-augmented-generation]] — Definition not yet written. Update this stub with content from the sources below.
 - [[skill-vetting]] — Skill vetting in the context of AI/ML security involves assessing and validating third-party skills or models to ensure…
 - [[zero-trust]] — Definition not yet written. Update this stub with content from the sources below.
@@ -50,11 +52,16 @@ _Generated on 2026-06-10 — 40 topics_
 - [[aitoolsclub]] — Description not yet written. Update this stub with content from the sources below.
 - [[andrej-karpathy]] — Description not yet written. Update this stub with content from the sources below.
 - [[anthropic]] — Description not yet written. Update this stub with content from the sources below.
+- [[chatgpt]] — Description not yet written. Update this stub with content from the sources below.
+- [[claude]] — Description not yet written. Update this stub with content from the sources below.
+- [[cursor]] — Description not yet written. Update this stub with content from the sources below.
 - [[docker]] — Description not yet written. Update this stub with content from the sources below.
 - [[how-to-build-an-ai-agent-a-complete-guide]] — Description not yet written. Update this stub with content from the sources below.
 - [[karpathy-s-autoresearch]] — Description not yet written. Update this stub with content from the sources below.
 - [[karpathy]] — Description not yet written. Update this stub with content from the sources below.
 - [[llamaindex]] — Description not yet written. Update this stub with content from the sources below.
+- [[mcpjam]] — Description not yet written. Update this stub with content from the sources below.
 - [[ollama]] — Description not yet written. Update this stub with content from the sources below.
 - [[openclaw]] — Description not yet written. Update this stub with content from the sources below.
 - [[soul-md]] — Description not yet written. Update this stub with content from the sources below.
+- [[visual-studio-code]] — Description not yet written. Update this stub with content from the sources below.
