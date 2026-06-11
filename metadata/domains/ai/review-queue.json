@@ -96,6 +96,10 @@
     "review_method": "manual",
     "reviewed_at": "2026-06-10T22:19:22.322189",
     "domain": "ai",
-    "synthesized_at": "2026-06-10T22:34:02.195514"
+    "synthesized_at": "2026-06-10T22:34:02.195514",
+    "confidence_score": 0.9,
+    "confidence_band": "high",
+    "confidence_reasoning": "The synthesis note accurately reflects the source material, capturing key components of loop engineering such as automation and memory systems, which accounts for its high accuracy score. It provides a comprehensive overview of essential elements like worktrees, sub-agents, and plugins, ensuring completeness. The note is clear, well-structured, and easy to read, with coherent sections on summary, insights, related concepts, notes, lineage, and source notes.",
+    "scored_at": "2026-06-10T22:34:17.299015"
   }
 ]
