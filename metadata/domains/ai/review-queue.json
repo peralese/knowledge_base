@@ -90,5 +90,24 @@
     "confidence_band": "high",
     "confidence_reasoning": "The synthesis is highly accurate, capturing the essence of the source material by describing the integration of AnythingLLM into a local AI stack for persistent memory in LLMs (40%). It captures key points such as automatic and manual memories, workspace management, and integration with local models (30%). The note is well-structured and readable, clearly presenting insights and related concepts (30%).",
     "scored_at": "2026-06-10T23:24:39.827009"
+  },
+  {
+    "source_id": "SRC-20260611-0001",
+    "title": "What is Harness Engineering? A Complete Introduction (2026)",
+    "source_note_path": "raw/domains/ai/articles/what-is-harness-engineering-a-complete-introduction-2026.md",
+    "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/ai/inbox/browser/what-is-harness-engineering-a-complete-introduction-2026.md",
+    "adapter": "browser",
+    "source_type": "article",
+    "origin": "web",
+    "topic_slug": "harness-engineering",
+    "domain": "ai",
+    "queued_at": "2026-06-11T22:21:42.224605",
+    "review_status": "synthesized",
+    "validation_status": "validated",
+    "validation_issues": [],
+    "review_action": "approved",
+    "review_method": "manual",
+    "reviewed_at": "2026-06-11T22:21:49.115524",
+    "synthesized_at": "2026-06-11T22:23:52.129819"
   }
 ]
