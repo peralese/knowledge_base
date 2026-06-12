@@ -3,18 +3,19 @@ title: "AI Wiki Index"
 note_type: "index"
 domain: "ai"
 generated_on: "2026-06-11"
-note_count: 66
+note_count: 72
 ---
 
 # AI Wiki Index
 
-_Generated on 2026-06-11 — 66 topics_
+_Generated on 2026-06-11 — 72 topics_
 
 ## Topics
 
 - [[agents]] — Agents are autonomous systems designed to reason, plan, and take action with minimal human intervention. They represent…
 - [[ai-tools]] — In the rapidly evolving field of artificial intelligence, large language models (LLMs) have become a cornerstone for…
 - [[auto-research]] — Auto research, a groundbreaking approach in machine learning developed by [[andrej-karpathy]], automates the process of…
+- [[harness-engineering]] — Harness engineering is an innovative discipline that emerged around 2026, addressing the critical need for reliable and…
 - [[llm-knowledge-bases]] — In an era where data is abundant yet fragmented, the concept of Large Language Model (LLM) knowledge bases emerges as a…
 - [[local-ai-stack]] — In an era where artificial intelligence (AI) is rapidly transforming various sectors, the concept of a "Local AI Stack"…
 - [[loop-engineering]] — In the ever-evolving landscape of software development, Loop Engineering stands out as a transformative methodology…
@@ -30,6 +31,7 @@ _Generated on 2026-06-11 — 66 topics_
 - [[ai-application-integration]] — Definition not yet written. Update this stub with content from the sources below.
 - [[api-key-hygiene]] — Definition not yet written. Update this stub with content from the sources below.
 - [[api-key-management]] — Definition not yet written. Update this stub with content from the sources below.
+- [[architectural-constraints]] — Definition not yet written. Update this stub with content from the sources below.
 - [[auto-ml]] — Definition not yet written. Update this stub with content from the sources below.
 - [[automatic-and-manual-memories]] — Definition not yet written. Update this stub with content from the sources below.
 - [[bm25-scoring]] — Definition not yet written. Update this stub with content from the sources below.
@@ -37,10 +39,13 @@ _Generated on 2026-06-11 — 66 topics_
 - [[cognitive-surrender]] — Definition not yet written. Update this stub with content from the sources below.
 - [[comprehension-debt]] — Definition not yet written. Update this stub with content from the sources below.
 - [[context-engineering]] — Context engineering is the practice of dynamically assembling and managing information relevant to an AI agent's…
+- [[context-management]] — Definition not yet written. Update this stub with content from the sources below.
 - [[deep-observability-trinity]] — Definition not yet written. Update this stub with content from the sources below.
 - [[deep-observability]] — Deep observability refers to the comprehensive monitoring and analysis framework used in AI systems, encompassing logs…
 - [[docker-isolation]] — Docker isolation refers to the security feature of Docker containers that restricts container access to system…
 - [[emergency-controls]] — Definition not yet written. Update this stub with content from the sources below.
+- [[entropy-management]] — Definition not yet written. Update this stub with content from the sources below.
+- [[harness-engineering]] — Definition not yet written. Update this stub with content from the sources below.
 - [[large-language-models-llms]] — Definition not yet written. Update this stub with content from the sources below.
 - [[large-language-models]] — Definition not yet written. Update this stub with content from the sources below.
 - [[logging-and-auditing]] — Definition not yet written. Update this stub with content from the sources below.
@@ -81,6 +86,7 @@ _Generated on 2026-06-11 — 66 topics_
 - [[nolen-jonker]] — Description not yet written. Update this stub with content from the sources below.
 - [[nvidia-nemotron-3-super]] — Description not yet written. Update this stub with content from the sources below.
 - [[ollama]] — Description not yet written. Update this stub with content from the sources below.
+- [[openai]] — Description not yet written. Update this stub with content from the sources below.
 - [[openclaw]] — Description not yet written. Update this stub with content from the sources below.
 - [[soul-md]] — Description not yet written. Update this stub with content from the sources below.
 - [[visual-studio-code]] — Description not yet written. Update this stub with content from the sources below.
