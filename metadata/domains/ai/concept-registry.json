@@ -308,6 +308,42 @@
       ],
       "date_first_seen": "2026-06-10",
       "date_updated": "2026-06-10"
+    },
+    {
+      "slug": "harness-engineering",
+      "title": "Harness Engineering",
+      "sources": [
+        "what-is-harness-engineering-a-complete-introduction-2026-synthesis"
+      ],
+      "date_first_seen": "2026-06-11",
+      "date_updated": "2026-06-11"
+    },
+    {
+      "slug": "context-management",
+      "title": "Context Management",
+      "sources": [
+        "what-is-harness-engineering-a-complete-introduction-2026-synthesis"
+      ],
+      "date_first_seen": "2026-06-11",
+      "date_updated": "2026-06-11"
+    },
+    {
+      "slug": "architectural-constraints",
+      "title": "Architectural Constraints",
+      "sources": [
+        "what-is-harness-engineering-a-complete-introduction-2026-synthesis"
+      ],
+      "date_first_seen": "2026-06-11",
+      "date_updated": "2026-06-11"
+    },
+    {
+      "slug": "entropy-management",
+      "title": "Entropy Management",
+      "sources": [
+        "what-is-harness-engineering-a-complete-introduction-2026-synthesis"
+      ],
+      "date_first_seen": "2026-06-11",
+      "date_updated": "2026-06-11"
     }
   ]
 }

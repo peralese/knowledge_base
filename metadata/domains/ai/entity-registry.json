@@ -239,6 +239,16 @@
       "date_first_seen": "2026-06-10",
       "date_updated": "2026-06-10",
       "entity_type": "tool"
+    },
+    {
+      "slug": "openai",
+      "title": "OpenAI",
+      "sources": [
+        "what-is-harness-engineering-a-complete-introduction-2026-synthesis"
+      ],
+      "date_first_seen": "2026-06-11",
+      "date_updated": "2026-06-11",
+      "entity_type": "company"
     }
   ]
 }
