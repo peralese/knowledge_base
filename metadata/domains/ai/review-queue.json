@@ -108,6 +108,10 @@
     "review_action": "approved",
     "review_method": "manual",
     "reviewed_at": "2026-06-11T22:21:49.115524",
-    "synthesized_at": "2026-06-11T22:23:52.129819"
+    "synthesized_at": "2026-06-11T22:23:52.129819",
+    "confidence_score": 0.9,
+    "confidence_band": "high",
+    "confidence_reasoning": "The synthesis note accurately captures the essence of harness engineering, including its definition, origin, core pillars, and differentiation from related fields (Accuracy: 40%). It effectively condenses key insights while maintaining focus on critical aspects like context management and system reliability (Completeness: 30%). The structure is logical and clear, with a well-organized summary and distinct sections for key insights and notes (Clarity: 30%).",
+    "scored_at": "2026-06-11T22:24:08.441257"
   }
 ]

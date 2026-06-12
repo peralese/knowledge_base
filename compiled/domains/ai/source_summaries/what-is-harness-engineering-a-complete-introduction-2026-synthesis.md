@@ -11,9 +11,9 @@ tags:
   - "source_summary"
   - "what-is-harness-engineering-a-complete-introduction-2026"
 confidence: "medium"
-confidence_score: null
+confidence_score: 0.9
 generation_method: "ollama_local"
-approved: false
+approved: true
 ---
 
 # Summary
