@@ -12,6 +12,7 @@ from scripts.pipeline_run import (
     _domain_for_item,
     _domains_for_items,
     _pending_items,
+    _processable_items,
     cmd_run_all,
     cmd_run_one,
     run_for_item,
@@ -73,6 +74,16 @@ class PendingItemsTests(unittest.TestCase):
         ]
         self.assertEqual(_pending_items(queue), [])
 
+    def test_processable_includes_pending_and_approved_actions(self) -> None:
+        approved = _make_entry("B", review_status="synthesized")
+        approved["review_action"] = "approved"
+        queue = [
+            _make_entry("A", review_status="pending_review"),
+            approved,
+            _make_entry("C", review_status="synthesized"),
+        ]
+        self.assertEqual([e["source_id"] for e in _processable_items(queue)], ["A", "B"])
+
     def test_empty_queue_returns_empty(self) -> None:
         self.assertEqual(_pending_items([]), [])
 
@@ -123,13 +134,37 @@ class RunForItemTests(unittest.TestCase):
         with patch("scripts.pipeline_run._find_compiled_note") as mock_find, \
              patch("scripts.pipeline_run._find_source_summary") as mock_find_ss:
             mock_find.return_value = Path("/fake/note.md")
-            mock_find_ss.return_value = Path("/fake/summary.md")
+            mock_find_ss.side_effect = [None, Path("/fake/summary.md")]
             result = run_for_item(item, root=self.root)
 
         self.assertTrue(result)
         mock_synth.assert_called_once()
         mock_score.assert_called_once()
         mock_update.assert_called_once()
+        mock_agg.assert_called_once()
+
+    @patch("scripts.pipeline_run.extract_concepts")
+    @patch("scripts.pipeline_run.aggregate_for_source")
+    @patch("scripts.pipeline_run.run_score_synthesis")
+    @patch("scripts.pipeline_run.load_queue")
+    @patch("scripts.pipeline_run.synthesize_item")
+    def test_approved_existing_summary_skips_synthesis_and_score(
+        self, mock_synth, mock_load_queue, mock_score, mock_agg, mock_extract
+    ) -> None:
+        item = _make_entry(review_status="synthesized")
+        item["review_action"] = "approved"
+        mock_load_queue.return_value = [item]
+        mock_extract.return_value = {"concepts_written": [], "entities_written": []}
+
+        with patch("scripts.pipeline_run._find_compiled_note", return_value=Path("/f.md")), \
+             patch("scripts.pipeline_run._find_source_summary", return_value=Path("/s.md")), \
+             patch("scripts.pipeline_run._patch_note_approved") as mock_patch:
+            result = run_for_item(item, root=self.root)
+
+        self.assertTrue(result)
+        mock_synth.assert_not_called()
+        mock_score.assert_not_called()
+        mock_patch.assert_called_once_with(Path("/f.md"), approved=True)
         mock_agg.assert_called_once()
 
     @patch("scripts.pipeline_run.synthesize_item", return_value=False)
@@ -259,6 +294,18 @@ class CmdRunOneTests(unittest.TestCase):
         rc = cmd_run_one("SRC-001", model="qwen2.5:14b", threshold=0.85, root=self.root)
         self.assertEqual(rc, 1)
 
+    @patch("scripts.pipeline_run.run_index_rebuild")
+    @patch("scripts.pipeline_run.run_for_item", return_value=True)
+    @patch("scripts.pipeline_run.load_queue")
+    def test_processes_approved_item(self, mock_lq, mock_run, mock_idx) -> None:
+        item = _make_entry("SRC-001", review_status="synthesized")
+        item["review_action"] = "approved"
+        mock_lq.return_value = [item]
+        rc = cmd_run_one("SRC-001", model="qwen2.5:14b", threshold=0.85, root=self.root)
+        self.assertEqual(rc, 0)
+        mock_run.assert_called_once()
+        mock_idx.assert_called_once_with(self.root, no_commit=False, domain="ai")
+
 
 # ---------------------------------------------------------------------------
 # cmd_run_all
@@ -313,14 +360,16 @@ class CmdRunAllTests(unittest.TestCase):
     @patch("scripts.pipeline_run.run_index_rebuild")
     @patch("scripts.pipeline_run.run_for_item", return_value=True)
     @patch("scripts.pipeline_run.load_queue")
-    def test_skips_non_pending_items(self, mock_lq, mock_run, mock_idx) -> None:
+    def test_processes_pending_and_approved_items(self, mock_lq, mock_run, mock_idx) -> None:
+        approved = _make_entry("SRC-003", review_status="synthesized")
+        approved["review_action"] = "approved"
         mock_lq.return_value = [
             _make_entry("SRC-001", review_status="synthesized"),
             _make_entry("SRC-002", review_status="pending_review"),
+            approved,
         ]
         cmd_run_all(model="qwen2.5:14b", threshold=0.85, root=self.root)
-        # Only the pending item is processed
-        self.assertEqual(mock_run.call_count, 1)
+        self.assertEqual(mock_run.call_count, 2)
 
     @patch("scripts.pipeline_run.run_index_rebuild")
     @patch("scripts.pipeline_run.run_for_item", return_value=True)

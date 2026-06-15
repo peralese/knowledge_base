@@ -74,6 +74,18 @@ def _domains_for_items(items: list[dict[str, object]]) -> list[str]:
     return domains
 
 
+def _is_approved(item: dict[str, object]) -> bool:
+    return str(item.get("review_action") or "").strip() == "approved"
+
+
+def _processable_items(queue: list[dict[str, object]]) -> list[dict[str, object]]:
+    """Return queue entries that can advance through the post-ingest pipeline."""
+    return [
+        e for e in queue
+        if e.get("review_status") == "pending_review" or _is_approved(e)
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Logging helpers
 # ---------------------------------------------------------------------------
@@ -103,47 +115,53 @@ def run_for_item(
     source_id = str(item.get("source_id", ""))
     title = str(item.get("title", ""))
     slug = Path(str(item.get("source_note_path", ""))).stem
+    domain = _domain_for_item(item)
+    source_summary_path = _find_source_summary(item, root)
 
     # ---- 1. Synthesize -------------------------------------------------------
-    t0 = time.monotonic()
-    try:
-        ok = synthesize_item(
-            item,
-            title_override="",
-            model=model,
-            force=False,
-            root=root,
+    if source_summary_path is None:
+        t0 = time.monotonic()
+        try:
+            ok = synthesize_item(
+                item,
+                title_override="",
+                model=model,
+                force=False,
+                root=root,
+            )
+        except Exception as exc:
+            _log(source_id, "synthesize", f"ERROR  {exc}")
+            return False
+
+        elapsed = time.monotonic() - t0
+        if not ok:
+            _log(source_id, "synthesize", "FAILED (see above)")
+            return False
+        _log(source_id, "synthesize", f"OK     ({elapsed:.1f}s)")
+
+        queue = load_queue()
+        queue = _update_status(queue, source_id, "synthesized", {"synthesized_at": datetime.now().isoformat()})
+        save_queue(queue)
+
+        commit_pipeline_stage(
+            message=f"synth: {source_id} — {title} (confidence pending)",
+            paths=[
+                compiled_subdir(root, domain, "source_summaries") / f"{slug}-synthesis.md",
+                metadata_file(root, domain, "review-queue.json"),
+            ],
+            no_commit=no_commit,
         )
-    except Exception as exc:
-        _log(source_id, "synthesize", f"ERROR  {exc}")
-        return False
-
-    elapsed = time.monotonic() - t0
-    if not ok:
-        _log(source_id, "synthesize", "FAILED (see above)")
-        return False
-    _log(source_id, "synthesize", f"OK     ({elapsed:.1f}s)")
-
-    queue = load_queue()
-    queue = _update_status(queue, source_id, "synthesized", {"synthesized_at": datetime.now().isoformat()})
-    save_queue(queue)
-
-    domain = _domain_for_item(item)
-    commit_pipeline_stage(
-        message=f"synth: {source_id} — {title} (confidence pending)",
-        paths=[
-            compiled_subdir(root, domain, "source_summaries") / f"{slug}-synthesis.md",
-            metadata_file(root, domain, "review-queue.json"),
-        ],
-        no_commit=no_commit,
-    )
+    else:
+        _log(source_id, "synthesize", "SKIP   existing source summary")
 
     # ---- 2. Score ------------------------------------------------------------
     queue = load_queue()
     updated_item = next((e for e in queue if e.get("source_id") == source_id), item)
 
     compiled_path = _find_compiled_note(updated_item, root)
-    if compiled_path is None:
+    if _is_approved(updated_item):
+        _log(source_id, "score", "SKIP   already approved")
+    elif compiled_path is None:
         _log(source_id, "score", "SKIP   compiled note not found")
     else:
         try:
@@ -166,10 +184,10 @@ def run_for_item(
     # ---- 2b. Honor a pre-existing manual review decision ----------------------
     queue = load_queue()
     updated_item = next((e for e in queue if e.get("source_id") == source_id), item)
-    if updated_item.get("review_method") == "manual" and compiled_path is not None:
+    if _is_approved(updated_item) and compiled_path is not None:
         approved = updated_item.get("review_action") == "approved"
         _patch_note_approved(compiled_path, approved=approved)
-        _log(source_id, "review", f"OK     manual decision preserved ({updated_item.get('review_action')})")
+        _log(source_id, "review", f"OK     decision preserved ({updated_item.get('review_action')})")
 
     # ---- 3. Topic aggregation ------------------------------------------------
     queue = load_queue()
@@ -242,9 +260,9 @@ def cmd_run_one(
         return 1
 
     status = str(item.get("review_status", ""))
-    if status != "pending_review":
+    if status != "pending_review" and not _is_approved(item):
         print(
-            f"Error: '{source_id}' has status '{status}' — only 'pending_review' items can be processed.",
+            f"Error: '{source_id}' has status '{status}' — only pending or approved items can be processed.",
             file=sys.stderr,
         )
         return 1
@@ -263,9 +281,9 @@ def cmd_run_all(
 ) -> int:
     configure_queue_paths(domain, root)
     queue = load_queue()
-    items = _pending_items(queue)
+    items = _processable_items(queue)
     if not items:
-        print("No pending items to process.")
+        print("No pending or approved items to process.")
         return 0
 
     print(f"Processing {len(items)} item(s)...\n")
@@ -297,9 +315,9 @@ def cmd_watch(
     try:
         while True:
             queue = load_queue()
-            items = _pending_items(queue)
+            items = _processable_items(queue)
             if items:
-                print(f"\n[{_ts()}] Found {len(items)} pending item(s).")
+                print(f"\n[{_ts()}] Found {len(items)} processable item(s).")
                 for item in items:
                     run_for_item(item, model=model, threshold=threshold, root=root, no_commit=no_commit)
                 for domain in _domains_for_items(items):

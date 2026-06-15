@@ -893,6 +893,7 @@
       <div class="pipeline-controls">
         <h2>Pipeline Status</h2>
         <div class="pipeline-controls-right">
+          <select id="pipeline-domain-select" onchange="onPipelineDomainChange()" style="width:160px;font-size:12px;"></select>
           <label class="autorefresh-label">
             <input type="checkbox" id="pipeline-autorefresh" onchange="togglePipelineAutoRefresh()">
             Auto-refresh (30s)
@@ -1067,8 +1068,10 @@ async function loadDomains() {
   const data = await res.json();
   const ingestSel = document.getElementById('domain-select');
   const querySel = document.getElementById('query-domain-select');
+  const pipelineSel = document.getElementById('pipeline-domain-select');
   ingestSel.innerHTML = '';
   querySel.innerHTML = '';
+  if (pipelineSel) pipelineSel.innerHTML = '';
   for (const d of data.domains || []) {
     const opt = document.createElement('option');
     opt.value = d.slug;
@@ -1078,6 +1081,12 @@ async function loadDomains() {
     qOpt.value = d.slug;
     qOpt.textContent = d.display_name;
     querySel.appendChild(qOpt);
+    if (pipelineSel) {
+      const pOpt = document.createElement('option');
+      pOpt.value = d.slug;
+      pOpt.textContent = d.display_name;
+      pipelineSel.appendChild(pOpt);
+    }
   }
   const addOpt = document.createElement('option');
   addOpt.value = '__new_domain__';
@@ -1088,6 +1097,7 @@ async function loadDomains() {
   }
   ingestSel.value = _currentDomain;
   querySel.value = _currentDomain;
+  if (pipelineSel) pipelineSel.value = _currentDomain;
 }
 
 function onDomainSelectChange() {
@@ -1103,8 +1113,12 @@ function onDomainSelectChange() {
   localStorage.setItem('kb.currentDomain', _currentDomain);
   const q = document.getElementById('query-domain-select');
   if (q) q.value = _currentDomain;
+  const pipeline = document.getElementById('pipeline-domain-select');
+  if (pipeline) pipeline.value = _currentDomain;
   loadTopics();
   loadTags();
+  const panel = document.getElementById('panel-pipeline');
+  if (panel && panel.classList.contains('active')) loadPipelineStatus();
 }
 
 function onQueryDomainChange() {
@@ -1112,8 +1126,26 @@ function onQueryDomainChange() {
   localStorage.setItem('kb.currentDomain', _currentDomain);
   const ingest = document.getElementById('domain-select');
   if (ingest && [...ingest.options].some(o => o.value === _currentDomain)) ingest.value = _currentDomain;
+  const pipeline = document.getElementById('pipeline-domain-select');
+  if (pipeline && [...pipeline.options].some(o => o.value === _currentDomain)) pipeline.value = _currentDomain;
   loadTopics();
   loadRecentAnswers();
+  const panel = document.getElementById('panel-pipeline');
+  if (panel && panel.classList.contains('active')) loadPipelineStatus();
+}
+
+function onPipelineDomainChange() {
+  const sel = document.getElementById('pipeline-domain-select');
+  _currentDomain = sel.value || 'ai';
+  localStorage.setItem('kb.currentDomain', _currentDomain);
+  const ingest = document.getElementById('domain-select');
+  if (ingest && [...ingest.options].some(o => o.value === _currentDomain)) ingest.value = _currentDomain;
+  const query = document.getElementById('query-domain-select');
+  if (query && [...query.options].some(o => o.value === _currentDomain)) query.value = _currentDomain;
+  loadTopics();
+  loadTags();
+  loadRecentAnswers();
+  loadPipelineStatus();
 }
 
 function updateDomainSlugPreview() {
@@ -1144,6 +1176,8 @@ async function createDomain() {
   document.getElementById('new-domain-description').value = '';
   await loadDomains();
   await loadTopics();
+  const panel = document.getElementById('panel-pipeline');
+  if (panel && panel.classList.contains('active')) await loadPipelineStatus();
 }
 
 function cancelNewDomain() {
@@ -1562,6 +1596,8 @@ async function submitIngest() {
     msgEl.textContent = 'Queued. The pipeline will synthesize this shortly.';
     _currentDomain = domain;
     localStorage.setItem('kb.currentDomain', domain);
+    const pipeline = document.getElementById('pipeline-domain-select');
+    if (pipeline && [...pipeline.options].some(o => o.value === domain)) pipeline.value = domain;
     document.getElementById('url-input').value = '';
     document.getElementById('file-input').value = '';
     document.getElementById('title-input').value = '';
@@ -2108,8 +2144,10 @@ function _buildActionHtml(s) {
     return `<button class="pipeline-action-link" onclick="event.stopPropagation();showRemoveConfirm('${escHtml(s.source_id)}')">→ Remove</button>`;
   }
   if (['registered','prompt-packed','synthesized'].includes(s.stage) && s.in_review_queue && s.review_status === 'pending_review') {
-    const cmd = 'python3 scripts/pipeline_run.py ' + s.source_id;
     return `<button class="pipeline-action-link" onclick="event.stopPropagation();togglePipelineRow('${escHtml(s.source_id)}')">→ Run pipeline</button>`;
+  }
+  if (s.stage === 'approved' && s.in_review_queue) {
+    return `<button class="pipeline-action-link" onclick="event.stopPropagation();togglePipelineRow('${escHtml(s.source_id)}')">→ Aggregate</button>`;
   }
   return '';
 }
@@ -2122,9 +2160,10 @@ function _buildDetailHtml(s) {
   const ppIcon   = ppOk   ? '<span class="file-ok">✓</span>' : '<span class="file-missing">–</span>';
   const synIcon  = synOk  ? '<span class="file-ok">✓</span>' : '<span class="file-missing">–</span>';
 
-  const stem = s.raw_path ? s.raw_path.replace(/^raw\/articles\//, '').replace(/\.md$/, '') : '';
-  const ppPath  = stem ? `metadata/prompts/compile-${stem}-synthesis.md` : '—';
-  const synPath = stem ? `compiled/source_summaries/${stem}-synthesis.md` : '—';
+  const stem = s.raw_path ? s.raw_path.replace(/^raw\/domains\/[^/]+\/articles\//, '').replace(/^raw\/articles\//, '').replace(/\.md$/, '') : '';
+  const domainPrefix = _currentDomain ? `domains/${_currentDomain}/` : '';
+  const ppPath  = stem ? `metadata/${domainPrefix}prompts/compile-${stem}-synthesis.md` : '—';
+  const synPath = stem ? `compiled/${domainPrefix}source_summaries/${stem}-synthesis.md` : '—';
 
   const aggText = s.aggregated_into.length ? s.aggregated_into.join(', ') : '—';
   const confLine = s.confidence != null ? Math.round(s.confidence * 100) + '%' : '—';
@@ -2132,9 +2171,15 @@ function _buildDetailHtml(s) {
 
   let extraHtml = '';
   if (['registered','prompt-packed','synthesized'].includes(s.stage) && s.in_review_queue && s.review_status === 'pending_review') {
-    const cmd = `python3 scripts/pipeline_run.py ${s.source_id}`;
+    const cmd = `python3 scripts/pipeline_run.py --domain ${_currentDomain} ${s.source_id}`;
     extraHtml = `<div style="margin-top:10px;grid-column:1/-1;">
       <div class="pdl">Run pipeline</div>
+      <div class="cmd-block" onclick="copyPipelineCmd(this, '${escHtml(cmd)}')">${escHtml(cmd)}</div>
+    </div>`;
+  } else if (s.stage === 'approved' && s.in_review_queue) {
+    const cmd = `python3 scripts/pipeline_run.py --domain ${_currentDomain} ${s.source_id}`;
+    extraHtml = `<div style="margin-top:10px;grid-column:1/-1;">
+      <div class="pdl">Aggregate approved source</div>
       <div class="cmd-block" onclick="copyPipelineCmd(this, '${escHtml(cmd)}')">${escHtml(cmd)}</div>
     </div>`;
   } else if (['registered','prompt-packed','synthesized'].includes(s.stage) && !s.in_review_queue) {

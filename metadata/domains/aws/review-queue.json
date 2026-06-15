@@ -10,11 +10,12 @@
     "topic_slug": "aws-transform",
     "domain": "aws",
     "queued_at": "2026-06-15T09:32:54.651841",
-    "review_status": "pending_review",
+    "review_status": "synthesized",
     "validation_status": "validated",
     "validation_issues": [],
     "review_action": "approved",
     "review_method": "manual",
-    "reviewed_at": "2026-06-15T09:33:02.459387"
+    "reviewed_at": "2026-06-15T09:33:02.459387",
+    "synthesized_at": "2026-06-15T13:49:29.331555"
   }
 ]
