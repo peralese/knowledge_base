@@ -1,0 +1,20 @@
+[
+  {
+    "source_id": "SRC-20260615-0001",
+    "title": "What is AWS Transform?",
+    "source_note_path": "raw/domains/aws/articles/what-is-aws-transform.md",
+    "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/aws/inbox/browser/what-is-aws-transform.md",
+    "adapter": "browser",
+    "source_type": "article",
+    "origin": "web",
+    "topic_slug": "aws-transform",
+    "domain": "aws",
+    "queued_at": "2026-06-15T09:32:54.651841",
+    "review_status": "pending_review",
+    "validation_status": "validated",
+    "validation_issues": [],
+    "review_action": "approved",
+    "review_method": "manual",
+    "reviewed_at": "2026-06-15T09:33:02.459387"
+  }
+]

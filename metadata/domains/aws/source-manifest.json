@@ -1,0 +1,21 @@
+{
+  "manifest_version": "0.2.0",
+  "last_updated": "2026-06-15",
+  "description": "Source manifest for tracking ingested raw notes and preserving lineage.",
+  "sources": [
+    {
+      "source_id": "SRC-20260615-0001",
+      "title": "What is AWS Transform?",
+      "filename": "what-is-aws-transform.md",
+      "path": "raw/domains/aws/articles/what-is-aws-transform.md",
+      "source_type": "article",
+      "origin": "web",
+      "date_ingested": "2026-06-15",
+      "domain": "aws",
+      "canonical_url": "https://docs.aws.amazon.com/transform/latest/userguide/what-is-service.html",
+      "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/aws/inbox/browser/what-is-aws-transform.md",
+      "status": "raw",
+      "archive_path": "raw/domains/aws/archive/what-is-aws-transform--archived-20260615-093254.md"
+    }
+  ]
+}
