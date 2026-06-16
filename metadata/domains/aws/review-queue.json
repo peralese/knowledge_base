@@ -17,5 +17,28 @@
     "review_method": "manual",
     "reviewed_at": "2026-06-15T09:33:02.459387",
     "synthesized_at": "2026-06-15T13:49:29.331555"
+  },
+  {
+    "source_id": "SRC-20260616-0001",
+    "title": "Well Architected Framework 2025 02 25",
+    "source_note_path": "raw/domains/aws/pdfs/well-architected-framework-2025-02-25.md",
+    "input_path": "https://docs.aws.amazon.com/pdfs/wellarchitected/2025-02-25/framework/wellarchitected-framework-2025-02-25.pdf",
+    "adapter": "pdf-drop",
+    "source_type": "pdf",
+    "origin": "web",
+    "topic_slug": "aws-well-architected-framework",
+    "domain": "aws",
+    "queued_at": "2026-06-16T10:21:51.289448",
+    "review_status": "synthesized",
+    "validation_status": "validated",
+    "validation_issues": [],
+    "review_action": "approved",
+    "review_method": "manual",
+    "reviewed_at": "2026-06-16T10:21:58.247750",
+    "synthesized_at": "2026-06-16T12:52:25.182311",
+    "confidence_score": 0.92,
+    "confidence_band": "high",
+    "confidence_reasoning": "The synthesis accurately represents the source material and captures the AWS Well-Architected Framework pillars and key practices.",
+    "scored_at": "2026-06-16T12:57:03.824952"
   }
 ]

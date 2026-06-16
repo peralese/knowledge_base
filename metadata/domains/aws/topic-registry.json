@@ -8,6 +8,15 @@
         "AWS",
         "Cloud"
       ]
+    },
+    {
+      "slug": "aws-well-architected-framework",
+      "title": "AWS Well Architected Framework",
+      "aliases": [],
+      "keywords": [
+        "AWS",
+        "Well Architected Framework"
+      ]
     }
   ]
 }

@@ -317,12 +317,16 @@ def _run_scoring(item: dict[str, object], *, model: str, root: Path, no_commit: 
     score fields are layered on top (not overwritten by a subsequent save_queue call).
     """
     try:
+        import score_synthesis as score_synthesis_module  # noqa: PLC0415
         from score_synthesis import (  # noqa: PLC0415
             ScoreRequest,
             _find_compiled_note,
             score_synthesis,
             update_queue_with_score,
         )
+        domain = str(item.get("domain") or "").strip()
+        if domain:
+            score_synthesis_module.configure_domain_paths(domain, root)
         compiled_path = _find_compiled_note(item, root)
         if compiled_path is None:
             print("  Warning: compiled note not found for scoring — skipping.")

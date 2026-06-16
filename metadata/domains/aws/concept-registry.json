@@ -1,0 +1,76 @@
+{
+  "concepts": [
+    {
+      "slug": "aws-well-architected-framework",
+      "title": "AWS Well-Architected Framework",
+      "sources": [
+        "well-architected-framework-2025-02-25-synthesis"
+      ],
+      "date_first_seen": "2026-06-16",
+      "date_updated": "2026-06-16"
+    },
+    {
+      "slug": "operational-excellence-pillar",
+      "title": "Operational Excellence Pillar",
+      "sources": [
+        "well-architected-framework-2025-02-25-synthesis"
+      ],
+      "date_first_seen": "2026-06-16",
+      "date_updated": "2026-06-16"
+    },
+    {
+      "slug": "security-pillar",
+      "title": "Security Pillar",
+      "sources": [
+        "well-architected-framework-2025-02-25-synthesis"
+      ],
+      "date_first_seen": "2026-06-16",
+      "date_updated": "2026-06-16"
+    },
+    {
+      "slug": "reliability-pillar",
+      "title": "Reliability Pillar",
+      "sources": [
+        "well-architected-framework-2025-02-25-synthesis"
+      ],
+      "date_first_seen": "2026-06-16",
+      "date_updated": "2026-06-16"
+    },
+    {
+      "slug": "performance-efficiency-pillar",
+      "title": "Performance Efficiency Pillar",
+      "sources": [
+        "well-architected-framework-2025-02-25-synthesis"
+      ],
+      "date_first_seen": "2026-06-16",
+      "date_updated": "2026-06-16"
+    },
+    {
+      "slug": "cost-optimization-pillar",
+      "title": "Cost Optimization Pillar",
+      "sources": [
+        "well-architected-framework-2025-02-25-synthesis"
+      ],
+      "date_first_seen": "2026-06-16",
+      "date_updated": "2026-06-16"
+    },
+    {
+      "slug": "sustainability-pillar",
+      "title": "Sustainability Pillar",
+      "sources": [
+        "well-architected-framework-2025-02-25-synthesis"
+      ],
+      "date_first_seen": "2026-06-16",
+      "date_updated": "2026-06-16"
+    },
+    {
+      "slug": "best-practices-and-automation",
+      "title": "Best Practices and Automation",
+      "sources": [
+        "well-architected-framework-2025-02-25-synthesis"
+      ],
+      "date_first_seen": "2026-06-16",
+      "date_updated": "2026-06-16"
+    }
+  ]
+}

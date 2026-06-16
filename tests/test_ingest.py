@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import sys
 import tempfile
+import types
 import unittest
 from datetime import datetime
 from pathlib import Path
@@ -241,6 +243,44 @@ class IngestTests(unittest.TestCase):
         self.assertEqual(out1.name, "collision-note.md")
         self.assertEqual(out2.name, "collision-note-2.md")
         self.assertEqual(out3.name, "collision-note-3.md")
+
+    def test_pdf_file_ingested_with_extracted_text(self) -> None:
+        class FakePage:
+            def __init__(self, text: str) -> None:
+                self.text = text
+
+            def extract_text(self) -> str:
+                return self.text
+
+        class FakePdfReader:
+            def __init__(self, stream: object) -> None:
+                self.pages = [
+                    FakePage("First page text."),
+                    FakePage("Second page text."),
+                ]
+
+        pdf_file = self.root / "raw" / "inbox" / "pdf-drop" / "research-paper.pdf"
+        pdf_file.parent.mkdir(parents=True, exist_ok=True)
+        pdf_file.write_bytes(b"%PDF fake test content")
+
+        with patch.dict(sys.modules, {"pypdf": types.SimpleNamespace(PdfReader=FakePdfReader)}):
+            output_path = ingest_source(
+                IngestRequest(
+                    title="Research Paper",
+                    source_type="pdf",
+                    origin="local-file",
+                    input_path=str(pdf_file),
+                    root=self.root,
+                )
+            )
+
+        self.assertEqual(output_path, self.root / "raw" / "pdfs" / "research-paper.md")
+        note_text = output_path.read_text(encoding="utf-8")
+        self.assertIn('source_type: "pdf"', note_text)
+        self.assertIn("First page text.", note_text)
+        self.assertIn("Second page text.", note_text)
+        self.assertNotIn("PDF parsing is not implemented", note_text)
+        self.assertFalse(pdf_file.exists())
 
 
 class HtmlToTextTests(unittest.TestCase):

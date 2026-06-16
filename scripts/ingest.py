@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import html as html_module
+import io
 import json
 import re
 import sys
@@ -146,6 +147,35 @@ def normalize_text(content: str) -> str:
     return "\n".join(lines).strip()
 
 
+def extract_pdf_text_from_bytes(pdf_content: bytes) -> str:
+    """Extract readable text from PDF bytes using pypdf."""
+    try:
+        from pypdf import PdfReader
+    except ImportError as exc:
+        raise RuntimeError("PDF parsing requires the pypdf package. Run: pip install -r requirements.txt") from exc
+
+    try:
+        reader = PdfReader(io.BytesIO(pdf_content))
+    except Exception as exc:  # noqa: BLE001 - pypdf raises several parser-specific exceptions
+        raise ValueError(f"Unable to read PDF: {exc}") from exc
+
+    pages: list[str] = []
+    for page_number, page in enumerate(reader.pages, start=1):
+        try:
+            page_text = page.extract_text() or ""
+        except Exception as exc:  # noqa: BLE001 - keep a bad page from hiding which page failed
+            raise ValueError(f"Unable to extract text from PDF page {page_number}: {exc}") from exc
+        if page_text.strip():
+            pages.append(page_text)
+
+    return normalize_text("\n\n".join(pages))
+
+
+def extract_pdf_text_from_file(input_file: Path) -> str:
+    """Extract readable text from a PDF file."""
+    return extract_pdf_text_from_bytes(input_file.read_bytes())
+
+
 def load_manifest(manifest_path: Path) -> dict:
     """Load the manifest or return a minimal default structure."""
     if not manifest_path.exists():
@@ -205,7 +235,10 @@ def read_input_content(input_file: Path | None, text: str | None) -> tuple[str, 
             raise FileNotFoundError(f"Input file not found: {input_file}")
         if not input_file.is_file():
             raise ValueError(f"Input path is not a file: {input_file}")
-        raw = input_file.read_text(encoding="utf-8")
+        if input_file.suffix.lower() == ".pdf":
+            raw = extract_pdf_text_from_file(input_file)
+        else:
+            raw = input_file.read_text(encoding="utf-8")
         if input_file.suffix.lower() == ".html":
             raw = html_to_text(raw)
         return normalize_text(raw), str(input_file)
@@ -216,10 +249,7 @@ def read_input_content(input_file: Path | None, text: str | None) -> tuple[str, 
 def build_note_body(source_type: str, content: str, input_path: str) -> str:
     """Create the standardized markdown body for the ingested note."""
     if source_type.strip().lower() == "pdf":
-        source_content = (
-            "PDF parsing is not implemented in Phase 2.\n\n"
-            f"Pending source path: {input_path or '[not provided]'}"
-        )
+        source_content = content or "[no text extracted from PDF]"
     else:
         source_content = content or "[no content provided]"
 

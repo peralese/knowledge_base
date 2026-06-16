@@ -61,7 +61,12 @@ SOURCE_MANIFEST_PATH = ROOT / "metadata" / "source-manifest.json"
 
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from ingest import html_to_text, normalize_text  # noqa: E402
+from ingest import (  # noqa: E402
+    destination_dir_for_source_type,
+    extract_pdf_text_from_bytes,
+    html_to_text,
+    normalize_text,
+)
 from review import (  # noqa: E402
     _find_compiled_note,
     _patch_note_approved,
@@ -421,7 +426,10 @@ def _ingest_via_inbox(
     domain = _domain_slug(domain)
     ensure_domain_dirs(ROOT, domain)
     slug = slugify(title)
-    destination = raw_subdir(ROOT, domain, "articles") / f"{slug}.md"
+    source_type = source_type.strip() or "article"
+    destination_relative = destination_dir_for_source_type(source_type)
+    destination_subdir = destination_relative.parts[-1] if destination_relative.parts else "articles"
+    destination = raw_subdir(ROOT, domain, destination_subdir) / f"{slug}.md"
     if destination.exists():
         raise HTTPException(
             status_code=409,
@@ -448,7 +456,7 @@ def _ingest_via_inbox(
     frontmatter: dict[str, object] = {
         "title": title,
         "domain": domain,
-        "source_type": source_type.strip() or "article",
+        "source_type": source_type,
         "origin": origin,
     }
     if canonical_url.strip():
@@ -481,7 +489,7 @@ def _ingest_via_inbox(
         inbox_watcher.REVIEW_QUEUE_PATH = metadata_file(ROOT, domain, "review-queue.json")
         inbox_watcher.REVIEW_QUEUE_REPORT_PATH = metadata_file(ROOT, domain, "review-queue.md")
         outcome = inbox_watcher.ingest_file(
-            staged_path, source_type.strip() or "article", domain=domain, auto_process=False
+            staged_path, source_type, domain=domain, auto_process=False
         )
     finally:
         inbox_watcher.ROOT = original_root
@@ -1211,7 +1219,13 @@ def ingest_file(
         raw_text = raw_bytes.decode("utf-8", errors="replace")
         text = normalize_text(html_to_text(raw_text))
     elif suffix == ".pdf":
-        text = f"PDF upload: {file.filename or 'upload.pdf'}"
+        try:
+            text = extract_pdf_text_from_bytes(raw_bytes)
+        except (RuntimeError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if not text:
+            text = "[no text extracted from PDF]"
+        source_type = "pdf"
     else:
         text = raw_bytes.decode("utf-8", errors="replace")
 

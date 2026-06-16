@@ -651,6 +651,24 @@ class IngestEndpointRawArticleTests(unittest.TestCase):
         self.assertNotIn("date_published", content)
         self.assertNotIn("tags", content)
 
+    def test_pdf_upload_extracts_text_and_routes_to_pdfs(self) -> None:
+        with patch("dashboard.extract_pdf_text_from_bytes", return_value="Extracted PDF body."):
+            response = self.client.post("/api/ingest/file", data={
+                "title": "Uploaded PDF",
+                "topic_slug": "test-topic",
+                "source_type": "article",
+            }, files={
+                "file": ("uploaded.pdf", b"%PDF fake content", "application/pdf")
+            })
+
+        self.assertEqual(response.status_code, 200)
+        pdf_path = self.root / "raw" / "domains" / "ai" / "pdfs" / "uploaded-pdf.md"
+        self.assertTrue(pdf_path.exists())
+        content = pdf_path.read_text(encoding="utf-8")
+        self.assertIn("source_type: pdf", content)
+        self.assertIn("Extracted PDF body.", content)
+        self.assertNotIn("PDF upload:", content)
+
 
 class TagsEndpointTests(unittest.TestCase):
     def setUp(self) -> None:

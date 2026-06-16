@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.2.0",
-  "last_updated": "2026-06-15",
+  "last_updated": "2026-06-16",
   "description": "Source manifest for tracking ingested raw notes and preserving lineage.",
   "sources": [
     {
@@ -16,6 +16,20 @@
       "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/aws/inbox/browser/what-is-aws-transform.md",
       "status": "raw",
       "archive_path": "raw/domains/aws/archive/what-is-aws-transform--archived-20260615-093254.md"
+    },
+    {
+      "source_id": "SRC-20260616-0001",
+      "title": "Well Architected Framework 2025 02 25",
+      "filename": "well-architected-framework-2025-02-25.md",
+      "path": "raw/domains/aws/pdfs/well-architected-framework-2025-02-25.md",
+      "source_type": "pdf",
+      "origin": "web",
+      "date_ingested": "2026-06-16",
+      "domain": "aws",
+      "canonical_url": "https://docs.aws.amazon.com/pdfs/wellarchitected/2025-02-25/framework/wellarchitected-framework-2025-02-25.pdf",
+      "input_path": "https://docs.aws.amazon.com/pdfs/wellarchitected/2025-02-25/framework/wellarchitected-framework-2025-02-25.pdf",
+      "status": "raw",
+      "archive_path": "raw/domains/aws/archive/well-architected-framework-2025-02-25--archived-20260616-102151.md"
     }
   ]
 }
