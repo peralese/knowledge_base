@@ -174,6 +174,24 @@ Complement BM25 for semantic queries at scale. Sequenced last so embeddings are 
 | 2D-2 | **sqlite-vec or FAISS Index** | Complete. `scripts/vector_index.py` manages a local SQLite-based vector index (`outputs/vector_index.db`) using stdlib `sqlite3` + JSON embeddings + pure-Python cosine similarity (no new pip deps). Embedding model: `nomic-embed-text` via Ollama (install: `ollama pull nomic-embed-text`). Commands: `build`, `update` (hash-based incremental), `search`, `stats`. Stub concept notes and unapproved source summaries are excluded. |
 | 2D-3 | **Hybrid Retrieval** | Complete. `query.py` defaults to hybrid (BM25 60% + vector 40%) when the index is fresh; falls back to BM25 silently otherwise. Flags: `--retrieval {bm25,vector,hybrid}` and `--show-retrieval`. Dashboard Query tab has BM25/Hybrid/Vector toggle. Graceful degradation confirmed: queries work with index absent or stale. |
 
+---
+
+### Future Enhancement — Document Ingestion Engine
+
+Evaluate a document ingestion engine for uploaded source files such as PDF, DOCX, PPTX, and other project document formats. Docling is a candidate parser to investigate for converting uploaded documents into structured Markdown, JSON, and chunkable content for the knowledge base.
+
+Potential workflow:
+
+1. User uploads a PDF, DOCX, PPTX, or similar source document.
+2. Docling parses the document and extracts structured content.
+3. Parsed output is converted to Markdown and/or JSON.
+4. The project-kb pipeline chunks, tags, and indexes the content.
+5. The content becomes searchable and usable by the knowledge base app.
+
+Possible use cases include ingesting project documents, requirements documents, architecture PDFs, vendor documentation, and meeting notes; extracting headings, sections, tables, and document metadata; preparing content for RAG/search workflows; and generating human-readable Markdown for the knowledge base while retaining structured JSON for application processing.
+
+This is exploratory only. Docling is not yet selected as the final implementation choice, and future evaluation should compare it against simpler parsers and existing document loaders before adding dependencies or ingestion logic.
+
 **Post-ingest sequence** (run after approving new source summaries):
 
 ```bash
