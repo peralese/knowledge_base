@@ -30,6 +30,20 @@
       "input_path": "https://docs.aws.amazon.com/pdfs/wellarchitected/2025-02-25/framework/wellarchitected-framework-2025-02-25.pdf",
       "status": "raw",
       "archive_path": "raw/domains/aws/archive/well-architected-framework-2025-02-25--archived-20260616-102151.md"
+    },
+    {
+      "source_id": "SRC-20260616-0002",
+      "title": "Operationalizing AWS security: A maturity roadmap",
+      "filename": "operationalizing-aws-security-a-maturity-roadmap.md",
+      "path": "raw/domains/aws/articles/operationalizing-aws-security-a-maturity-roadmap.md",
+      "source_type": "article",
+      "origin": "web",
+      "date_ingested": "2026-06-16",
+      "domain": "aws",
+      "canonical_url": "https://aws.amazon.com/blogs/security/operationalizing-aws-security-a-maturity-roadmap/?utm_source=flipboard&utm_content=other",
+      "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/aws/inbox/browser/operationalizing-aws-security-a-maturity-roadmap.md",
+      "status": "raw",
+      "archive_path": "raw/domains/aws/archive/operationalizing-aws-security-a-maturity-roadmap--archived-20260616-203040.md"
     }
   ]
 }

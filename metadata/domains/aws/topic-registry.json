@@ -17,6 +17,14 @@
         "AWS",
         "Well Architected Framework"
       ]
+    },
+    {
+      "slug": "security",
+      "title": "Security",
+      "aliases": [],
+      "keywords": [
+        "security"
+      ]
     }
   ]
 }

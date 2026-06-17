@@ -40,5 +40,24 @@
     "confidence_band": "high",
     "confidence_reasoning": "The synthesis accurately represents the source material and captures the AWS Well-Architected Framework pillars and key practices.",
     "scored_at": "2026-06-16T12:57:03.824952"
+  },
+  {
+    "source_id": "SRC-20260616-0002",
+    "title": "Operationalizing AWS security: A maturity roadmap",
+    "source_note_path": "raw/domains/aws/articles/operationalizing-aws-security-a-maturity-roadmap.md",
+    "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/aws/inbox/browser/operationalizing-aws-security-a-maturity-roadmap.md",
+    "adapter": "browser",
+    "source_type": "article",
+    "origin": "web",
+    "topic_slug": "security",
+    "domain": "aws",
+    "queued_at": "2026-06-16T20:30:40.696474",
+    "review_status": "synthesized",
+    "validation_status": "validated",
+    "validation_issues": [],
+    "review_action": "approved",
+    "review_method": "manual",
+    "reviewed_at": "2026-06-16T20:32:38.387026",
+    "synthesized_at": "2026-06-16T21:10:18.828896"
   }
 ]

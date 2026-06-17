@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 /home/peralese/Projects/Knowledge_Base/scripts/pipeline_run.py --watch --interval 30
+ExecStart=/usr/bin/python3 /home/peralese/Projects/Knowledge_Base/scripts/pipeline_run.py --watch --interval 30 --domain all
 WorkingDirectory=/home/peralese/Projects/Knowledge_Base
 Restart=on-failure
 RestartSec=10

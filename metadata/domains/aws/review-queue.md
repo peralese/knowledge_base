@@ -6,3 +6,4 @@ _Generated on 2026-06-16_
 |---|---|---|---|---|---|
 | What is AWS Transform? | `raw/domains/aws/articles/what-is-aws-transform.md` | browser | validated | — | approved |
 | Well Architected Framework 2025 02 25 | `raw/domains/aws/pdfs/well-architected-framework-2025-02-25.md` | pdf-drop | validated | high 0.92 | approved |
+| Operationalizing AWS security: A maturity roadmap | `raw/domains/aws/articles/operationalizing-aws-security-a-maturity-roadmap.md` | browser | validated | — | approved |

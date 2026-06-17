@@ -27,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from git_ops import commit_pipeline_stage  # noqa: E402
 from index_notes import run as rebuild_index  # noqa: E402
-from domains import DEFAULT_DOMAIN_SLUG, compiled_subdir, metadata_file  # noqa: E402
+from domains import DEFAULT_DOMAIN_SLUG, compiled_subdir, load_domains, metadata_file  # noqa: E402
 import score_synthesis  # noqa: E402
 import synthesize  # noqa: E402
 from score_synthesis import (  # noqa: E402
@@ -49,6 +49,7 @@ from review import _patch_note_approved  # noqa: E402
 
 DEFAULT_THRESHOLD = 0.85
 DEFAULT_INTERVAL = 30
+ALL_DOMAINS = "all"
 
 
 def configure_queue_paths(domain: str, root: Path = ROOT) -> None:
@@ -72,6 +73,18 @@ def _domains_for_items(items: list[dict[str, object]]) -> list[str]:
         seen.add(domain)
         domains.append(domain)
     return domains
+
+
+def _domain_slugs_for_arg(domain: str, root: Path = ROOT) -> list[str]:
+    requested = str(domain or DEFAULT_DOMAIN_SLUG).strip()
+    if requested.lower() != ALL_DOMAINS:
+        return [requested or DEFAULT_DOMAIN_SLUG]
+    return [item.slug for item in load_domains(root) if item.active]
+
+
+def _load_processable_items_for_domain(domain: str, root: Path = ROOT) -> list[dict[str, object]]:
+    configure_queue_paths(domain, root)
+    return _processable_items(load_queue())
 
 
 def _is_approved(item: dict[str, object]) -> bool:
@@ -252,12 +265,19 @@ def cmd_run_one(
     domain: str = DEFAULT_DOMAIN_SLUG,
     no_commit: bool = False,
 ) -> int:
-    configure_queue_paths(domain, root)
-    queue = load_queue()
-    item = next((e for e in queue if e.get("source_id") == source_id), None)
+    item = None
+    item_domain = domain
+    for candidate_domain in _domain_slugs_for_arg(domain, root):
+        configure_queue_paths(candidate_domain, root)
+        queue = load_queue()
+        item = next((e for e in queue if e.get("source_id") == source_id), None)
+        if item is not None:
+            item_domain = candidate_domain
+            break
     if item is None:
         print(f"Error: '{source_id}' not found in review queue.", file=sys.stderr)
         return 1
+    configure_queue_paths(item_domain, root)
 
     status = str(item.get("review_status", ""))
     if status != "pending_review" and not _is_approved(item):
@@ -279,19 +299,25 @@ def _pending_items(queue: list[dict[str, object]]) -> list[dict[str, object]]:
 def cmd_run_all(
     *, model: str, threshold: float, root: Path, domain: str = DEFAULT_DOMAIN_SLUG, no_commit: bool = False
 ) -> int:
-    configure_queue_paths(domain, root)
-    queue = load_queue()
-    items = _processable_items(queue)
+    items_by_domain: list[tuple[str, list[dict[str, object]]]] = []
+    for candidate_domain in _domain_slugs_for_arg(domain, root):
+        items = _load_processable_items_for_domain(candidate_domain, root)
+        if items:
+            items_by_domain.append((candidate_domain, items))
+
+    items = [item for _, domain_items in items_by_domain for item in domain_items]
     if not items:
         print("No pending or approved items to process.")
         return 0
 
     print(f"Processing {len(items)} item(s)...\n")
     failed = 0
-    for item in items:
-        success = run_for_item(item, model=model, threshold=threshold, root=root, no_commit=no_commit)
-        if not success:
-            failed += 1
+    for candidate_domain, domain_items in items_by_domain:
+        configure_queue_paths(candidate_domain, root)
+        for item in domain_items:
+            success = run_for_item(item, model=model, threshold=threshold, root=root, no_commit=no_commit)
+            if not success:
+                failed += 1
 
     for domain in _domains_for_items(items):
         run_index_rebuild(root, no_commit=no_commit, domain=domain)
@@ -310,16 +336,23 @@ def cmd_watch(
     domain: str = DEFAULT_DOMAIN_SLUG,
     no_commit: bool = False,
 ) -> int:
-    configure_queue_paths(domain, root)
-    print(f"Watching queue every {interval}s (Ctrl-C to stop)…")
+    domains = _domain_slugs_for_arg(domain, root)
+    domain_label = ", ".join(domains) if domain.lower() == ALL_DOMAINS else domains[0]
+    print(f"Watching {domain_label} queue(s) every {interval}s (Ctrl-C to stop)…")
     try:
         while True:
-            queue = load_queue()
-            items = _processable_items(queue)
+            items_by_domain: list[tuple[str, list[dict[str, object]]]] = []
+            for candidate_domain in _domain_slugs_for_arg(domain, root):
+                items = _load_processable_items_for_domain(candidate_domain, root)
+                if items:
+                    items_by_domain.append((candidate_domain, items))
+            items = [item for _, domain_items in items_by_domain for item in domain_items]
             if items:
                 print(f"\n[{_ts()}] Found {len(items)} processable item(s).")
-                for item in items:
-                    run_for_item(item, model=model, threshold=threshold, root=root, no_commit=no_commit)
+                for candidate_domain, domain_items in items_by_domain:
+                    configure_queue_paths(candidate_domain, root)
+                    for item in domain_items:
+                        run_for_item(item, model=model, threshold=threshold, root=root, no_commit=no_commit)
                 for domain in _domains_for_items(items):
                     run_index_rebuild(root, no_commit=no_commit, domain=domain)
             time.sleep(interval)
@@ -381,7 +414,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--domain",
         default=DEFAULT_DOMAIN_SLUG,
-        help=f"Domain slug whose review queue to operate on. Default: {DEFAULT_DOMAIN_SLUG}",
+        help=f"Domain slug whose review queue to operate on, or '{ALL_DOMAINS}'. Default: {DEFAULT_DOMAIN_SLUG}",
     )
     return parser
 

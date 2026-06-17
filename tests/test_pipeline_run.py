@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, call, patch
 from scripts.pipeline_run import (
     DEFAULT_THRESHOLD,
     _domain_for_item,
+    _domain_slugs_for_arg,
     _domains_for_items,
     _pending_items,
     _processable_items,
@@ -49,6 +50,27 @@ def _write_queue(root: Path, entries: list) -> None:
     (root / "metadata").mkdir(parents=True, exist_ok=True)
     (root / "metadata" / "review-queue.json").write_text(
         json.dumps(entries, indent=2) + "\n", encoding="utf-8"
+    )
+
+
+def _write_domains(root: Path, slugs: list[str]) -> None:
+    (root / "metadata").mkdir(parents=True, exist_ok=True)
+    payload = {
+        "version": "1.0",
+        "default_domain": "ai",
+        "domains": [
+            {
+                "display_name": slug.upper(),
+                "slug": slug,
+                "description": "",
+                "created_at": "2026-04-18T10:00:00+00:00",
+                "active": True,
+            }
+            for slug in slugs
+        ],
+    }
+    (root / "metadata" / "domains.json").write_text(
+        json.dumps(payload, indent=2) + "\n", encoding="utf-8"
     )
 
 
@@ -98,6 +120,12 @@ class PendingItemsTests(unittest.TestCase):
             _make_entry("D"),
         ]
         self.assertEqual(_domains_for_items(queue), ["ai", "civil-war-history"])
+
+    def test_all_domain_arg_loads_active_domain_slugs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_domains(root, ["ai", "aws"])
+            self.assertEqual(_domain_slugs_for_arg("all", root), ["ai", "aws"])
 
 
 # ---------------------------------------------------------------------------
@@ -370,6 +398,35 @@ class CmdRunAllTests(unittest.TestCase):
         ]
         cmd_run_all(model="qwen2.5:14b", threshold=0.85, root=self.root)
         self.assertEqual(mock_run.call_count, 2)
+
+    @patch("scripts.pipeline_run.run_index_rebuild")
+    @patch("scripts.pipeline_run.run_for_item", return_value=True)
+    def test_all_domain_processes_each_domain_queue(self, mock_run, mock_idx) -> None:
+        _write_domains(self.root, ["ai", "aws"])
+        ai_queue = self.root / "metadata" / "domains" / "ai" / "review-queue.json"
+        aws_queue = self.root / "metadata" / "domains" / "aws" / "review-queue.json"
+        ai_queue.parent.mkdir(parents=True, exist_ok=True)
+        aws_queue.parent.mkdir(parents=True, exist_ok=True)
+        ai_queue.write_text(
+            json.dumps([_make_entry("SRC-AI", review_status="pending_review", domain="ai")]),
+            encoding="utf-8",
+        )
+        aws_queue.write_text(
+            json.dumps([_make_entry("SRC-AWS", review_status="pending_review", domain="aws")]),
+            encoding="utf-8",
+        )
+
+        rc = cmd_run_all(model="qwen2.5:14b", threshold=0.85, root=self.root, domain="all")
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(
+            [call_args.args[0]["source_id"] for call_args in mock_run.call_args_list],
+            ["SRC-AI", "SRC-AWS"],
+        )
+        mock_idx.assert_has_calls([
+            call(self.root, no_commit=False, domain="ai"),
+            call(self.root, no_commit=False, domain="aws"),
+        ])
 
     @patch("scripts.pipeline_run.run_index_rebuild")
     @patch("scripts.pipeline_run.run_for_item", return_value=True)
