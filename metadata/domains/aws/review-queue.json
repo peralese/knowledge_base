@@ -139,5 +139,24 @@
     "review_method": "manual",
     "reviewed_at": "2026-06-20T12:53:15.659132",
     "synthesized_at": "2026-06-20T12:56:32.947005"
+  },
+  {
+    "source_id": "SRC-20260620-0005",
+    "title": "AWS Well-Architected Tool Documentation",
+    "source_note_path": "raw/domains/aws/articles/aws-well-architected-tool-documentation.md",
+    "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/aws/inbox/browser/aws-well-architected-tool-documentation.md",
+    "adapter": "browser",
+    "source_type": "article",
+    "origin": "web",
+    "topic_slug": "aws-well-architected-framework",
+    "domain": "aws",
+    "queued_at": "2026-06-20T13:34:17.613403",
+    "review_status": "synthesized",
+    "validation_status": "validated",
+    "validation_issues": [],
+    "review_action": "approved",
+    "review_method": "manual",
+    "reviewed_at": "2026-06-20T13:34:26.398482",
+    "synthesized_at": "2026-06-20T13:35:39.015175"
   }
 ]
