@@ -426,6 +426,51 @@
       ],
       "date_first_seen": "2026-06-20",
       "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "ai-integration",
+      "title": "AI Integration",
+      "sources": [
+        "build-your-ai-powered-morning-brief-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "prompt-structure",
+      "title": "Prompt Structure",
+      "sources": [
+        "build-your-ai-powered-morning-brief-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "daily-execution",
+      "title": "Daily Execution",
+      "sources": [
+        "build-your-ai-powered-morning-brief-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "feedback-and-adjustment",
+      "title": "Feedback and Adjustment",
+      "sources": [
+        "build-your-ai-powered-morning-brief-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "closing-loops",
+      "title": "Closing Loops",
+      "sources": [
+        "build-your-ai-powered-morning-brief-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
     }
   ]
 }
