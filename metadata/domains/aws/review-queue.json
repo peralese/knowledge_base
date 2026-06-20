@@ -120,5 +120,24 @@
     "review_method": "manual",
     "reviewed_at": "2026-06-20T12:21:44.250832",
     "synthesized_at": "2026-06-20T12:50:39.253233"
+  },
+  {
+    "source_id": "SRC-20260620-0004",
+    "title": "Amazon Elastic Container Service Documentation",
+    "source_note_path": "raw/domains/aws/articles/amazon-elastic-container-service-documentation.md",
+    "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/aws/inbox/browser/amazon-elastic-container-service-documentation.md",
+    "adapter": "browser",
+    "source_type": "article",
+    "origin": "web",
+    "topic_slug": "amazon-ecs",
+    "domain": "aws",
+    "queued_at": "2026-06-20T12:53:10.055258",
+    "review_status": "synthesized",
+    "validation_status": "validated",
+    "validation_issues": [],
+    "review_action": "approved",
+    "review_method": "manual",
+    "reviewed_at": "2026-06-20T12:53:15.659132",
+    "synthesized_at": "2026-06-20T12:56:32.947005"
   }
 ]
