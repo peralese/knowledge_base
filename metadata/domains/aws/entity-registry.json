@@ -30,6 +30,86 @@
       "date_first_seen": "2026-06-20",
       "date_updated": "2026-06-20",
       "entity_type": "article"
+    },
+    {
+      "slug": "aws-iam",
+      "title": "AWS IAM",
+      "sources": [
+        "amazon-eks-documentation-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20",
+      "entity_type": "product"
+    },
+    {
+      "slug": "kms-keys",
+      "title": "KMS Keys",
+      "sources": [
+        "amazon-eks-documentation-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20",
+      "entity_type": "tool"
+    },
+    {
+      "slug": "guardduty-eks-protection",
+      "title": "GuardDuty EKS Protection",
+      "sources": [
+        "amazon-eks-documentation-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20",
+      "entity_type": "product"
+    },
+    {
+      "slug": "aws-outposts",
+      "title": "AWS Outposts",
+      "sources": [
+        "amazon-eks-documentation-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20",
+      "entity_type": "product"
+    },
+    {
+      "slug": "local-zones",
+      "title": "Local Zones",
+      "sources": [
+        "amazon-eks-documentation-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20",
+      "entity_type": "product"
+    },
+    {
+      "slug": "wavelength-zones",
+      "title": "Wavelength Zones",
+      "sources": [
+        "amazon-eks-documentation-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20",
+      "entity_type": "product"
+    },
+    {
+      "slug": "kubecost",
+      "title": "Kubecost",
+      "sources": [
+        "amazon-eks-documentation-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20",
+      "entity_type": "tool"
+    },
+    {
+      "slug": "alb-ingress-controllers",
+      "title": "ALB Ingress Controllers",
+      "sources": [
+        "amazon-eks-documentation-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20",
+      "entity_type": "product"
     }
   ]
 }

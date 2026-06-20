@@ -126,6 +126,60 @@
       ],
       "date_first_seen": "2026-06-20",
       "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "managed-kubernetes-service",
+      "title": "Managed Kubernetes Service",
+      "sources": [
+        "amazon-eks-documentation-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "observability-and-monitoring",
+      "title": "Observability and Monitoring",
+      "sources": [
+        "amazon-eks-documentation-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "security-features",
+      "title": "Security Features",
+      "sources": [
+        "amazon-eks-documentation-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "hybrid-deployments",
+      "title": "Hybrid Deployments",
+      "sources": [
+        "amazon-eks-documentation-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "cost-management",
+      "title": "Cost Management",
+      "sources": [
+        "amazon-eks-documentation-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "add-ons-and-extensions",
+      "title": "Add-ons and Extensions",
+      "sources": [
+        "amazon-eks-documentation-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
     }
   ]
 }
