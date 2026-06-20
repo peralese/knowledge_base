@@ -3,12 +3,12 @@ title: "AI Wiki Index"
 note_type: "index"
 domain: "ai"
 generated_on: "2026-06-20"
-note_count: 87
+note_count: 93
 ---
 
 # AI Wiki Index
 
-_Generated on 2026-06-20 — 87 topics_
+_Generated on 2026-06-20 — 93 topics_
 
 ## Topics
 
@@ -21,6 +21,7 @@ _Generated on 2026-06-20 — 87 topics_
 - [[loop-engineering]] — In the ever-evolving landscape of software development, Loop Engineering stands out as a transformative methodology…
 - [[mcp]] — The Model Context Protocol (MCP) is a pivotal open-source standard in artificial intelligence designed to streamline…
 - [[openclaw-security]] — [[openclaw]] Desktop is a powerful tool for developers and researchers, but like any sophisticated software, it…
+- [[projects]] — In an era where productivity and effective time management are paramount, leveraging artificial intelligence (AI) to…
 
 ## Concepts
 
@@ -29,6 +30,7 @@ _Generated on 2026-06-20 — 87 topics_
 - [[agent-harness-engineering]] — Definition not yet written. Update this stub with content from the sources below.
 - [[agent-quality-framework]] — Definition not yet written. Update this stub with content from the sources below.
 - [[ai-application-integration]] — Definition not yet written. Update this stub with content from the sources below.
+- [[ai-integration]] — Definition not yet written. Update this stub with content from the sources below.
 - [[api-key-hygiene]] — Definition not yet written. Update this stub with content from the sources below.
 - [[api-key-management]] — Definition not yet written. Update this stub with content from the sources below.
 - [[architectural-constraints]] — Definition not yet written. Update this stub with content from the sources below.
@@ -36,10 +38,12 @@ _Generated on 2026-06-20 — 87 topics_
 - [[automatic-and-manual-memories]] — Definition not yet written. Update this stub with content from the sources below.
 - [[bm25-scoring]] — Definition not yet written. Update this stub with content from the sources below.
 - [[ci-cd-pipelines]] — Definition not yet written. Update this stub with content from the sources below.
+- [[closing-loops]] — Definition not yet written. Update this stub with content from the sources below.
 - [[cognitive-surrender]] — Definition not yet written. Update this stub with content from the sources below.
 - [[comprehension-debt]] — Definition not yet written. Update this stub with content from the sources below.
 - [[context-engineering]] — Context engineering is the practice of dynamically assembling and managing information relevant to an AI agent's…
 - [[context-management]] — Definition not yet written. Update this stub with content from the sources below.
+- [[daily-execution]] — Definition not yet written. Update this stub with content from the sources below.
 - [[deep-observability-trinity]] — Definition not yet written. Update this stub with content from the sources below.
 - [[deep-observability]] — Deep observability refers to the comprehensive monitoring and analysis framework used in AI systems, encompassing logs…
 - [[docker-isolation]] — Docker isolation refers to the security feature of Docker containers that restricts container access to system…
@@ -48,6 +52,7 @@ _Generated on 2026-06-20 — 87 topics_
 - [[entropy-management]] — Definition not yet written. Update this stub with content from the sources below.
 - [[error-handling]] — Definition not yet written. Update this stub with content from the sources below.
 - [[explore-narrow]] — Definition not yet written. Update this stub with content from the sources below.
+- [[feedback-and-adjustment]] — Definition not yet written. Update this stub with content from the sources below.
 - [[harness-engineering]] — Definition not yet written. Update this stub with content from the sources below.
 - [[iterative-cycles]] — Definition not yet written. Update this stub with content from the sources below.
 - [[large-language-models-llms]] — Definition not yet written. Update this stub with content from the sources below.
@@ -61,6 +66,7 @@ _Generated on 2026-06-20 — 87 topics_
 - [[open-source-standards-in-ai]] — Definition not yet written. Update this stub with content from the sources below.
 - [[persistent-memory]] — Definition not yet written. Update this stub with content from the sources below.
 - [[plan-execute-verify]] — Definition not yet written. Update this stub with content from the sources below.
+- [[prompt-structure]] — Definition not yet written. Update this stub with content from the sources below.
 - [[quantization]] — Definition not yet written. Update this stub with content from the sources below.
 - [[retrieval-augmented-generation]] — Definition not yet written. Update this stub with content from the sources below.
 - [[retry-pattern]] — Definition not yet written. Update this stub with content from the sources below.
