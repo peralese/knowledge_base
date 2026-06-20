@@ -217,6 +217,60 @@
       ],
       "date_first_seen": "2026-06-20",
       "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "well-architected-framework",
+      "title": "AWS Well-Architected Framework",
+      "sources": [
+        "aws-well-architected-tool-documentation-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "lens-catalog",
+      "title": "Lens Catalog",
+      "sources": [
+        "aws-well-architected-tool-documentation-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "custom-lenses",
+      "title": "Custom Lenses",
+      "sources": [
+        "aws-well-architected-tool-documentation-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "profiles",
+      "title": "Profiles",
+      "sources": [
+        "aws-well-architected-tool-documentation-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "collaboration-enhancement",
+      "title": "Collaboration Enhancement",
+      "sources": [
+        "aws-well-architected-tool-documentation-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "api-integration",
+      "title": "API Integration",
+      "sources": [
+        "aws-well-architected-tool-documentation-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
     }
   ]
 }

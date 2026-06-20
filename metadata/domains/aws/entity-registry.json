@@ -150,6 +150,46 @@
       "date_first_seen": "2026-06-20",
       "date_updated": "2026-06-20",
       "entity_type": "tool"
+    },
+    {
+      "slug": "aws-well-architected-tool",
+      "title": "AWS Well-Architected Tool",
+      "sources": [
+        "aws-well-architected-tool-documentation-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20",
+      "entity_type": "product"
+    },
+    {
+      "slug": "aws-organizations",
+      "title": "AWS Organizations",
+      "sources": [
+        "aws-well-architected-tool-documentation-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20",
+      "entity_type": "company"
+    },
+    {
+      "slug": "aws-trusted-advisor",
+      "title": "AWS Trusted Advisor",
+      "sources": [
+        "aws-well-architected-tool-documentation-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20",
+      "entity_type": "tool"
+    },
+    {
+      "slug": "aws-appregistry",
+      "title": "AWS AppRegistry",
+      "sources": [
+        "aws-well-architected-tool-documentation-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20",
+      "entity_type": "tool"
     }
   ]
 }
