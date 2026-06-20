@@ -113,5 +113,24 @@
     "confidence_band": "high",
     "confidence_reasoning": "The synthesis note accurately captures the essence of harness engineering, including its definition, origin, core pillars, and differentiation from related fields (Accuracy: 40%). It effectively condenses key insights while maintaining focus on critical aspects like context management and system reliability (Completeness: 30%). The structure is logical and clear, with a well-organized summary and distinct sections for key insights and notes (Clarity: 30%).",
     "scored_at": "2026-06-11T22:24:08.441257"
+  },
+  {
+    "source_id": "SRC-20260620-0001",
+    "title": "What Is Loop Engineering? The New Meta for AI Coding Agents",
+    "source_note_path": "raw/domains/ai/articles/what-is-loop-engineering-the-new-meta-for-ai-coding-agents.md",
+    "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/ai/inbox/browser/what-is-loop-engineering-the-new-meta-for-ai-coding-agents.md",
+    "adapter": "browser",
+    "source_type": "article",
+    "origin": "web",
+    "topic_slug": "loop-engineering",
+    "domain": "ai",
+    "queued_at": "2026-06-20T09:49:06.961575",
+    "review_status": "synthesized",
+    "validation_status": "validated",
+    "validation_issues": [],
+    "review_action": "approved",
+    "review_method": "manual",
+    "reviewed_at": "2026-06-20T09:49:13.315533",
+    "synthesized_at": "2026-06-20T09:51:15.941689"
   }
 ]
