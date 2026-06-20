@@ -8,6 +8,42 @@
       ],
       "date_first_seen": "2026-06-20",
       "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "anaconda-plan",
+      "title": "Anaconda Plan",
+      "sources": [
+        "the-vicksburg-campaign-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "siege-warfare",
+      "title": "Siege Warfare",
+      "sources": [
+        "the-vicksburg-campaign-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "operational-art",
+      "title": "Operational Art",
+      "sources": [
+        "the-vicksburg-campaign-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "civil-war-logistics",
+      "title": "Civil War Logistics",
+      "sources": [
+        "the-vicksburg-campaign-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
     }
   ]
 }

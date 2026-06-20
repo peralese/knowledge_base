@@ -1,3 +1,44 @@
 {
-  "entities": []
+  "entities": [
+    {
+      "slug": "ulysses-s-grant",
+      "title": "Ulysses S. Grant",
+      "sources": [
+        "the-vicksburg-campaign-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20",
+      "entity_type": "person"
+    },
+    {
+      "slug": "john-c-pemberton",
+      "title": "John C. Pemberton",
+      "sources": [
+        "the-vicksburg-campaign-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20",
+      "entity_type": "person"
+    },
+    {
+      "slug": "president-lincoln",
+      "title": "President Lincoln",
+      "sources": [
+        "the-vicksburg-campaign-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20",
+      "entity_type": "person"
+    },
+    {
+      "slug": "admiral-porter",
+      "title": "Admiral Porter",
+      "sources": [
+        "the-vicksburg-campaign-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20",
+      "entity_type": "person"
+    }
+  ]
 }
