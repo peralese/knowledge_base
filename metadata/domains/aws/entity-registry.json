@@ -4,10 +4,11 @@
       "slug": "aws",
       "title": "AWS",
       "sources": [
-        "well-architected-framework-2025-02-25-synthesis"
+        "well-architected-framework-2025-02-25-synthesis",
+        "why-is-the-aws-well-architected-framework-becoming-essential-for-ai-ready-cloud-modernization-synthesis"
       ],
       "date_first_seen": "2026-06-16",
-      "date_updated": "2026-06-16",
+      "date_updated": "2026-06-20",
       "entity_type": "company"
     },
     {
@@ -19,6 +20,16 @@
       "date_first_seen": "2026-06-16",
       "date_updated": "2026-06-16",
       "entity_type": "tool"
+    },
+    {
+      "slug": "why-is-the-aws-well-architected-framework-becoming-essential-for-ai-ready-cloud-modernization",
+      "title": "Why Is the AWS Well-Architected Framework Becoming Essential for AI-Ready Cloud Modernization?",
+      "sources": [
+        "why-is-the-aws-well-architected-framework-becoming-essential-for-ai-ready-cloud-modernization-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20",
+      "entity_type": "article"
     }
   ]
 }

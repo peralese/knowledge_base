@@ -4,10 +4,11 @@
       "slug": "aws-well-architected-framework",
       "title": "AWS Well-Architected Framework",
       "sources": [
-        "well-architected-framework-2025-02-25-synthesis"
+        "well-architected-framework-2025-02-25-synthesis",
+        "why-is-the-aws-well-architected-framework-becoming-essential-for-ai-ready-cloud-modernization-synthesis"
       ],
       "date_first_seen": "2026-06-16",
-      "date_updated": "2026-06-16"
+      "date_updated": "2026-06-20"
     },
     {
       "slug": "operational-excellence-pillar",
@@ -71,6 +72,60 @@
       ],
       "date_first_seen": "2026-06-16",
       "date_updated": "2026-06-16"
+    },
+    {
+      "slug": "ai-ready-cloud-modernization",
+      "title": "AI-Ready Cloud Modernization",
+      "sources": [
+        "why-is-the-aws-well-architected-framework-becoming-essential-for-ai-ready-cloud-modernization-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "six-pillars-of-strength",
+      "title": "Six Pillars of Strength",
+      "sources": [
+        "why-is-the-aws-well-architected-framework-becoming-essential-for-ai-ready-cloud-modernization-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "operational-excellence",
+      "title": "Operational Excellence",
+      "sources": [
+        "why-is-the-aws-well-architected-framework-becoming-essential-for-ai-ready-cloud-modernization-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "security-best-practices",
+      "title": "Security Best Practices",
+      "sources": [
+        "why-is-the-aws-well-architected-framework-becoming-essential-for-ai-ready-cloud-modernization-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "cost-optimization-strategies",
+      "title": "Cost Optimization Strategies",
+      "sources": [
+        "why-is-the-aws-well-architected-framework-becoming-essential-for-ai-ready-cloud-modernization-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "sustainability-in-cloud-architecture",
+      "title": "Sustainability in Cloud Architecture",
+      "sources": [
+        "why-is-the-aws-well-architected-framework-becoming-essential-for-ai-ready-cloud-modernization-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
     }
   ]
 }
