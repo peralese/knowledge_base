@@ -55,5 +55,24 @@
     "review_method": "manual",
     "reviewed_at": "2026-06-20T13:07:02.270157",
     "synthesized_at": "2026-06-20T13:21:09.442283"
+  },
+  {
+    "source_id": "SRC-20260620-0004",
+    "title": "Death of the Wooden Warship - Monitor vs Merrimack",
+    "source_note_path": "raw/domains/civil-war/articles/death-of-the-wooden-warship-monitor-vs-merrimack.md",
+    "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/civil-war/inbox/browser/death-of-the-wooden-warship-monitor-vs-merrimack.md",
+    "adapter": "browser",
+    "source_type": "article",
+    "origin": "web",
+    "topic_slug": "the-battle-of-hampton-roads",
+    "domain": "civil-war",
+    "queued_at": "2026-06-20T13:29:25.796034",
+    "review_status": "synthesized",
+    "validation_status": "validated",
+    "validation_issues": [],
+    "review_action": "approved",
+    "review_method": "manual",
+    "reviewed_at": "2026-06-20T13:29:39.712564",
+    "synthesized_at": "2026-06-20T13:31:04.812521"
   }
 ]
