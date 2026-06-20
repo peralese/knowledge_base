@@ -158,7 +158,8 @@
       "slug": "hybrid-deployments",
       "title": "Hybrid Deployments",
       "sources": [
-        "amazon-eks-documentation-synthesis"
+        "amazon-eks-documentation-synthesis",
+        "amazon-elastic-container-service-documentation-synthesis"
       ],
       "date_first_seen": "2026-06-20",
       "date_updated": "2026-06-20"
@@ -177,6 +178,42 @@
       "title": "Add-ons and Extensions",
       "sources": [
         "amazon-eks-documentation-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "container-orchestration",
+      "title": "Container Orchestration",
+      "sources": [
+        "amazon-elastic-container-service-documentation-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "serverless-execution",
+      "title": "Serverless Execution",
+      "sources": [
+        "amazon-elastic-container-service-documentation-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "security-isolation",
+      "title": "Security & Isolation",
+      "sources": [
+        "amazon-elastic-container-service-documentation-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "advanced-features",
+      "title": "Advanced Features",
+      "sources": [
+        "amazon-elastic-container-service-documentation-synthesis"
       ],
       "date_first_seen": "2026-06-20",
       "date_updated": "2026-06-20"

@@ -110,6 +110,46 @@
       "date_first_seen": "2026-06-20",
       "date_updated": "2026-06-20",
       "entity_type": "product"
+    },
+    {
+      "slug": "amazon-ecs",
+      "title": "Amazon ECS",
+      "sources": [
+        "amazon-elastic-container-service-documentation-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20",
+      "entity_type": "product"
+    },
+    {
+      "slug": "aws-fargate",
+      "title": "AWS Fargate",
+      "sources": [
+        "amazon-elastic-container-service-documentation-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20",
+      "entity_type": "product"
+    },
+    {
+      "slug": "ecs-anywhere",
+      "title": "ECS Anywhere",
+      "sources": [
+        "amazon-elastic-container-service-documentation-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20",
+      "entity_type": "framework"
+    },
+    {
+      "slug": "aws-security-identity-management-tools",
+      "title": "AWS Security and Identity Management Tools",
+      "sources": [
+        "amazon-elastic-container-service-documentation-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20",
+      "entity_type": "tool"
     }
   ]
 }
