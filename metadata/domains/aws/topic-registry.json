@@ -25,6 +25,32 @@
       "keywords": [
         "security"
       ]
+    },
+    {
+      "slug": "elastic-vmware-service",
+      "title": "Elastic VMWare Service",
+      "aliases": [],
+      "keywords": [
+        "vmware"
+      ]
+    },
+    {
+      "slug": "amazon-eks",
+      "title": "Amazon EKS",
+      "aliases": [],
+      "keywords": [
+        "EKS",
+        "Kubernetes"
+      ]
+    },
+    {
+      "slug": "amazon-ecs",
+      "title": "Amazon ECS",
+      "aliases": [],
+      "keywords": [
+        "ECS",
+        "Containers"
+      ]
     }
   ]
 }

@@ -15,6 +15,13 @@
       "description": "",
       "created_at": "2026-06-15T14:32:37+00:00",
       "active": true
+    },
+    {
+      "display_name": "Civil War",
+      "slug": "civil-war",
+      "description": "",
+      "created_at": "2026-06-20T15:50:08+00:00",
+      "active": true
     }
   ]
 }

@@ -1,0 +1,38 @@
+{
+  "topics": [
+    {
+      "slug": "first-battle-of-bull-run",
+      "title": "First Battle of Bull Run",
+      "aliases": [],
+      "keywords": [
+        "Bull Run",
+        "Manassas"
+      ]
+    },
+    {
+      "slug": "gettysburg",
+      "title": "Gettysburg",
+      "aliases": [],
+      "keywords": [
+        "Gettysburg"
+      ]
+    },
+    {
+      "slug": "vicksburg-campaign",
+      "title": "Vicksburg Campaign",
+      "aliases": [],
+      "keywords": [
+        "Vicksburg"
+      ]
+    },
+    {
+      "slug": "the-battle-of-hampton-roads",
+      "title": "The Battle of Hampton Roads",
+      "aliases": [],
+      "keywords": [
+        "Monitor",
+        "Merrimack"
+      ]
+    }
+  ]
+}

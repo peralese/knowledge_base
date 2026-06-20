@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.2.0",
-  "last_updated": "2026-06-11",
+  "last_updated": "2026-06-20",
   "description": "Source manifest for tracking ingested raw notes and preserving lineage.",
   "sources": [
     {
@@ -189,6 +189,20 @@
       "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/ai/inbox/browser/what-is-harness-engineering-a-complete-introduction-2026.md",
       "status": "raw",
       "archive_path": "raw/domains/ai/archive/what-is-harness-engineering-a-complete-introduction-2026--archived-20260611-222142.md"
+    },
+    {
+      "source_id": "SRC-20260620-0001",
+      "title": "What Is Loop Engineering? The New Meta for AI Coding Agents",
+      "filename": "what-is-loop-engineering-the-new-meta-for-ai-coding-agents.md",
+      "path": "raw/domains/ai/articles/what-is-loop-engineering-the-new-meta-for-ai-coding-agents.md",
+      "source_type": "article",
+      "origin": "web",
+      "date_ingested": "2026-06-20",
+      "domain": "ai",
+      "canonical_url": "https://www.mindstudio.ai/blog/what-is-loop-engineering-ai-coding-agents",
+      "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/ai/inbox/browser/what-is-loop-engineering-the-new-meta-for-ai-coding-agents.md",
+      "status": "raw",
+      "archive_path": "raw/domains/ai/archive/what-is-loop-engineering-the-new-meta-for-ai-coding-agents--archived-20260620-094906.md"
     }
   ]
 }

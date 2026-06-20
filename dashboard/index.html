@@ -1625,10 +1625,12 @@ async function submitIngest() {
 // Review Queue
 // ---------------------------------------------------------------------------
 async function loadQueue() {
+  const requestedDomain = _currentDomain;
   const container = document.getElementById('queue-container');
   container.innerHTML = '<div class="queue-empty">Loading…</div>';
-  const res = await fetch('/api/queue?domain=' + encodeURIComponent(_currentDomain));
+  const res = await fetch('/api/queue?domain=' + encodeURIComponent(requestedDomain));
   const data = await res.json();
+  if (requestedDomain !== _currentDomain) return;
   renderQueue(data.items);
 }
 
@@ -1680,13 +1682,13 @@ function buildCard(item) {
       ${dateHtml}
     </div>
     <div class="card-actions">
-      <button class="btn-expand" onclick="togglePreview('${item.id}')">Preview synthesis</button>
-      <button class="btn btn-sm btn-success" onclick="approveItem('${item.id}')">Approve</button>
+      <button class="btn-expand" onclick="togglePreview('${item.id}', '${item.domain}')">Preview synthesis</button>
+      <button class="btn btn-sm btn-success" onclick="approveItem('${item.id}', '${item.domain}')">Approve</button>
       <button class="btn btn-sm btn-danger" onclick="showRejectConfirm('${item.id}')">Reject</button>
     </div>
     <div class="confirm-row" id="confirm-${item.id}">
       <span>Reject this item?</span>
-      <button class="btn btn-sm btn-danger" onclick="rejectItem('${item.id}')">Confirm Reject</button>
+      <button class="btn btn-sm btn-danger" onclick="rejectItem('${item.id}', '${item.domain}')">Confirm Reject</button>
       <button class="link-btn" onclick="hideRejectConfirm('${item.id}')">Cancel</button>
     </div>
     <div class="preview-pane" id="preview-${item.id}"></div>
@@ -1694,7 +1696,7 @@ function buildCard(item) {
   return card;
 }
 
-async function togglePreview(id) {
+async function togglePreview(id, domain) {
   const pane = document.getElementById('preview-' + id);
   if (pane.classList.contains('visible')) {
     pane.classList.remove('visible');
@@ -1702,7 +1704,7 @@ async function togglePreview(id) {
   }
   pane.textContent = 'Loading…';
   pane.classList.add('visible');
-  const res = await fetch('/api/queue/' + id + '/preview?domain=' + encodeURIComponent(_currentDomain));
+  const res = await fetch('/api/queue/' + id + '/preview?domain=' + encodeURIComponent(domain));
   if (res.ok) {
     pane.textContent = await res.text();
   } else {
@@ -1710,8 +1712,8 @@ async function togglePreview(id) {
   }
 }
 
-async function approveItem(id) {
-  const res = await fetch('/api/queue/' + id + '/approve?domain=' + encodeURIComponent(_currentDomain), { method: 'POST' });
+async function approveItem(id, domain) {
+  const res = await fetch('/api/queue/' + id + '/approve?domain=' + encodeURIComponent(domain), { method: 'POST' });
   if (res.ok) {
     removeCard(id);
   } else {
@@ -1727,8 +1729,8 @@ function hideRejectConfirm(id) {
   document.getElementById('confirm-' + id).classList.remove('visible');
 }
 
-async function rejectItem(id) {
-  const res = await fetch('/api/queue/' + id + '/reject?domain=' + encodeURIComponent(_currentDomain), { method: 'POST' });
+async function rejectItem(id, domain) {
+  const res = await fetch('/api/queue/' + id + '/reject?domain=' + encodeURIComponent(domain), { method: 'POST' });
   if (res.ok) {
     removeCard(id);
   } else {
@@ -2013,12 +2015,15 @@ const STAGE_LABELS = {
 };
 
 async function loadPipelineStatus() {
+  const requestedDomain = _currentDomain;
   const container = document.getElementById('pipeline-container');
   container.innerHTML = '<div class="pipeline-empty">Loading…</div>';
   try {
-    const res = await fetch('/api/pipeline-status?domain=' + encodeURIComponent(_currentDomain));
+    const res = await fetch('/api/pipeline-status?domain=' + encodeURIComponent(requestedDomain));
     if (!res.ok) throw new Error('Server error ' + res.status);
-    _pipelineData = await res.json();
+    const data = await res.json();
+    if (requestedDomain !== _currentDomain) return;
+    _pipelineData = data;
     _renderPipelineSummary();
     filterPipeline();
     const ts = document.getElementById('pipeline-last-refreshed');

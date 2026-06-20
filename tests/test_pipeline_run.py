@@ -12,6 +12,7 @@ from scripts.pipeline_run import (
     _domain_for_item,
     _domain_slugs_for_arg,
     _domains_for_items,
+    _is_aggregated,
     _pending_items,
     _processable_items,
     cmd_run_all,
@@ -105,6 +106,21 @@ class PendingItemsTests(unittest.TestCase):
             _make_entry("C", review_status="synthesized"),
         ]
         self.assertEqual([e["source_id"] for e in _processable_items(queue)], ["A", "B"])
+
+    def test_processable_excludes_approved_item_already_in_topic(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            topics = root / "compiled" / "domains" / "ai" / "topics"
+            topics.mkdir(parents=True)
+            topics.joinpath("test-topic.md").write_text(
+                "---\ncompiled_from:\n  - \"test-article-synthesis\"\napproved: true\n---\n",
+                encoding="utf-8",
+            )
+            approved = _make_entry("B", review_status="synthesized")
+            approved["review_action"] = "approved"
+
+            self.assertTrue(_is_aggregated(approved, root))
+            self.assertEqual(_processable_items([approved], root=root), [])
 
     def test_empty_queue_returns_empty(self) -> None:
         self.assertEqual(_pending_items([]), [])

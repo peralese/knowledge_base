@@ -13,7 +13,7 @@ tags:
 confidence: "medium"
 confidence_score: null
 generation_method: "ollama_local"
-approved: false
+approved: true
 ---
 
 ### Key Points about Amazon EKS (Elastic Kubernetes Service)

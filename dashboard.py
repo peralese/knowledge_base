@@ -1647,6 +1647,7 @@ def _compute_pipeline_status(root: Path, domain: str | None = None) -> list[dict
 
         results.append({
             "source_id": source_id,
+            "domain": domain or DEFAULT_DOMAIN_SLUG,
             "title": title,
             "topic": topic_slug,
             "registered_at": date_ingested,

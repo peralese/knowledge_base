@@ -17,7 +17,7 @@ tags:
 confidence: "medium"
 confidence_score: null
 generation_method: "ollama_local"
-approved: false
+approved: true
 ---
 
 # Summary

@@ -44,7 +44,7 @@ from synthesize import (  # noqa: E402
     synthesize_item,
 )
 from concept_aggregator import extract_for_source as extract_concepts  # noqa: E402
-from topic_aggregator import _find_source_summary, aggregate_for_source  # noqa: E402
+from topic_aggregator import _find_source_summary, _parse_compiled_from, aggregate_for_source  # noqa: E402
 from review import _patch_note_approved  # noqa: E402
 
 DEFAULT_THRESHOLD = 0.85
@@ -84,18 +84,40 @@ def _domain_slugs_for_arg(domain: str, root: Path = ROOT) -> list[str]:
 
 def _load_processable_items_for_domain(domain: str, root: Path = ROOT) -> list[dict[str, object]]:
     configure_queue_paths(domain, root)
-    return _processable_items(load_queue())
+    return _processable_items(load_queue(), root=root)
 
 
 def _is_approved(item: dict[str, object]) -> bool:
     return str(item.get("review_action") or "").strip() == "approved"
 
 
-def _processable_items(queue: list[dict[str, object]]) -> list[dict[str, object]]:
+def _is_aggregated(item: dict[str, object], root: Path = ROOT) -> bool:
+    """Return whether the item's source summary is already linked by a topic."""
+    note_path = str(item.get("source_note_path") or "").strip()
+    if not note_path:
+        return False
+    summary_stem = f"{Path(note_path).stem}-synthesis"
+    domain = _domain_for_item(item)
+    topics_dir = compiled_subdir(root, domain, "topics")
+    if not topics_dir.exists():
+        return False
+    for topic_path in topics_dir.glob("*.md"):
+        try:
+            if summary_stem in _parse_compiled_from(topic_path.read_text(encoding="utf-8")):
+                return True
+        except OSError:
+            continue
+    return False
+
+
+def _processable_items(
+    queue: list[dict[str, object]], *, root: Path = ROOT
+) -> list[dict[str, object]]:
     """Return queue entries that can advance through the post-ingest pipeline."""
     return [
         e for e in queue
-        if e.get("review_status") == "pending_review" or _is_approved(e)
+        if e.get("review_status") == "pending_review"
+        or (_is_approved(e) and not _is_aggregated(e, root))
     ]
 
 

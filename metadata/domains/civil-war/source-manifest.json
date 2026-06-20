@@ -1,0 +1,63 @@
+{
+  "manifest_version": "0.2.0",
+  "last_updated": "2026-06-20",
+  "description": "Source manifest for tracking ingested raw notes and preserving lineage.",
+  "sources": [
+    {
+      "source_id": "SRC-20260620-0001",
+      "title": "First Battle of Bull Run - Dates, Location & Who Won",
+      "filename": "first-battle-of-bull-run-dates-location-who-won.md",
+      "path": "raw/domains/civil-war/articles/first-battle-of-bull-run-dates-location-who-won.md",
+      "source_type": "article",
+      "origin": "web",
+      "date_ingested": "2026-06-20",
+      "domain": "civil-war",
+      "canonical_url": "https://www.history.com/articles/first-battle-of-bull-run",
+      "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/civil-war/inbox/browser/first-battle-of-bull-run-dates-location-who-won.md",
+      "status": "raw",
+      "archive_path": "raw/domains/civil-war/archive/first-battle-of-bull-run-dates-location-who-won--archived-20260620-105133.md"
+    },
+    {
+      "source_id": "SRC-20260620-0002",
+      "title": "Battle of Gettysburg: Summary, Facts & Casualties",
+      "filename": "battle-of-gettysburg-summary-facts-casualties.md",
+      "path": "raw/domains/civil-war/articles/battle-of-gettysburg-summary-facts-casualties.md",
+      "source_type": "article",
+      "origin": "web",
+      "date_ingested": "2026-06-20",
+      "domain": "civil-war",
+      "canonical_url": "https://www.history.com/articles/battle-of-gettysburg",
+      "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/civil-war/inbox/browser/battle-of-gettysburg-summary-facts-casualties.md",
+      "status": "raw",
+      "archive_path": "raw/domains/civil-war/archive/battle-of-gettysburg-summary-facts-casualties--archived-20260620-121148.md"
+    },
+    {
+      "source_id": "SRC-20260620-0003",
+      "title": "The Vicksburg Campaign",
+      "filename": "the-vicksburg-campaign.md",
+      "path": "raw/domains/civil-war/pdfs/the-vicksburg-campaign.md",
+      "source_type": "pdf",
+      "origin": "web",
+      "date_ingested": "2026-06-20",
+      "domain": "civil-war",
+      "canonical_url": "https://www.lineofdeparture.army.mil/Portals/144/PDF/Journals/WOCC/The-Vicksburg-Campaign.pdf",
+      "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/civil-war/inbox/browser/the-vicksburg-campaign.md",
+      "status": "raw",
+      "archive_path": "raw/domains/civil-war/archive/the-vicksburg-campaign--archived-20260620-130656.md"
+    },
+    {
+      "source_id": "SRC-20260620-0004",
+      "title": "Death of the Wooden Warship - Monitor vs Merrimack",
+      "filename": "death-of-the-wooden-warship-monitor-vs-merrimack.md",
+      "path": "raw/domains/civil-war/articles/death-of-the-wooden-warship-monitor-vs-merrimack.md",
+      "source_type": "article",
+      "origin": "web",
+      "date_ingested": "2026-06-20",
+      "domain": "civil-war",
+      "canonical_url": "https://www.warhistoryonline.com/war-articles/monitor-vs-merrimack.html",
+      "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/civil-war/inbox/browser/death-of-the-wooden-warship-monitor-vs-merrimack.md",
+      "status": "raw",
+      "archive_path": "raw/domains/civil-war/archive/death-of-the-wooden-warship-monitor-vs-merrimack--archived-20260620-132925.md"
+    }
+  ]
+}
