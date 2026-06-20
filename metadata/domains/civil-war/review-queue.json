@@ -17,5 +17,24 @@
     "review_method": "manual",
     "reviewed_at": "2026-06-20T10:51:37.467849",
     "synthesized_at": "2026-06-20T12:03:06.844785"
+  },
+  {
+    "source_id": "SRC-20260620-0002",
+    "title": "Battle of Gettysburg: Summary, Facts & Casualties",
+    "source_note_path": "raw/domains/civil-war/articles/battle-of-gettysburg-summary-facts-casualties.md",
+    "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/civil-war/inbox/browser/battle-of-gettysburg-summary-facts-casualties.md",
+    "adapter": "browser",
+    "source_type": "article",
+    "origin": "web",
+    "topic_slug": "gettysburg",
+    "domain": "civil-war",
+    "queued_at": "2026-06-20T12:11:48.361423",
+    "review_status": "synthesized",
+    "validation_status": "validated",
+    "validation_issues": [],
+    "review_action": "approved",
+    "review_method": "manual",
+    "reviewed_at": "2026-06-20T12:11:52.340125",
+    "synthesized_at": "2026-06-20T12:13:37.125032"
   }
 ]
