@@ -36,5 +36,24 @@
     "review_method": "manual",
     "reviewed_at": "2026-06-20T12:11:52.340125",
     "synthesized_at": "2026-06-20T12:13:37.125032"
+  },
+  {
+    "source_id": "SRC-20260620-0003",
+    "title": "The Vicksburg Campaign",
+    "source_note_path": "raw/domains/civil-war/pdfs/the-vicksburg-campaign.md",
+    "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/civil-war/inbox/browser/the-vicksburg-campaign.md",
+    "adapter": "browser",
+    "source_type": "pdf",
+    "origin": "web",
+    "topic_slug": "vicksburg-campaign",
+    "domain": "civil-war",
+    "queued_at": "2026-06-20T13:06:56.290995",
+    "review_status": "synthesized",
+    "validation_status": "validated",
+    "validation_issues": [],
+    "review_action": "approved",
+    "review_method": "manual",
+    "reviewed_at": "2026-06-20T13:07:02.270157",
+    "synthesized_at": "2026-06-20T13:21:09.442283"
   }
 ]
