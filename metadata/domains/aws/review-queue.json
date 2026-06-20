@@ -101,5 +101,24 @@
     "review_method": "manual",
     "reviewed_at": "2026-06-20T10:01:44.964371",
     "synthesized_at": "2026-06-20T11:59:28.764353"
+  },
+  {
+    "source_id": "SRC-20260620-0003",
+    "title": "Amazon EKS Documentation",
+    "source_note_path": "raw/domains/aws/articles/amazon-eks-documentation.md",
+    "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/aws/inbox/browser/amazon-eks-documentation.md",
+    "adapter": "browser",
+    "source_type": "article",
+    "origin": "web",
+    "topic_slug": "amazon-eks",
+    "domain": "aws",
+    "queued_at": "2026-06-20T12:21:39.523650",
+    "review_status": "synthesized",
+    "validation_status": "validated",
+    "validation_issues": [],
+    "review_action": "approved",
+    "review_method": "manual",
+    "reviewed_at": "2026-06-20T12:21:44.250832",
+    "synthesized_at": "2026-06-20T12:50:39.253233"
   }
 ]
