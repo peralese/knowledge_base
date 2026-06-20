@@ -1,0 +1,21 @@
+[
+  {
+    "source_id": "SRC-20260620-0001",
+    "title": "First Battle of Bull Run - Dates, Location & Who Won",
+    "source_note_path": "raw/domains/civil-war/articles/first-battle-of-bull-run-dates-location-who-won.md",
+    "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/civil-war/inbox/browser/first-battle-of-bull-run-dates-location-who-won.md",
+    "adapter": "browser",
+    "source_type": "article",
+    "origin": "web",
+    "topic_slug": "first-battle-of-bull-run",
+    "domain": "civil-war",
+    "queued_at": "2026-06-20T10:51:33.385001",
+    "review_status": "synthesized",
+    "validation_status": "validated",
+    "validation_issues": [],
+    "review_action": "approved",
+    "review_method": "manual",
+    "reviewed_at": "2026-06-20T10:51:37.467849",
+    "synthesized_at": "2026-06-20T12:03:06.844785"
+  }
+]
