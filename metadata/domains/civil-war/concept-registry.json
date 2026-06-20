@@ -44,6 +44,24 @@
       ],
       "date_first_seen": "2026-06-20",
       "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "evolution-of-naval-warfare",
+      "title": "Evolution of Naval Warfare",
+      "sources": [
+        "death-of-the-wooden-warship-monitor-vs-merrimack-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "impact-of-technological-advancements-in-military-history",
+      "title": "Impact of Technological Advancements in Military History",
+      "sources": [
+        "death-of-the-wooden-warship-monitor-vs-merrimack-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
     }
   ]
 }
