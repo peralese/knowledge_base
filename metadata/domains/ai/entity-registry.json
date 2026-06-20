@@ -249,6 +249,66 @@
       "date_first_seen": "2026-06-11",
       "date_updated": "2026-06-11",
       "entity_type": "company"
+    },
+    {
+      "slug": "mystudio",
+      "title": "MindStudio",
+      "sources": [
+        "what-is-loop-engineering-the-new-meta-for-ai-coding-agents-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20",
+      "entity_type": "company"
+    },
+    {
+      "slug": "what-is-loop-engineering-the-new-meta-for-ai-coding-agents",
+      "title": "What is Loop Engineering: The New Meta for AI Coding Agents?",
+      "sources": [
+        "what-is-loop-engineering-the-new-meta-for-ai-coding-agents-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20",
+      "entity_type": "product"
+    },
+    {
+      "slug": "scriptsingestpy",
+      "title": "Ingest Script",
+      "sources": [
+        "what-is-loop-engineering-the-new-meta-for-ai-coding-agents-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20",
+      "entity_type": "tool"
+    },
+    {
+      "slug": "metadatadomainsaisource-manifestjsonsrc-20260620-0001",
+      "title": "Source Manifest",
+      "sources": [
+        "what-is-loop-engineering-the-new-meta-for-ai-coding-agents-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20",
+      "entity_type": "product"
+    },
+    {
+      "slug": "userserickperalesprojectsknowledge-baserawdomainsaiinboxbrowserwhat-is-loop-engineering-the-new-meta-for-ai-coding-agentsmd",
+      "title": "File Path",
+      "sources": [
+        "what-is-loop-engineering-the-new-meta-for-ai-coding-agents-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20",
+      "entity_type": "product"
+    },
+    {
+      "slug": "httpswwwmindstudioaiblogwhat-is-loop-engineering-ai-coding-agents",
+      "title": "Canonical URL",
+      "sources": [
+        "what-is-loop-engineering-the-new-meta-for-ai-coding-agents-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20",
+      "entity_type": "product"
     }
   ]
 }

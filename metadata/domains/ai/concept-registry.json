@@ -322,10 +322,11 @@
       "slug": "context-management",
       "title": "Context Management",
       "sources": [
-        "what-is-harness-engineering-a-complete-introduction-2026-synthesis"
+        "what-is-harness-engineering-a-complete-introduction-2026-synthesis",
+        "what-is-loop-engineering-the-new-meta-for-ai-coding-agents-synthesis"
       ],
       "date_first_seen": "2026-06-11",
-      "date_updated": "2026-06-11"
+      "date_updated": "2026-06-20"
     },
     {
       "slug": "architectural-constraints",
@@ -344,6 +345,87 @@
       ],
       "date_first_seen": "2026-06-11",
       "date_updated": "2026-06-11"
+    },
+    {
+      "slug": "iterative-cycles",
+      "title": "Iterative Cycles",
+      "sources": [
+        "what-is-loop-engineering-the-new-meta-for-ai-coding-agents-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "dynamic-vs-linear-workflows",
+      "title": "Dynamic vs. Linear Workflows",
+      "sources": [
+        "what-is-loop-engineering-the-new-meta-for-ai-coding-agents-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "specific-goal",
+      "title": "Specific Goal",
+      "sources": [
+        "what-is-loop-engineering-the-new-meta-for-ai-coding-agents-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "useful-tools",
+      "title": "Useful Tools",
+      "sources": [
+        "what-is-loop-engineering-the-new-meta-for-ai-coding-agents-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "termination-logic",
+      "title": "Termination Logic",
+      "sources": [
+        "what-is-loop-engineering-the-new-meta-for-ai-coding-agents-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "error-handling",
+      "title": "Error Handling",
+      "sources": [
+        "what-is-loop-engineering-the-new-meta-for-ai-coding-agents-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "retry-pattern",
+      "title": "Retry Pattern",
+      "sources": [
+        "what-is-loop-engineering-the-new-meta-for-ai-coding-agents-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "plan-execute-verify",
+      "title": "Plan-Execute-Verify",
+      "sources": [
+        "what-is-loop-engineering-the-new-meta-for-ai-coding-agents-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "explore-narrow",
+      "title": "Explore-Narrow",
+      "sources": [
+        "what-is-loop-engineering-the-new-meta-for-ai-coding-agents-synthesis"
+      ],
+      "date_first_seen": "2026-06-20",
+      "date_updated": "2026-06-20"
     }
   ]
 }
