@@ -131,6 +131,10 @@
     "review_action": "approved",
     "review_method": "manual",
     "reviewed_at": "2026-06-20T09:49:13.315533",
-    "synthesized_at": "2026-06-20T09:51:15.941689"
+    "synthesized_at": "2026-06-20T09:51:15.941689",
+    "confidence_score": 0.85,
+    "confidence_band": "high",
+    "confidence_reasoning": "The synthesis accurately captures the essence of loop engineering in AI, covering iterative cycles, dynamic workflows, and specific patterns, aligning with 40% accuracy criteria. It includes key characteristics such as context management and error handling (completeness: 30%). The note is well-structured and readable, though it could benefit from a more explicit connection between concepts for enhanced clarity (clarity: 30%).",
+    "scored_at": "2026-06-20T09:52:47.850236"
   }
 ]

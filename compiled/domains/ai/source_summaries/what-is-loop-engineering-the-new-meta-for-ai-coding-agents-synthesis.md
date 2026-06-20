@@ -11,9 +11,9 @@ tags:
   - "source_summary"
   - "what-is-loop-engineering-the-new-meta-for-ai-coding-agents"
 confidence: "medium"
-confidence_score: null
+confidence_score: 0.85
 generation_method: "ollama_local"
-approved: false
+approved: true
 ---
 
 ### Key Points on Loop Engineering in AI
