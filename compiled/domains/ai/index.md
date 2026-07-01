@@ -3,12 +3,12 @@ title: "AI Wiki Index"
 note_type: "index"
 domain: "ai"
 generated_on: "2026-06-30"
-note_count: 86
+note_count: 92
 ---
 
 # AI Wiki Index
 
-_Generated on 2026-06-30 — 86 topics_
+_Generated on 2026-06-30 — 92 topics_
 
 ## Topics
 
@@ -20,6 +20,7 @@ _Generated on 2026-06-30 — 86 topics_
 - [[local-ai-stack]] — In an era where artificial intelligence (AI) is rapidly transforming various sectors, the concept of a "Local AI Stack"…
 - [[loop-engineering]] — In the ever-evolving landscape of software development, [[loop-engineering]] stands out as a transformative methodology…
 - [[mcp]] — The [[model-context-protocol]] (MCP) is a pivotal [[open-source-standards-in-ai|open-source standard]] in artificial…
+- [[microsoft-ai]] — In the rapidly evolving landscape of artificial intelligence, Microsoft AI (MAI) stands at the forefront with its…
 - [[openclaw-security]] — [[openclaw]] Desktop is a powerful tool for developers and researchers, but like any sophisticated software, it…
 - [[projects]] — In an era where productivity and effective time management are paramount, leveraging artificial intelligence (AI) to…
 
@@ -67,10 +68,12 @@ _Generated on 2026-06-30 — 86 topics_
 - [[plan-execute-verify]] — The Plan-Execute-Verify approach in AI/ML involves three distinct phases: planning a strategy to achieve a specific…
 - [[prompt-structure]] — Definition not yet written. Update this stub with content from the sources below.
 - [[quantization]] — Quantization is a technique used in artificial intelligence and machine learning models to reduce memory usage by…
+- [[reinforcement-learning-environments]] — Definition not yet written. Update this stub with content from the sources below.
 - [[retrieval-augmented-generation]] — Definition not yet written. Update this stub with content from the sources below.
 - [[retry-pattern]] — Definition not yet written. Update this stub with content from the sources below.
 - [[skill-vetting]] — Skill vetting in the context of AI/ML security involves assessing and validating third-party skills or models to ensure…
 - [[specific-goal]] — A "specific goal" in AI/ML loop engineering refers to a clear and precise objective that includes testable termination…
+- [[superintelligence-lab]] — Definition not yet written. Update this stub with content from the sources below.
 - [[termination-logic]] — Termination logic in AI/ML loop engineering involves defining explicit criteria for when a loop should cease execution…
 - [[tool-calling-capabilities]] — Definition not yet written. Update this stub with content from the sources below.
 - [[useful-tools]] — Useful tools in the context of AI/ML loop engineering are instruments or mechanisms that enable meaningful interaction…
@@ -94,7 +97,10 @@ _Generated on 2026-06-30 — 86 topics_
 - [[llamacpp]] — Description not yet written. Update this stub with content from the sources below.
 - [[lm-studio]] — Description not yet written. Update this stub with content from the sources below.
 - [[mcpjam]] — Description not yet written. Update this stub with content from the sources below.
+- [[microsoft-ai]] — Description not yet written. Update this stub with content from the sources below.
+- [[microsoft-frontier-tuning]] — Description not yet written. Update this stub with content from the sources below.
 - [[mistral-devstral]] — Description not yet written. Update this stub with content from the sources below.
+- [[mustafa-suleyman]] — Description not yet written. Update this stub with content from the sources below.
 - [[mystudio]] — Description not yet written. Update this stub with content from the sources below.
 - [[nolen-jonker]] — Description not yet written. Update this stub with content from the sources below.
 - [[nvidia-nemotron-3-super]] — Description not yet written. Update this stub with content from the sources below.
