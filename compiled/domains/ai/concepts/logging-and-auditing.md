@@ -8,14 +8,14 @@ sources:
   - how-to-harden-openclaw-security-best-practices-for-2026-synthesis
 approved: true
 generation_method: "ollama_local"
+generated_by: "ollama-concept-definition"
+definition_sources:
+  - how-to-harden-openclaw-security-best-practices-for-2026-synthesis
+  - how-to-harden-openclaw-security-best-practices-for-2026
 ---
 
-# Logging and Auditing
-
-_Definition not yet written. Update this stub with content from the sources below._
+Logging and auditing in the context of AI/ML systems involve systematically recording system activities such as API usage, file operations, and other operational events to ensure traceability and accountability. Regular monitoring of these logs is essential for detecting unusual or unauthorized activity that could indicate security breaches or misconfigurations. This process includes conducting daily checks to verify compliance with established security protocols and practices, helping maintain the integrity and safety of AI/ML environments by enabling timely responses to potential threats through tools like Docker commands and API key revocations.
 
 ## Mentioned In
-
-- [[how-to-harden-openclaw-security-best-practices-for-2026-synthesis]] — Regularly monitoring system logs for unusual activity and enforcing daily checks on API usage and file operations are recommended practices.
 
 ## Related Concepts

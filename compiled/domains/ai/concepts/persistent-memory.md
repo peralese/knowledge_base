@@ -8,14 +8,15 @@ sources:
   - i-added-this-open-source-tool-to-my-local-ai-stack-and-my-local-llm-finally-has-persistent-memory-synthesis
 approved: true
 generation_method: "ollama_local"
+generated_by: "ollama-concept-definition"
+definition_sources:
+  - loop-engineering-synthesis
+  - i-added-this-open-source-tool-to-my-local-ai-stack-and-my-local-llm-finally-has-persistent-memory-synthesis
+  - i-added-this-open-source-tool-to-my-local-ai-stack-and-my-local-llm-finally-has-persistent-memory
 ---
 
-# Persistent Memory
-
-_Definition not yet written. Update this stub with content from the sources below._
+Persistent memory in AI and machine learning contexts refers to the capability of systems, such as Large Language Models (LLMs), to retain and recall context across multiple sessions or runs. This is achieved through mechanisms that automatically save relevant information during interactions and re-inject it when necessary, allowing for continuity and consistency without manual intervention. In loop engineering synthesis, persistent memory also plays a crucial role in tracking progress within automated systems by maintaining documented skills and integrations, ensuring seamless operation and high-quality output over time.
 
 ## Mentioned In
-
-- [[i-added-this-open-source-tool-to-my-local-ai-stack-and-my-local-llm-finally-has-persistent-memory-synthesis]] — The source discusses how AnythingLLM enhances local LLMs by introducing a memory system that retains useful information across sessions.
 
 ## Related Concepts

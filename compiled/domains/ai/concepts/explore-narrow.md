@@ -8,14 +8,14 @@ sources:
   - what-is-loop-engineering-the-new-meta-for-ai-coding-agents-synthesis
 approved: true
 generation_method: "ollama_local"
+generated_by: "ollama-concept-definition"
+definition_sources:
+  - what-is-loop-engineering-the-new-meta-for-ai-coding-agents-synthesis
+  - what-is-loop-engineering-the-new-meta-for-ai-coding-agents
 ---
 
-# Explore-Narrow
-
-_Definition not yet written. Update this stub with content from the sources below._
+Explore-narrow in AI/ML loop engineering involves an initial broad exploration of potential solutions or pathways, followed by a focused refinement process that hones in on the most promising options based on intermediate results and findings. This method is particularly useful for tasks such as debugging unknown errors, exploring unfamiliar APIs, or optimizing performance, allowing for efficient adjustment when initial plans prove suboptimal. By iterating between wide-ranging exploration and concentrated narrowing, this approach facilitates effective adaptation to new insights and ensures that only the most viable solutions are pursued further.
 
 ## Mentioned In
-
-- [[what-is-loop-engineering-the-new-meta-for-ai-coding-agents-synthesis]] — Involves broad exploration followed by focused refinement based on findings in loop engineering patterns.
 
 ## Related Concepts

@@ -8,14 +8,14 @@ sources:
   - what-is-loop-engineering-the-new-meta-for-ai-coding-agents-synthesis
 approved: true
 generation_method: "ollama_local"
+generated_by: "ollama-concept-definition"
+definition_sources:
+  - what-is-loop-engineering-the-new-meta-for-ai-coding-agents-synthesis
+  - what-is-loop-engineering-the-new-meta-for-ai-coding-agents
 ---
 
-# Plan-Execute-Verify
-
-_Definition not yet written. Update this stub with content from the sources below._
+The Plan-Execute-Verify approach in AI/ML involves three distinct phases: planning a strategy to achieve a specific goal, executing that plan through defined actions or algorithms, and verifying whether the outcome meets the desired criteria. If verification reveals discrepancies between expected and actual results, adjustments are made to refine the plan for subsequent iterations. This method ensures continuous improvement by dynamically adapting strategies based on feedback from each verification phase, thereby preventing infinite retries of unsuccessful approaches without modification.
 
 ## Mentioned In
-
-- [[what-is-loop-engineering-the-new-meta-for-ai-coding-agents-synthesis]] — This pattern involves planning, executing a plan, and verifying the outcome to adjust as necessary within loop engineering.
 
 ## Related Concepts

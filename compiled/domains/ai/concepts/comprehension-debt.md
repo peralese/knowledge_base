@@ -8,14 +8,14 @@ sources:
   - loop-engineering-synthesis
 approved: true
 generation_method: "ollama_local"
+generated_by: "ollama-concept-definition"
+definition_sources:
+  - loop-engineering-synthesis
+  - loop-engineering
 ---
 
-# Comprehension Debt
-
-_Definition not yet written. Update this stub with content from the sources below._
+Comprehension debt refers to the gap that develops between a developer's understanding of a codebase and the actual state of that code when AI/ML systems autonomously generate and modify code without sufficient human oversight. As these automated processes accelerate, they can increase efficiency but also lead to developers becoming less familiar with the latest changes or implementations in the system, as their roles shift from active prompters to designers. This growing disconnect poses risks if not managed properly through consistent verification and engagement, as it can result in reduced ability to effectively manage, debug, or extend the codebase when necessary.
 
 ## Mentioned In
-
-- [[loop-engineering-synthesis]] — Mentioned as a related concept in the context of software development methodologies.
 
 ## Related Concepts

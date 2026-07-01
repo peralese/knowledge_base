@@ -8,14 +8,14 @@ sources:
   - what-is-loop-engineering-the-new-meta-for-ai-coding-agents-synthesis
 approved: true
 generation_method: "ollama_local"
+generated_by: "ollama-concept-definition"
+definition_sources:
+  - what-is-loop-engineering-the-new-meta-for-ai-coding-agents-synthesis
+  - what-is-loop-engineering-the-new-meta-for-ai-coding-agents
 ---
 
-# Termination Logic
-
-_Definition not yet written. Update this stub with content from the sources below._
+Termination logic in AI/ML loop engineering involves defining explicit criteria for when a loop should cease execution to prevent infinite loops and ensure efficient processing. This includes establishing success conditions such as passing tests or meeting expected outputs, failure conditions like reaching maximum iterations or experiencing repeated errors without progress, and providing escalation paths for unresolved issues. Effective termination logic incorporates structured logging of attempts, context pruning, and adaptation mechanisms beyond simple retries to manage tasks intelligently and avoid unnecessary resource expenditure.
 
 ## Mentioned In
-
-- [[what-is-loop-engineering-the-new-meta-for-ai-coding-agents-synthesis]] — Explicit failure exits are necessary to avoid infinite loops within well-engineered loops.
 
 ## Related Concepts

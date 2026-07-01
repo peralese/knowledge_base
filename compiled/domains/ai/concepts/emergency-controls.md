@@ -8,14 +8,14 @@ sources:
   - how-to-harden-openclaw-security-best-practices-for-2026-synthesis
 approved: true
 generation_method: "ollama_local"
+generated_by: "ollama-concept-definition"
+definition_sources:
+  - how-to-harden-openclaw-security-best-practices-for-2026-synthesis
+  - how-to-harden-openclaw-security-best-practices-for-2026
 ---
 
-# Emergency Controls
-
-_Definition not yet written. Update this stub with content from the sources below._
+Emergency controls in an AI/ML context refer to predefined procedures and mechanisms designed to quickly mitigate or halt operations if a security threat or malfunction occurs. These include executing Docker stop commands to isolate containers, revoking API keys to prevent unauthorized access, and utilizing specific emergency brakes defined within a system documentation like SOUL.md. Such measures ensure rapid response capabilities to maintain system integrity and security under adverse conditions.
 
 ## Mentioned In
-
-- [[how-to-harden-openclaw-security-best-practices-for-2026-synthesis]] — Establishing emergency shutdown procedures such as Docker stop commands, API key revocation, and using SOUL.md emergency brakes is emphasized.
 
 ## Related Concepts
