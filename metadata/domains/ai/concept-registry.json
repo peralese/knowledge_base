@@ -462,6 +462,24 @@
       ],
       "date_first_seen": "2026-06-20",
       "date_updated": "2026-06-20"
+    },
+    {
+      "slug": "reinforcement-learning-environments",
+      "title": "Reinforcement Learning Environments (RLEs)",
+      "sources": [
+        "building-a-hill-climbing-machine-launching-seven-new-mai-models-synthesis"
+      ],
+      "date_first_seen": "2026-06-30",
+      "date_updated": "2026-06-30"
+    },
+    {
+      "slug": "superintelligence-lab",
+      "title": "Superintelligence Lab",
+      "sources": [
+        "building-a-hill-climbing-machine-launching-seven-new-mai-models-synthesis"
+      ],
+      "date_first_seen": "2026-06-30",
+      "date_updated": "2026-06-30"
     }
   ]
 }

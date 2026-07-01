@@ -249,6 +249,36 @@
       "date_first_seen": "2026-06-20",
       "date_updated": "2026-06-20",
       "entity_type": "product"
+    },
+    {
+      "slug": "mustafa-suleyman",
+      "title": "Mustafa Suleyman",
+      "sources": [
+        "building-a-hill-climbing-machine-launching-seven-new-mai-models-synthesis"
+      ],
+      "date_first_seen": "2026-06-30",
+      "date_updated": "2026-06-30",
+      "entity_type": "person"
+    },
+    {
+      "slug": "microsoft-ai",
+      "title": "Microsoft AI (MAI)",
+      "sources": [
+        "building-a-hill-climbing-machine-launching-seven-new-mai-models-synthesis"
+      ],
+      "date_first_seen": "2026-06-30",
+      "date_updated": "2026-06-30",
+      "entity_type": "company"
+    },
+    {
+      "slug": "microsoft-frontier-tuning",
+      "title": "Microsoft Frontier Tuning",
+      "sources": [
+        "building-a-hill-climbing-machine-launching-seven-new-mai-models-synthesis"
+      ],
+      "date_first_seen": "2026-06-30",
+      "date_updated": "2026-06-30",
+      "entity_type": "framework"
     }
   ]
 }
