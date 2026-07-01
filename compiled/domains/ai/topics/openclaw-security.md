@@ -16,7 +16,7 @@ approved: true
 
 # OpenClaw Security
 
-[[openclaw]] Desktop is a powerful tool for developers and researchers, but like any sophisticated software, it requires careful management to ensure its security. The importance of securing OpenClaw cannot be overstated; with the rise in cybersecurity threats and data breaches, safeguarding this environment becomes crucial. This article synthesizes key practices from the [[how-to-harden-openclaw-security-best-practices-for-2026]] guide to enhance the safety and reliability of OpenClaw Desktop by the year 2026.
+[[openclaw]] Desktop is a powerful tool for developers and researchers, but like any sophisticated software, it requires careful management to ensure its security. The importance of securing [[openclaw]] cannot be overstated; with the rise in cybersecurity threats and data breaches, safeguarding this environment becomes crucial. This article synthesizes key practices from the [[how-to-harden-openclaw-security-best-practices-for-2026]] guide to enhance the safety and reliability of OpenClaw Desktop by the year 2026.
 
 Running OpenClaw in a [[docker]] container is one of the foundational steps for enhancing its security. [[docker-isolation]] creates an impenetrable boundary between the application and the host system, limiting file access to what is explicitly allowed through mounts. This separation ensures that any potential vulnerabilities within OpenClaw do not compromise the broader system environment.
 
@@ -28,8 +28,8 @@ To further control and restrict operations within this isolated container, stric
 
 Before installing new skills in OpenClaw, thorough vetting is essential to ensure they do not introduce potential security risks. This involves reviewing the skill's source code and dependencies for vulnerabilities before allowing it into the environment.
 
-[[emergency-controls]] such as Docker stop commands, API key revocation, and utilization of SOUL.md emergency brakes should be established beforehand. These measures serve as safety nets that can quickly shut down operations in case of a security incident or suspicious activity.
+[[emergency-controls]] such as [[docker]] stop commands, API key revocation, and utilization of SOUL.md emergency brakes should be established beforehand. These measures serve as safety nets that can quickly shut down operations in case of a security incident or suspicious activity.
 
 Lastly, regular monitoring of system logs is vital for detecting unusual activities and enforcing daily checks on API usage and file operations. This proactive approach helps in identifying potential threats early and responding swiftly to mitigate any damage.
 
-In summary, securing OpenClaw Desktop involves implementing robust practices such as Docker isolation, strict SOUL.md permission rules, secure [[api-key-management]], network hardening, [[skill-vetting]], emergency controls, and vigilant [[logging-and-auditing]]. By adhering to these guidelines, the environment can be safeguarded against a wide range of security threats.
+In summary, securing OpenClaw Desktop involves implementing robust practices such as [[docker-isolation]], strict SOUL.md permission rules, secure [[api-key-management]], [[network-hardening]], [[skill-vetting]], [[emergency-controls]], and vigilant [[logging-and-auditing]]. By adhering to these guidelines, the environment can be safeguarded against a wide range of security threats.

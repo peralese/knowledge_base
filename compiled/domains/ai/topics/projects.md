@@ -28,13 +28,13 @@ At the heart of this approach lies a series of prompts designed to cater to vari
 - **World**: Staying informed about recent developments is crucial. The system provides targeted insights relevant to your team's focus, allowing you to anticipate changes and adapt strategies accordingly.
 - **Move**: Strategic adjustments are suggested by the AI, ensuring that high-leverage tasks receive priority early in the day for maximum impact.
 
-The project emphasizes consistency in daily execution of these prompts. By integrating them into a routine, users can identify trends such as team members who may be quieter than usual or shifts in priorities, allowing for timely interventions and adjustments.
+The project emphasizes consistency in [[daily-execution]] of these prompts. By integrating them into a routine, users can identify trends such as team members who may be quieter than usual or shifts in priorities, allowing for timely interventions and adjustments.
 
-A critical component of this system is its ability to provide feedback and adapt over time. As users engage with the AI-generated briefs, the system learns from any missing information, refining its suggestions to enhance effectiveness continuously. Moreover, closing loops at day's end with follow-up prompts ensures that small commitments are addressed, thereby setting a productive foundation for subsequent days.
+A critical component of this system is its ability to provide feedback and adapt over time. As users engage with the AI-generated briefs, the system learns from any missing information, refining its suggestions to enhance effectiveness continuously. Moreover, [[closing-loops]] at day's end with follow-up prompts ensures that small commitments are addressed, thereby setting a productive foundation for subsequent days.
 
 An important guideline highlighted by Kline is to avoid starting your day by checking emails, which can inadvertently dictate your agenda rather than aligning it with your priorities. The system also cautions against the pitfalls of generic or overly verbose briefs that fail to deliver actionable insights. Trust in the AI's specific recommendations is essential for realizing the productivity gains promised by this innovative approach.
 
-This project draws its lineage from a well-documented process, ingested via specialized scripts and recorded in a detailed source manifest. Its origins trace back to comprehensive documentation aimed at maximizing the benefits of AI integration into daily routines. By embracing these strategies, individuals can unlock new levels of efficiency and leadership potential, setting a precedent for future explorations into AI-powered productivity tools.
+This project draws its lineage from a well-documented process, ingested via specialized scripts and recorded in a detailed source manifest. Its origins trace back to comprehensive documentation aimed at maximizing the benefits of [[ai-integration]] into daily routines. By embracing these strategies, individuals can unlock new levels of efficiency and leadership potential, setting a precedent for future explorations into AI-powered productivity tools.
 
 # Source Notes
 

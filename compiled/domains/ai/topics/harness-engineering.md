@@ -17,17 +17,17 @@ approved: true
 
 # Harness Engineering
 
-Harness engineering is an innovative discipline that emerged around 2026, addressing the critical need for reliable and scalable AI agents. This field focuses on designing systems that ensure AI models operate consistently in production environments, similar to how operating systems manage software applications. As AI transitions from prototype demonstrations to deployment at scale, harness engineering emphasizes reliability over mere model capabilities, ensuring that these intelligent systems function effectively within their intended contexts.
+[[harness-engineering]] is an innovative discipline that emerged around 2026, addressing the critical need for reliable and scalable AI agents. This field focuses on designing systems that ensure AI models operate consistently in production environments, similar to how operating systems manage software applications. As AI transitions from prototype demonstrations to deployment at scale, harness engineering emphasizes reliability over mere model capabilities, ensuring that these intelligent systems function effectively within their intended contexts.
 
-The essence of harness engineering lies in creating structured environments and constraints that guide the behavior of AI models. This approach ensures consistent performance across diverse tasks by emphasizing context management, architectural boundaries, and entropy control. By doing so, harness engineers enable AI agents to operate autonomously yet reliably within predefined limits, minimizing the need for human intervention.
+The essence of harness engineering lies in creating structured environments and constraints that guide the behavior of AI models. This approach ensures consistent performance across diverse tasks by emphasizing [[context-management]], architectural boundaries, and entropy control. By doing so, harness engineers enable AI agents to operate autonomously yet reliably within predefined limits, minimizing the need for human intervention.
 
 Harness engineering can be understood through several core pillars:
 
-- **Context Engineering**: This involves managing the flow of information to ensure that AI systems have access to the necessary context for accurate decision-making. Context engineering is crucial in providing AI models with relevant data inputs, facilitating better predictions and actions.
+- **[[context-engineering]]**: This involves managing the flow of information to ensure that AI systems have access to the necessary context for accurate decision-making. Context engineering is crucial in providing AI models with relevant data inputs, facilitating better predictions and actions.
 
-- **Architectural Constraints**: These are defined boundaries within which AI agents operate, enhancing their autonomy by minimizing errors that could otherwise require human oversight. By setting these constraints, harness engineers ensure that the AI systems adhere to desired operational standards and limits.
+- **[[architectural-constraints]]**: These are defined boundaries within which AI agents operate, enhancing their autonomy by minimizing errors that could otherwise require human oversight. By setting these constraints, harness engineers ensure that the AI systems adhere to desired operational standards and limits.
 
-- **Entropy Management**: Addressing inconsistencies and drift in AI-generated outputs over time is vital for maintaining reliability. Entropy management involves strategies to prevent degradation of model performance as they interact with dynamic environments or data sets.
+- **[[entropy-management]]**: Addressing inconsistencies and drift in AI-generated outputs over time is vital for maintaining reliability. Entropy management involves strategies to prevent degradation of model performance as they interact with dynamic environments or data sets.
 
 Harness engineering distinguishes itself from related fields such as prompt engineering and ML engineering. While prompt engineering focuses on optimizing single interactions with models, harness engineering enhances the entire system's reliability. Similarly, unlike ML engineering, which is concerned with developing and training models, harness engineering centers on operational aspects—ensuring that AI systems are stable and effective in real-world applications.
 

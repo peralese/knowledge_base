@@ -17,9 +17,9 @@ approved: true
 
 # MCP
 
-The Model Context Protocol (MCP) is a pivotal open-source standard in artificial intelligence designed to streamline the integration of AI applications with external systems. It acts as an intermediary that allows AI tools such as Claude or ChatGPT to seamlessly interact with various data sources—including local files and databases—and utilize additional functionalities like search engines and calculators. This elevates the operational capacity of these AI solutions, analogous to how USB-C provides a universal connection interface for electronic devices by standardizing connections between AI applications and external resources.
+The [[model-context-protocol]] (MCP) is a pivotal open-source standard in artificial intelligence designed to streamline the integration of AI applications with external systems. It acts as an intermediary that allows AI tools such as [[claude]] or [[chatgpt]] to seamlessly interact with various data sources—including local files and databases—and utilize additional functionalities like search engines and calculators. This elevates the operational capacity of these AI solutions, analogous to how USB-C provides a universal connection interface for electronic devices by standardizing connections between AI applications and external resources.
 
-MCP's primary strength lies in its integration capabilities, which empower AI applications by granting them access to a broad spectrum of data sources, tools, and workflows. This connectivity significantly enhances their functionality and versatility, enabling more complex tasks and autonomous operations tailored to the needs of end-users. Moreover, MCP is supported across numerous clients and servers within varied environments such as AI assistants, development tools like Visual Studio Code, and platforms including Cursor and MCPJam.
+MCP's primary strength lies in its integration capabilities, which empower AI applications by granting them access to a broad spectrum of data sources, tools, and workflows. This connectivity significantly enhances their functionality and versatility, enabling more complex tasks and autonomous operations tailored to the needs of end-users. Moreover, MCP is supported across numerous clients and servers within varied environments such as AI assistants, development tools like [[visual-studio-code]], and platforms including [[cursor]] and [[mcpjam]].
 
 ## Integration Capabilities
 
@@ -39,7 +39,7 @@ MCP offers distinct advantages to various stakeholders involved in AI applicatio
 
 - **End-users**: The ultimate beneficiaries are the end-users who experience improved functionality in their AI systems. These systems can access personal data and execute relevant tasks without manual intervention, thereby increasing efficiency and user satisfaction.
 
-In summary, the Model Context Protocol (MCP) plays a crucial role in modernizing AI application integration with external systems by providing a standardized framework that enhances interoperability and functionality across various platforms and environments. Its adoption signifies a step forward in realizing more sophisticated and autonomous AI solutions capable of meeting diverse user needs efficiently.
+In summary, the Model Context Protocol (MCP) plays a crucial role in modernizing [[ai-application-integration]] with external systems by providing a standardized framework that enhances interoperability and functionality across various platforms and environments. Its adoption signifies a step forward in realizing more sophisticated and autonomous AI solutions capable of meeting diverse user needs efficiently.
 
 # Source Notes
 

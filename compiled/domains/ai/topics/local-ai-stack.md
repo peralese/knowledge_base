@@ -17,7 +17,7 @@ approved: true
 
 # Local AI Stack
 
-In an era where artificial intelligence (AI) is rapidly transforming various sectors, the concept of a "Local AI Stack" has emerged as a crucial innovation. This involves configuring and running AI tools locally on individual machines or within private networks, enhancing control over data security and reducing reliance on cloud-based solutions. A significant development in this domain is the enhancement of local Large Language Models (LLMs) with persistent memory capabilities. These advancements enable users to maintain context across sessions—a key feature previously restricted to cloud platforms. The integration of tools like AnythingLLM into local AI stacks exemplifies this progress, offering functionalities that were once exclusive to larger, centralized systems. This shift not only optimizes performance but also allows for a more personalized and secure interaction with AI technologies.
+In an era where artificial intelligence (AI) is rapidly transforming various sectors, the concept of a "Local AI Stack" has emerged as a crucial innovation. This involves configuring and running AI tools locally on individual machines or within private networks, enhancing control over data security and reducing reliance on cloud-based solutions. A significant development in this domain is the enhancement of local [[large-language-models]] (LLMs) with [[persistent-memory]] capabilities. These advancements enable users to maintain context across sessions—a key feature previously restricted to cloud platforms. The integration of tools like [[anythingllm]] into local AI stacks exemplifies this progress, offering functionalities that were once exclusive to larger, centralized systems. This shift not only optimizes performance but also allows for a more personalized and secure interaction with AI technologies.
 
 ## Persistent Memory in Local LLMs
 
@@ -33,7 +33,7 @@ One of the standout features of AnythingLLM is its ability to categorize memorie
 
 ## Integration with Local Models
 
-AnythingLLM serves as an effective frontend for local model runners such as LM Studio, Jan AI, or llama.cpp. It provides essential features like workspace management and memory integration without necessitating changes to the underlying models themselves. This seamless compatibility ensures that users can enhance their local AI stacks efficiently while maintaining the integrity of existing systems.
+AnythingLLM serves as an effective frontend for local model runners such as [[lm-studio]], [[jan-ai]], or llama.cpp. It provides essential features like workspace management and memory integration without necessitating changes to the underlying models themselves. This seamless compatibility ensures that users can enhance their local AI stacks efficiently while maintaining the integrity of existing systems.
 
 In summary, the development of tools like AnythingLLM marks a pivotal advancement in the realm of Local AI Stacks. By introducing persistent memory capabilities, these innovations bridge the gap between local and cloud-based AI experiences, offering enhanced functionality and user control. As this technology continues to evolve, it holds significant promise for personalizing and securing AI interactions at an individual level.
 

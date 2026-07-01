@@ -17,7 +17,7 @@ approved: true
 
 # AI Tools
 
-In the rapidly evolving field of artificial intelligence, large language models (LLMs) have become a cornerstone for numerous applications. However, as these models grow in size, it's essential to recognize that sheer scale does not inherently equate to greater utility. The effectiveness of local LLMs relies heavily on their tool-calling capabilities—their ability to interact with and utilize external functions or tools seamlessly within practical tasks. This article explores why functionality, particularly tool-calling proficiency, often outweighs model size in the deployment of these sophisticated AI systems.
+In the rapidly evolving field of artificial intelligence, [[large-language-models]] (LLMs) have become a cornerstone for numerous applications. However, as these models grow in size, it's essential to recognize that sheer scale does not inherently equate to greater utility. The effectiveness of local LLMs relies heavily on their tool-calling capabilities—their ability to interact with and utilize external functions or tools seamlessly within practical tasks. This article explores why functionality, particularly tool-calling proficiency, often outweighs model size in the deployment of these sophisticated AI systems.
 
 The ability for an LLM to effectively call functions is a critical factor that determines its success in real-world applications. Models specifically trained for tool calling tend to outperform larger counterparts in practical scenarios because they can reliably execute necessary operations and interact with other software tools or databases. This capability is crucial for achieving task completion and ensuring the model's utility beyond basic language understanding.
 
@@ -29,13 +29,13 @@ Models generally under 7 to 9 billion parameters may struggle with consistent to
 
 ### Quantization
 
-Quantization is a technique used to reduce the memory footprint of AI models by decreasing numerical precision. Despite concerns that this reduction could impair performance, evidence suggests quantized models maintain their tool-calling capabilities effectively. Tests reveal minimal degradation in performance between quantized and unquantized versions concerning structured output tasks like tool calling. This finding supports the idea that optimizing for resource efficiency does not necessarily come at a significant cost to functionality.
+[[quantization]] is a technique used to reduce the memory footprint of AI models by decreasing numerical precision. Despite concerns that this reduction could impair performance, evidence suggests quantized models maintain their tool-calling capabilities effectively. Tests reveal minimal degradation in performance between quantized and unquantized versions concerning structured output tasks like tool calling. This finding supports the idea that optimizing for resource efficiency does not necessarily come at a significant cost to functionality.
 
 ### Practical Examples
 
 Several real-world examples illustrate how smaller, specialized models can outperform larger ones through effective tool-calling capabilities:
 
-- **Google’s Gemma 4 E2B**: Despite its relatively modest size of 2.3 billion parameters, this model excels in tool calling due to training specifically geared towards agentic workloads.
+- **Google’s [[gemma-4-e2b]]**: Despite its relatively modest size of 2.3 billion parameters, this model excels in tool calling due to training specifically geared towards agentic workloads.
   
 - **Nvidia’s Nemotron 3 Super and Mistral's Devstral**: These larger models are designed with integrated tool-calling functionalities, showcasing how specialized training can enhance performance beyond what raw parameter count suggests.
 
