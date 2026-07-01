@@ -10,3 +10,4 @@ _Generated on 2026-06-20_
 | I added this open-source tool to my local AI stack, and my local LLM finally has persistent memory | `raw/domains/ai/articles/i-added-this-open-source-tool-to-my-local-ai-stack-and-my-local-llm-finally-has-persistent-memory.md` | browser | validated | high 0.90 | approved |
 | What is Harness Engineering? A Complete Introduction (2026) | `raw/domains/ai/articles/what-is-harness-engineering-a-complete-introduction-2026.md` | browser | validated | high 0.90 | approved |
 | What Is Loop Engineering? The New Meta for AI Coding Agents | `raw/domains/ai/articles/what-is-loop-engineering-the-new-meta-for-ai-coding-agents.md` | browser | validated | high 0.85 | approved |
+| Build Your AI Powered Morning Brief | `raw/domains/ai/pdfs/build-your-ai-powered-morning-brief.md` | browser | validated | — | approved |

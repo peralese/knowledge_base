@@ -203,6 +203,20 @@
       "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/ai/inbox/browser/what-is-loop-engineering-the-new-meta-for-ai-coding-agents.md",
       "status": "raw",
       "archive_path": "raw/domains/ai/archive/what-is-loop-engineering-the-new-meta-for-ai-coding-agents--archived-20260620-094906.md"
+    },
+    {
+      "source_id": "SRC-20260620-0002",
+      "title": "Build Your AI Powered Morning Brief",
+      "filename": "build-your-ai-powered-morning-brief.md",
+      "path": "raw/domains/ai/pdfs/build-your-ai-powered-morning-brief.md",
+      "source_type": "pdf",
+      "origin": "web",
+      "date_ingested": "2026-06-20",
+      "domain": "ai",
+      "canonical_url": "",
+      "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/ai/inbox/browser/build-your-ai-powered-morning-brief.md",
+      "status": "raw",
+      "archive_path": "raw/domains/ai/archive/build-your-ai-powered-morning-brief--archived-20260620-181953.md"
     }
   ]
 }

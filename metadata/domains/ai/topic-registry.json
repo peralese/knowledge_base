@@ -84,6 +84,11 @@
       "slug": "harness-engineering",
       "title": "Harness Engineering",
       "aliases": []
+    },
+    {
+      "slug": "projects",
+      "title": "Projects",
+      "aliases": []
     }
   ]
 }
