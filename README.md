@@ -132,10 +132,33 @@ Make the existing graph denser and traversable before investing in UI.
 
 | Step | Task | Notes |
 |------|------|-------|
-| 2A-1 | **Graph Health Baseline** | Script measuring wikilink density, stub ratio, orphan count. Run before/after as benchmark. |
-| 2A-2 | **Concept Definitions** | Second LLM pass to write actual definitions for stub notes, sourced from approved content. |
-| 2A-3 | **Wikilink Injection** | Back-annotate source/topic notes with `[[concept]]` links. Converts flat text to graph. |
-| 2A-4 | **Concepts/Entities Browser** | Dashboard tab for browsing concept/entity notes. Build after 2A-2 and 2A-3 are complete. |
+| 2A-1 | **Graph Health Baseline** | Complete. `scripts/graph_health.py` measures note counts, wikilink density, stub ratio, orphan count, source coverage, and gap ranking; snapshots are saved under `outputs/domains/<slug>/graph_health/`. |
+| 2A-2 | **Concept Definitions** | Complete for the current AI domain pass. `scripts/define_concepts.py` wrote grounded definitions for 26 concept stubs and skipped low-evidence concepts with fewer than two source excerpts. Current AI-domain stub ratio: 39.2%. |
+| 2A-3 | **Wikilink Injection** | Complete and tightened. Topic/source-summary notes were back-annotated with concept/entity links, artifact/path-like extractions were filtered from future concept aggregation, and the AI graph now reports zero orphan concepts/entities. |
+| 2A-4 | **Concepts/Entities Browser** | Next. Build a dashboard view for browsing concepts/entities, showing definitions, linked topics, source summaries, entity type, stub status, and graph-health signals. |
+
+Current AI-domain graph status after 2A tightening:
+
+- Topics: 10
+- Concepts: 51
+- Entities: 25
+- Source summaries: 16
+- Topic wikilink density: 9.70
+- Source-summary wikilink density: 4.00
+- Concept stub ratio: 39.2%
+- Orphan concepts/entities: 0
+- Latest snapshot: `outputs/domains/ai/graph_health/2026-06-30-212341.json`
+
+Current post-ingest maintenance sequence after approving new source summaries:
+
+```bash
+python3 scripts/concept_aggregator.py --all
+python3 scripts/define_concepts.py
+python3 scripts/inject_wikilinks.py
+python3 scripts/index_notes.py --no-commit
+python3 scripts/vector_index.py update
+python3 scripts/graph_health.py
+```
 
 ---
 
@@ -178,29 +201,19 @@ Complement BM25 for semantic queries at scale. Sequenced last so embeddings are 
 
 ### Future Enhancement — Document Ingestion Engine
 
-Evaluate a document ingestion engine for uploaded source files such as PDF, DOCX, PPTX, and other project document formats. Docling is a candidate parser to investigate for converting uploaded documents into structured Markdown, JSON, and chunkable content for the knowledge base.
+Evaluate a document ingestion engine for uploaded source files such as PDF, DOCX, PPTX, and other project document formats. Current ingestion supports text/Markdown, HTML-to-text, and extractable-text PDFs; Docling is a candidate parser to investigate for higher-fidelity local document conversion before handoff to the existing knowledge-base pipeline.
 
 Potential workflow:
 
 1. User uploads a PDF, DOCX, PPTX, or similar source document.
 2. Docling parses the document and extracts structured content.
 3. Parsed output is converted to Markdown and/or JSON.
-4. The project-kb pipeline chunks, tags, and indexes the content.
+4. The Knowledge Base pipeline chunks, tags, and indexes the content.
 5. The content becomes searchable and usable by the knowledge base app.
 
-Possible use cases include ingesting project documents, requirements documents, architecture PDFs, vendor documentation, and meeting notes; extracting headings, sections, tables, and document metadata; preparing content for RAG/search workflows; and generating human-readable Markdown for the knowledge base while retaining structured JSON for application processing.
+Possible use cases include ingesting project documents, requirements documents, architecture PDFs, vendor documentation, and meeting notes; extracting headings, sections, tables, and document metadata; handling scanned PDFs/OCR and table-heavy documents; preparing content for RAG/search workflows; and generating human-readable Markdown for the knowledge base while retaining structured JSON for application processing.
 
-This is exploratory only. Docling is not yet selected as the final implementation choice, and future evaluation should compare it against simpler parsers and existing document loaders before adding dependencies or ingestion logic.
-
-**Post-ingest sequence** (run after approving new source summaries):
-
-```bash
-python3 scripts/concept_aggregator.py --all
-python3 scripts/define_concepts.py
-python3 scripts/inject_wikilinks.py
-python3 scripts/vector_index.py update       # update vector index for new/changed notes
-python3 scripts/graph_health.py
-```
+This is exploratory only. Docling is not yet selected as the final implementation choice, and future evaluation should compare it against simpler parsers and existing document loaders before adding dependencies or ingestion logic. Evaluation criteria should include local/offline behavior, dependency footprint, supported formats, OCR and table extraction quality, metadata preservation, Markdown/JSON output quality, chunking quality, and fallback behavior versus the current `pypdf` path.
 
 **nomic-embed-text requirement**: the vector index requires an Ollama embedding model. If not yet installed:
 ```bash
@@ -225,3 +238,11 @@ ollama pull nomic-embed-text
 - Graph health baseline script shows measurable wikilink density and stub ratio improvement after 2A
 - Query feedback scores trend upward as 2B integrity work lands
 - Latency benchmarks remain acceptable through 2D without cloud dependency
+
+### Next Steps
+
+1. Build Phase 2A-4 Concepts/Entities Browser in the dashboard.
+2. Add entity/concept detail API endpoints if the current dashboard routes do not expose enough metadata.
+3. Use graph-health snapshots to show stub/orphan/source-coverage signals in the browser.
+4. Continue reducing concept stubs with targeted source collection or manual definitions for high-value notes.
+5. Run a separate Docling spike before committing to new ingestion dependencies.
