@@ -55,7 +55,7 @@ This note synthesizes the comprehensive guide on building AI agents, emphasizing
 
 ## [[how-to-build-an-ai-agent-a-complete-guide]]
 - Title: How to Build an AI Agent: A Complete Guide
-- Origin: Web (https://aitoolsclub.com/how-to-build-an-ai-agent-a-complete-guide/?utm_source=flipboard&utm_content=Marktechpost/magazine/AI+Agents)
+- Origin: [[aitoolsclub|AIToolsClub]] (https://aitoolsclub.com/how-to-build-an-ai-agent-a-complete-guide/?utm_source=flipboard&utm_content=Marktechpost/magazine/AI+Agents)
 - Summary: Provides a detailed guide on building production-grade AI agents, covering architectural components, tool integration, context management, quality evaluation, and deployment.
 - Key excerpt:
   - "An AI agent is an autonomous system capable of reasoning, planning, and taking action, often over multiple steps and with minimal human intervention, while improving over time."

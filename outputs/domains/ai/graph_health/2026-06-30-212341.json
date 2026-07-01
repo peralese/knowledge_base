@@ -1,0 +1,149 @@
+{
+  "date": "2026-06-30",
+  "timestamp": "2026-06-30-212341",
+  "note_counts": {
+    "topics": 10,
+    "concepts": 51,
+    "entities": 25,
+    "source_summaries": 16
+  },
+  "wikilink_density": {
+    "topics": 9.7,
+    "concepts": 0.59,
+    "entities": 1.08,
+    "source_summaries": 4.0
+  },
+  "stub_ratio_pct": 39.2,
+  "stub_count": 20,
+  "total_concept_notes": 51,
+  "orphan_count": 0,
+  "orphaned_concepts": 0,
+  "orphaned_entities": 0,
+  "top_orphans": [],
+  "source_coverage_pct": 75.0,
+  "covered_approved_sources": 12,
+  "total_approved_sources": 16,
+  "avg_approved_sources_per_topic": 1.2,
+  "gaps": [
+    {
+      "topic": "projects",
+      "gap_score": 0.81,
+      "orphan_concept_ratio": 1.0,
+      "orphan_pct": 100,
+      "approved_sources": 1,
+      "stub_ratio": 0.8,
+      "stub_pct": 80,
+      "concepts_mentioned": 5,
+      "orphan_concepts": 5,
+      "stub_concepts": 4
+    },
+    {
+      "topic": "openclaw-security",
+      "gap_score": 0.7,
+      "orphan_concept_ratio": 1.0,
+      "orphan_pct": 100,
+      "approved_sources": 1,
+      "stub_ratio": 0.25,
+      "stub_pct": 25,
+      "concepts_mentioned": 8,
+      "orphan_concepts": 8,
+      "stub_concepts": 2
+    },
+    {
+      "topic": "ai-tools",
+      "gap_score": 0.62,
+      "orphan_concept_ratio": 0.75,
+      "orphan_pct": 75,
+      "approved_sources": 1,
+      "stub_ratio": 0.5,
+      "stub_pct": 50,
+      "concepts_mentioned": 4,
+      "orphan_concepts": 3,
+      "stub_concepts": 2
+    },
+    {
+      "topic": "mcp",
+      "gap_score": 0.62,
+      "orphan_concept_ratio": 0.6667,
+      "orphan_pct": 67,
+      "approved_sources": 1,
+      "stub_ratio": 0.6667,
+      "stub_pct": 67,
+      "concepts_mentioned": 3,
+      "orphan_concepts": 2,
+      "stub_concepts": 2
+    },
+    {
+      "topic": "auto-research",
+      "gap_score": 0.5,
+      "orphan_concept_ratio": 0.5,
+      "orphan_pct": 50,
+      "approved_sources": 1,
+      "stub_ratio": 0.5,
+      "stub_pct": 50,
+      "concepts_mentioned": 2,
+      "orphan_concepts": 1,
+      "stub_concepts": 1
+    },
+    {
+      "topic": "local-ai-stack",
+      "gap_score": 0.5,
+      "orphan_concept_ratio": 0.5,
+      "orphan_pct": 50,
+      "approved_sources": 1,
+      "stub_ratio": 0.5,
+      "stub_pct": 50,
+      "concepts_mentioned": 4,
+      "orphan_concepts": 2,
+      "stub_concepts": 2
+    },
+    {
+      "topic": "agents",
+      "gap_score": 0.48,
+      "orphan_concept_ratio": 0.5,
+      "orphan_pct": 50,
+      "approved_sources": 1,
+      "stub_ratio": 0.375,
+      "stub_pct": 38,
+      "concepts_mentioned": 8,
+      "orphan_concepts": 4,
+      "stub_concepts": 3
+    },
+    {
+      "topic": "harness-engineering",
+      "gap_score": 0.45,
+      "orphan_concept_ratio": 0.6,
+      "orphan_pct": 60,
+      "approved_sources": 1,
+      "stub_ratio": 0.0,
+      "stub_pct": 0,
+      "concepts_mentioned": 5,
+      "orphan_concepts": 3,
+      "stub_concepts": 0
+    },
+    {
+      "topic": "loop-engineering",
+      "gap_score": 0.44,
+      "orphan_concept_ratio": 0.8889,
+      "orphan_pct": 89,
+      "approved_sources": 2,
+      "stub_ratio": 0.0,
+      "stub_pct": 0,
+      "concepts_mentioned": 9,
+      "orphan_concepts": 8,
+      "stub_concepts": 0
+    },
+    {
+      "topic": "llm-knowledge-bases",
+      "gap_score": 0.35,
+      "orphan_concept_ratio": 0.5,
+      "orphan_pct": 50,
+      "approved_sources": 2,
+      "stub_ratio": 0.5,
+      "stub_pct": 50,
+      "concepts_mentioned": 2,
+      "orphan_concepts": 1,
+      "stub_concepts": 1
+    }
+  ]
+}

@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 from scripts.concept_aggregator import (
     _already_extracted,
     _append_mentioned_in,
+    _is_valid_extraction_item,
     _parse_sources_from_note,
     _slugify,
     _update_registry_entry,
@@ -87,6 +88,34 @@ class SlugifyTests(unittest.TestCase):
 
     def test_leading_trailing_hyphens(self):
         self.assertEqual(_slugify("  hello world  "), "hello-world")
+
+
+class ExtractionValidationTests(unittest.TestCase):
+    def test_rejects_local_file_path_entities(self):
+        slug = _slugify("/Users/me/project/raw/inbox/source.md")
+        self.assertFalse(
+            _is_valid_extraction_item(
+                "/Users/me/project/raw/inbox/source.md",
+                "Local source path",
+                "The file path for the document.",
+                slug,
+            )
+        )
+
+    def test_rejects_manifest_artifacts(self):
+        slug = _slugify("metadata/source-manifest.json::SRC-20260620-0001")
+        self.assertFalse(
+            _is_valid_extraction_item(
+                "metadata/source-manifest.json::SRC-20260620-0001",
+                "Manifest entry",
+                "The document was ingested with a manifest entry.",
+                slug,
+            )
+        )
+
+    def test_allows_real_tools_and_people(self):
+        self.assertTrue(_is_valid_extraction_item("ollama", "Ollama", "used for local inference", "ollama"))
+        self.assertTrue(_is_valid_extraction_item("andrej-karpathy", "Andrej Karpathy", "created autoresearch", "andrej-karpathy"))
 
 
 # ---------------------------------------------------------------------------
@@ -379,11 +408,11 @@ class ExtractConceptsAndEntitiesTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
-        (self.root / "compiled" / "concepts").mkdir(parents=True)
-        (self.root / "compiled" / "source_summaries").mkdir(parents=True)
-        (self.root / "metadata").mkdir(parents=True)
-        (self.root / "metadata" / "concept-registry.json").write_text('{"concepts": []}')
-        (self.root / "metadata" / "entity-registry.json").write_text('{"entities": []}')
+        (self.root / "compiled" / "domains" / "ai" / "concepts").mkdir(parents=True)
+        (self.root / "compiled" / "domains" / "ai" / "source_summaries").mkdir(parents=True)
+        (self.root / "metadata" / "domains" / "ai").mkdir(parents=True)
+        (self.root / "metadata" / "domains" / "ai" / "concept-registry.json").write_text('{"concepts": []}')
+        (self.root / "metadata" / "domains" / "ai" / "entity-registry.json").write_text('{"entities": []}')
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -398,7 +427,7 @@ class ExtractConceptsAndEntitiesTests(unittest.TestCase):
             root=self.root, model="test-model",
         )
         self.assertEqual(len(result["concepts_written"]), 1)
-        concept_path = self.root / "compiled" / "concepts" / "zero-trust.md"
+        concept_path = self.root / "compiled" / "domains" / "ai" / "concepts" / "zero-trust.md"
         self.assertTrue(concept_path.exists())
         content = concept_path.read_text()
         self.assertIn("Zero Trust", content)
@@ -414,7 +443,7 @@ class ExtractConceptsAndEntitiesTests(unittest.TestCase):
             root=self.root, model="test-model",
         )
         self.assertEqual(len(result["entities_written"]), 1)
-        entity_path = self.root / "compiled" / "entities" / "ollama.md"
+        entity_path = self.root / "compiled" / "domains" / "ai" / "entities" / "ollama.md"
         self.assertTrue(entity_path.exists())
         content = entity_path.read_text()
         self.assertIn("entity_type: tool", content)
@@ -428,8 +457,8 @@ class ExtractConceptsAndEntitiesTests(unittest.TestCase):
             "source body", "my-source",
             root=self.root, model="test-model",
         )
-        creg = json.loads((self.root / "metadata" / "concept-registry.json").read_text())
-        ereg = json.loads((self.root / "metadata" / "entity-registry.json").read_text())
+        creg = json.loads((self.root / "metadata" / "domains" / "ai" / "concept-registry.json").read_text())
+        ereg = json.loads((self.root / "metadata" / "domains" / "ai" / "entity-registry.json").read_text())
         self.assertEqual(creg["concepts"][0]["slug"], "zero-trust")
         self.assertEqual(ereg["entities"][0]["slug"], "ollama")
 
@@ -440,7 +469,7 @@ class ExtractConceptsAndEntitiesTests(unittest.TestCase):
         mock_ollama.return_value = json.dumps(SAMPLE_EXTRACTION)
         extract_concepts_and_entities("body", "src", root=self.root, model="m")
         extract_concepts_and_entities("body", "src", root=self.root, model="m")
-        concept_path = self.root / "compiled" / "concepts" / "zero-trust.md"
+        concept_path = self.root / "compiled" / "domains" / "ai" / "concepts" / "zero-trust.md"
         content = concept_path.read_text()
         self.assertEqual(content.count("[[src]]"), 1)
 
@@ -461,7 +490,7 @@ class ExtractConceptsAndEntitiesTests(unittest.TestCase):
             "body", "src", root=self.root, model="m", dry_run=True
         )
         self.assertEqual(result.get("concepts_written", []), [])
-        concept_path = self.root / "compiled" / "concepts" / "zero-trust.md"
+        concept_path = self.root / "compiled" / "domains" / "ai" / "concepts" / "zero-trust.md"
         self.assertFalse(concept_path.exists())
         mock_commit.assert_not_called()
 
@@ -488,6 +517,25 @@ class ExtractConceptsAndEntitiesTests(unittest.TestCase):
         self.assertEqual(result["entities_written"], [])
         mock_commit.assert_not_called()
 
+    @patch("scripts.concept_aggregator.commit_pipeline_stage")
+    @patch("scripts.concept_aggregator.call_ollama")
+    @patch("scripts.concept_aggregator._check_model_available")
+    def test_artifact_extractions_are_filtered(self, mock_check, mock_ollama, mock_commit):
+        mock_ollama.return_value = json.dumps({
+            "concepts": [
+                {"slug": "metadata/source-manifest.json::SRC-20260620-0001", "title": "Manifest Entry", "context": "ingestion artifact"},
+            ],
+            "entities": [
+                {"slug": "/Users/me/project/raw/inbox/source.md", "title": "Source Path", "entity_type": "product", "context": "file path"},
+                {"slug": "ollama", "title": "Ollama", "entity_type": "tool", "context": "used for local LLM inference"},
+            ],
+        })
+        result = extract_concepts_and_entities("body", "src", root=self.root, model="m")
+
+        self.assertEqual([p.name for p in result["concepts_written"]], [])
+        self.assertEqual([p.name for p in result["entities_written"]], ["ollama.md"])
+        self.assertFalse((self.root / "compiled" / "domains" / "ai" / "concepts" / "metadatasource-manifestjsonsrc-20260620-0001.md").exists())
+
 
 # ---------------------------------------------------------------------------
 # AlreadyExtractedTests
@@ -497,26 +545,26 @@ class AlreadyExtractedTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
-        (self.root / "metadata").mkdir(parents=True)
+        (self.root / "metadata" / "domains" / "ai").mkdir(parents=True)
 
     def tearDown(self):
         self.tmp.cleanup()
 
     def test_not_extracted_when_registry_empty(self):
-        (self.root / "metadata" / "concept-registry.json").write_text('{"concepts": []}')
-        (self.root / "metadata" / "entity-registry.json").write_text('{"entities": []}')
+        (self.root / "metadata" / "domains" / "ai" / "concept-registry.json").write_text('{"concepts": []}')
+        (self.root / "metadata" / "domains" / "ai" / "entity-registry.json").write_text('{"entities": []}')
         self.assertFalse(_already_extracted("my-source", self.root))
 
     def test_extracted_when_in_concept_registry(self):
         reg = {"concepts": [{"slug": "rag", "title": "RAG", "sources": ["my-source"]}]}
-        (self.root / "metadata" / "concept-registry.json").write_text(json.dumps(reg))
-        (self.root / "metadata" / "entity-registry.json").write_text('{"entities": []}')
+        (self.root / "metadata" / "domains" / "ai" / "concept-registry.json").write_text(json.dumps(reg))
+        (self.root / "metadata" / "domains" / "ai" / "entity-registry.json").write_text('{"entities": []}')
         self.assertTrue(_already_extracted("my-source", self.root))
 
     def test_not_extracted_when_different_source(self):
         reg = {"concepts": [{"slug": "rag", "title": "RAG", "sources": ["other-source"]}]}
-        (self.root / "metadata" / "concept-registry.json").write_text(json.dumps(reg))
-        (self.root / "metadata" / "entity-registry.json").write_text('{"entities": []}')
+        (self.root / "metadata" / "domains" / "ai" / "concept-registry.json").write_text(json.dumps(reg))
+        (self.root / "metadata" / "domains" / "ai" / "entity-registry.json").write_text('{"entities": []}')
         self.assertFalse(_already_extracted("my-source", self.root))
 
 

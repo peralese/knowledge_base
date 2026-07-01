@@ -26,7 +26,7 @@ Harness engineering involves creating environments and constraints that guide th
 
 - **Definition**: Harness engineering is the practice of designing reliable systems around AI models, focusing on managing their operational environment rather than developing the models themselves.
 
-- **Origin**: The term was coined by OpenAI's engineering team in 2026 as they built a system enabling consistent and reliable outputs from AI models.
+- **Origin**: The term was coined by [[openai|OpenAI]]'s engineering team in 2026 as they built a system enabling consistent and reliable outputs from AI models.
 
 - **Core Pillars**:
   - **Context Engineering**: Managing information flow to ensure AI systems have the necessary context for decision-making.
@@ -51,4 +51,3 @@ The necessity for harness engineering arose as AI applications moved from experi
 # Source Notes
 
 - [[what-is-harness-engineering-a-complete-introduction-2026]]
-

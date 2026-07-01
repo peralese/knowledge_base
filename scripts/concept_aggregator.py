@@ -101,6 +101,42 @@ def _slugify(text: str) -> str:
     return text.strip("-")
 
 
+def _is_artifact_extraction(raw_slug: str, title: str, context: str, slug: str) -> bool:
+    """Return True for extraction artifacts that should not become graph notes."""
+    raw = " ".join([raw_slug, title, context]).lower()
+    artifact_markers = [
+        "/users/",
+        "/home/",
+        "/raw/",
+        "/compiled/",
+        "metadata/",
+        "source-manifest.json",
+        "scripts/",
+        ".md",
+        ".py",
+        ".json",
+        "::src-",
+    ]
+    if any(marker in raw for marker in artifact_markers):
+        return True
+    if slug.startswith(("http", "www", "users", "home", "metadata", "scripts")):
+        return True
+    if "source-manifestjson" in slug:
+        return True
+    if slug.endswith(("md", "py", "json")) and any(part in slug for part in ("raw", "inbox", "scripts", "metadata")):
+        return True
+    return len(slug) > 90
+
+
+def _is_valid_extraction_item(raw_slug: str, title: str, context: str, slug: str) -> bool:
+    """Validate LLM extraction output before writing notes or registries."""
+    if not slug:
+        return False
+    if _is_artifact_extraction(raw_slug, title, context, slug):
+        return False
+    return True
+
+
 # ---------------------------------------------------------------------------
 # Frontmatter parsing
 # ---------------------------------------------------------------------------
@@ -398,7 +434,7 @@ def extract_concepts_and_entities(
         if not raw_slug:
             continue
         slug = _slugify(raw_slug)
-        if not slug:
+        if not _is_valid_extraction_item(raw_slug, title, context, slug):
             continue
 
         note_path = concepts_dir / f"{slug}.md"
@@ -433,7 +469,7 @@ def extract_concepts_and_entities(
         if not raw_slug:
             continue
         slug = _slugify(raw_slug)
-        if not slug:
+        if not _is_valid_extraction_item(raw_slug, title, context, slug):
             continue
 
         note_path = entities_dir / f"{slug}.md"

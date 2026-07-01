@@ -21,15 +21,6 @@
       "date_updated": "2026-04-22"
     },
     {
-      "slug": "bm25-scoring",
-      "title": "BM25 Scoring",
-      "sources": [
-        "how-to-build-an-ai-agent-a-complete-guide-synthesis"
-      ],
-      "date_first_seen": "2026-04-22",
-      "date_updated": "2026-04-22"
-    },
-    {
       "slug": "agent-quality-framework",
       "title": "Agent Quality Framework",
       "sources": [

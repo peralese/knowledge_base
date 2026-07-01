@@ -37,7 +37,7 @@ approved: true
    - **[[explore-narrow|Explore-Narrow]]**: Broad exploration followed by focused refinement based on findings.
    - **Human-in-the-Loop**: Incorporates human feedback within the loop for guidance or decision-making.
 
-5. **Role of Platforms like MindStudio**:
+5. **Role of Platforms like [[mystudio|MindStudio]]**:
    - These platforms manage infrastructure overhead, such as retries and tool orchestration, allowing developers to focus on reasoning logic rather than backend complexities.
 
 6. **Relevance in AI Workflows**:
@@ -50,11 +50,11 @@ approved: true
 
 - Understanding loop engineering is crucial for developers creating sophisticated AI agents and workflows.
 - The concept emphasizes the importance of adaptability, context management, and error handling within AI systems.
-- MindStudio provides tools to streamline the development process by managing infrastructure tasks associated with loop engineering.
+- [[mystudio|MindStudio]] provides tools to streamline the development process by managing infrastructure tasks associated with loop engineering.
 
 ### Lineage
 
-The document on loop engineering was ingested as part of a knowledge base project. It details how iterative cycles are essential in modern AI systems for achieving autonomous functionality, particularly in coding agents. The information originates from an article titled "What is Loop Engineering: The New Meta for AI Coding Agents?" hosted on MindStudio's blog.
+The document on loop engineering was ingested as part of a knowledge base project. It details how iterative cycles are essential in modern AI systems for achieving autonomous functionality, particularly in coding agents. The information originates from an article titled "[[what-is-loop-engineering-the-new-meta-for-ai-coding-agents|What is Loop Engineering: The New Meta for AI Coding Agents?]]" hosted on [[mystudio|MindStudio]]'s blog.
 
 **Source Details:**
 - Ingested via `scripts/ingest.py`

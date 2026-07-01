@@ -18,7 +18,7 @@ approved: true
 
 # Summary
 
-This note summarizes an article by Nolen Jonker, published on June 9, 2026. It describes how the author enhanced their local Large Language Model (LLM) with persistent memory capabilities using an open-source tool called AnythingLLM. The article discusses the challenges of maintaining context between sessions in a local LLM and how AnythingLLM addresses these issues by automatically saving and re-injecting relevant facts into conversations, thus mimicking cloud AI's persistent memory feature.
+This note summarizes an article by [[nolen-jonker|Nolen Jonker]], published on June 9, 2026. It describes how the author enhanced their local Large Language Model (LLM) with persistent memory capabilities using an open-source tool called AnythingLLM. The article discusses the challenges of maintaining context between sessions in a local LLM and how AnythingLLM addresses these issues by automatically saving and re-injecting relevant facts into conversations, thus mimicking cloud AI's persistent memory feature.
 
 # Key Insights
 

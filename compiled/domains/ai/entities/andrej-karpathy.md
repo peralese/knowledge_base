@@ -18,3 +18,8 @@ _Description not yet written. Update this stub with content from the sources bel
 ## Mentioned In
 
 - [[karpathy-s-autoresearch-went-viral-here-s-how-it-works-and-one-idea-to-try-synthesis]] — Andrej Karpathy is the creator and key figure behind the autoresearch project which uses LLMs to automate machine learning experiment cycles.
+
+## Related Entities
+
+- [[karpathy|Karpathy]]
+- [[karpathy-s-autoresearch|Karpathy's Autoresearch]]
