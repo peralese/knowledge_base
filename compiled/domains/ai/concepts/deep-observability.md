@@ -19,3 +19,5 @@ Deep observability refers to the comprehensive monitoring and analysis framework
 ## Mentioned In
 
 ## Related Concepts
+
+- [[deep-observability-trinity|Deep Observability Trinity]]

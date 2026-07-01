@@ -17,13 +17,13 @@ approved: true
 
 # AI Tools
 
-In the rapidly evolving field of artificial intelligence, [[large-language-models]] (LLMs) have become a cornerstone for numerous applications. However, as these models grow in size, it's essential to recognize that sheer scale does not inherently equate to greater utility. The effectiveness of local LLMs relies heavily on their tool-calling capabilities—their ability to interact with and utilize external functions or tools seamlessly within practical tasks. This article explores why functionality, particularly tool-calling proficiency, often outweighs model size in the deployment of these sophisticated AI systems.
+In the rapidly evolving field of artificial intelligence, [[large-language-models]] (LLMs) have become a cornerstone for numerous applications. However, as these models grow in size, it's essential to recognize that sheer scale does not inherently equate to greater utility. The effectiveness of local LLMs relies heavily on their [[tool-calling-capabilities]]: their ability to interact with and utilize external functions or tools seamlessly within practical tasks. This article explores why functionality, particularly tool-calling proficiency, often outweighs model size in the deployment of these sophisticated AI systems.
 
 The ability for an LLM to effectively call functions is a critical factor that determines its success in real-world applications. Models specifically trained for tool calling tend to outperform larger counterparts in practical scenarios because they can reliably execute necessary operations and interact with other software tools or databases. This capability is crucial for achieving task completion and ensuring the model's utility beyond basic language understanding.
 
 ### Model Size vs. Functionality
 
-The debate between model size and functionality is central to deploying effective AI tools. A 14 billion parameter model that consistently performs accurate tool-calling can be more beneficial than a larger model with 70 billion parameters if it lacks reliable interaction capabilities. In essence, the practical application of an LLM depends significantly on its ability to execute specific tasks reliably rather than just processing large amounts of data.
+The tradeoff between [[model-size-vs-functionality|model size and functionality]] is central to deploying effective AI tools. A 14 billion parameter model that consistently performs accurate tool-calling can be more beneficial than a larger model with 70 billion parameters if it lacks reliable interaction capabilities. In essence, the practical application of an LLM depends significantly on its ability to execute specific tasks reliably rather than just processing large amounts of data.
 
 Models generally under 7 to 9 billion parameters may struggle with consistent tool calling unless they have undergone specialized training for particular use cases. For instance, general-purpose models might falter without fine-tuning because their default configurations aren't optimized for interacting with external tools and functions—a process known as [[function calling]] or [[agentive tasks]].
 
@@ -37,7 +37,7 @@ Several real-world examples illustrate how smaller, specialized models can outpe
 
 - **Google’s [[gemma-4-e2b]]**: Despite its relatively modest size of 2.3 billion parameters, this model excels in tool calling due to training specifically geared towards agentic workloads.
   
-- **Nvidia’s Nemotron 3 Super and Mistral's Devstral**: These larger models are designed with integrated tool-calling functionalities, showcasing how specialized training can enhance performance beyond what raw parameter count suggests.
+- **[[nvidia-nemotron-3-super|Nvidia’s Nemotron 3 Super]] and [[mistral-devstral|Mistral's Devstral]]**: These larger models are designed with integrated tool-calling functionalities, showcasing how specialized training can enhance performance beyond what raw parameter count suggests.
 
 These examples underscore the importance of targeted training in building AI systems that are not only powerful but also practically applicable.
 

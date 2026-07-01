@@ -35,9 +35,9 @@ Loop engineering is an evolving methodology in software development where develo
 
 # Related Concepts
 
-- Agent harness engineering
-- Comprehension debt
-- Cognitive surrender
+- [[agent-harness-engineering]]
+- [[comprehension-debt]]
+- [[cognitive-surrender]]
 
 # Notes
 
@@ -53,4 +53,3 @@ Loop engineering shifts the role of developers from active prompters to designer
 # Source Notes
 
 - [[loop-engineering]]
-

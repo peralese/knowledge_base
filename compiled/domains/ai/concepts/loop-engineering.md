@@ -21,3 +21,7 @@ Loop engineering is a methodology in software development focused on designing a
 ## Mentioned In
 
 ## Related Concepts
+
+- [[harness-engineering]]
+- [[agent-harness-engineering]]
+- [[iterative-cycles]]

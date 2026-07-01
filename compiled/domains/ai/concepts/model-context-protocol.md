@@ -22,3 +22,6 @@ The Model Context Protocol (MCP) is an open-source standard designed to enable s
 ## Mentioned In
 
 ## Related Concepts
+
+- [[model-context-protocol-mcp|Model Context Protocol (MCP)]]
+- [[ai-application-integration]]

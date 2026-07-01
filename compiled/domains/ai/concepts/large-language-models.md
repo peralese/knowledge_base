@@ -20,3 +20,6 @@ Large language models are advanced neural networks designed to understand and ge
 ## Mentioned In
 
 ## Related Concepts
+
+- [[large-language-models-llms|Large Language Models (LLMs)]]
+- [[tool-calling-capabilities]]

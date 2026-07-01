@@ -17,7 +17,7 @@ approved: true
 
 # Projects
 
-In an era where productivity and effective time management are paramount, leveraging artificial intelligence (AI) to optimize morning routines has become increasingly vital. "Build Your AI Powered Morning Brief" by Dave Kline offers a structured approach for individuals to harness the power of AI in transforming mundane tasks into strategic actions. By automating the creation of a comprehensive morning brief, users can streamline their schedules, manage decisions effectively, and ensure proactive leadership—all while staying informed about relevant developments affecting their team. This project exemplifies how integrating AI tools like [[Ollama]] can revolutionize personal productivity by providing timely, precise decision-making support.
+In an era where productivity and effective time management are paramount, leveraging artificial intelligence (AI) to optimize morning routines has become increasingly vital. "Build Your AI Powered Morning Brief" by Dave Kline offers a structured approach for individuals to harness the power of AI in transforming mundane tasks into strategic actions. By automating the creation of a comprehensive morning brief, users can streamline their schedules, manage decisions effectively, and ensure proactive leadership—all while staying informed about relevant developments affecting their team. This project exemplifies how integrating AI tools like [[ollama|Ollama]] can revolutionize personal productivity by providing timely, precise decision-making support.
 
 At the heart of this approach lies a series of prompts designed to cater to various aspects of one's morning routine. Each prompt addresses specific needs:
 

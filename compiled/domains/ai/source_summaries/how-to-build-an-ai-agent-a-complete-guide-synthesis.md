@@ -27,10 +27,10 @@ approved: true
 
 This note synthesizes the comprehensive guide on building AI agents, emphasizing the importance of understanding and creating autonomous systems. The guide covers five key areas:
 1. Introduction to Agents: Defines AI agents as systems capable of reasoning, planning, and taking action with minimal human intervention.
-2. Agent Tools & Interoperability: Describes tools used by agents, including function tools, built-in capabilities, and agent tools, along with the Model Context Protocol (MCP) for universal communication.
+2. Agent Tools & Interoperability: Describes tools used by agents, including function tools, built-in capabilities, and agent tools, along with the [[model-context-protocol-mcp|Model Context Protocol (MCP)]] for universal communication.
 3. Context Engineering: Discusses session management and long-term memory to handle context window overflow and statelessness issues.
 4. Agent Quality: Introduces a four-pillar framework for evaluating agents based on effectiveness, efficiency, robustness, and safety.
-5. Prototype to Production: Explains the transition from prototype to production through CI/CD pipelines and evaluation frameworks.
+5. Prototype to Production: Explains the transition from prototype to production through [[ci-cd-pipelines|CI/CD pipelines]] and evaluation frameworks.
 
 # Key Insights
 
@@ -42,10 +42,10 @@ This note synthesizes the comprehensive guide on building AI agents, emphasizing
 
 # Related Concepts
 
-- Model Context Protocol (MCP)
-- Agent Development Kit (ADK)
-- CI/CD pipelines
-- Deep Observability Trinity
+- [[model-context-protocol-mcp|Model Context Protocol (MCP)]]
+- [[agent-development-kit|Agent Development Kit (ADK)]]
+- [[ci-cd-pipelines|CI/CD pipelines]]
+- [[deep-observability-trinity|Deep Observability Trinity]]
 
 # Source Notes
 
