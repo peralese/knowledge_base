@@ -155,5 +155,24 @@
     "review_method": "manual",
     "reviewed_at": "2026-06-20T18:19:59.321853",
     "synthesized_at": "2026-06-20T18:21:40.339398"
+  },
+  {
+    "source_id": "SRC-20260630-0001",
+    "title": "Building a hill-climbing machine:\u00a0Launching seven new MAI models",
+    "source_note_path": "raw/domains/ai/articles/building-a-hill-climbing-machine-launching-seven-new-mai-models.md",
+    "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/ai/inbox/browser/building-a-hill-climbing-machine-launching-seven-new-mai-models.md",
+    "adapter": "browser",
+    "source_type": "article",
+    "origin": "web",
+    "topic_slug": "microsoft-ai",
+    "domain": "ai",
+    "queued_at": "2026-06-30T21:41:40.025890",
+    "review_status": "synthesized",
+    "validation_status": "validated",
+    "validation_issues": [],
+    "review_action": "approved",
+    "review_method": "manual",
+    "reviewed_at": "2026-06-30T21:41:44.783523",
+    "synthesized_at": "2026-06-30T21:43:35.466970"
   }
 ]
