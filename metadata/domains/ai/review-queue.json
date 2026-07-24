@@ -174,5 +174,21 @@
     "review_method": "manual",
     "reviewed_at": "2026-06-30T21:41:44.783523",
     "synthesized_at": "2026-06-30T21:43:35.466970"
+  },
+  {
+    "source_id": "SRC-20260723-0001",
+    "title": "Introduction to LLM RAG - Retrieval Augmented Generation Explained",
+    "source_note_path": "raw/domains/ai/articles/introduction-to-llm-rag-retrieval-augmented-generation-explained.md",
+    "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/ai/inbox/browser/introduction-to-llm-rag-retrieval-augmented-generation-explained.md",
+    "adapter": "browser",
+    "source_type": "article",
+    "origin": "web",
+    "topic_slug": "llm",
+    "domain": "ai",
+    "queued_at": "2026-07-23T20:25:52.128750",
+    "review_status": "synthesized",
+    "validation_status": "validated",
+    "validation_issues": [],
+    "synthesized_at": "2026-07-23T20:27:56.884331"
   }
 ]
