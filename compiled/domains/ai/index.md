@@ -2,13 +2,13 @@
 title: "AI Wiki Index"
 note_type: "index"
 domain: "ai"
-generated_on: "2026-06-30"
-note_count: 92
+generated_on: "2026-07-23"
+note_count: 106
 ---
 
 # AI Wiki Index
 
-_Generated on 2026-06-30 — 92 topics_
+_Generated on 2026-07-23 — 106 topics_
 
 ## Topics
 
@@ -17,6 +17,7 @@ _Generated on 2026-06-30 — 92 topics_
 - [[auto-research]] — Auto research, a groundbreaking approach in machine learning developed by [[andrej-karpathy]], automates the process of…
 - [[harness-engineering]] — [[harness-engineering]] is an innovative discipline that emerged around 2026, addressing the critical need for reliable…
 - [[llm-knowledge-bases]] — In an era where data is abundant yet fragmented, the concept of Large Language Model (LLM) knowledge bases emerges as a…
+- [[llm]] — Retrieval-Augmented Generation (RAG) is a transformative framework that significantly enhances the capabilities of…
 - [[local-ai-stack]] — In an era where artificial intelligence (AI) is rapidly transforming various sectors, the concept of a "Local AI Stack"…
 - [[loop-engineering]] — In the ever-evolving landscape of software development, [[loop-engineering]] stands out as a transformative methodology…
 - [[mcp]] — The [[model-context-protocol]] (MCP) is a pivotal [[open-source-standards-in-ai|open-source standard]] in artificial…
@@ -40,7 +41,9 @@ _Generated on 2026-06-30 — 92 topics_
 - [[ci-cd-pipelines]] — Definition not yet written. Update this stub with content from the sources below.
 - [[closing-loops]] — Definition not yet written. Update this stub with content from the sources below.
 - [[cognitive-surrender]] — Cognitive surrender refers to the tendency of developers to disengage from critical oversight and decision-making when…
+- [[component-level-evaluation]] — Definition not yet written. Update this stub with content from the sources below.
 - [[comprehension-debt]] — Comprehension debt refers to the gap that develops between a developer's understanding of a codebase and the actual…
+- [[content-recommendation-systems]] — Definition not yet written. Update this stub with content from the sources below.
 - [[context-engineering]] — Context engineering is the practice of dynamically assembling and managing information relevant to an AI agent's…
 - [[context-management]] — Context management in AI/ML refers to the efficient handling and organization of information generated throughout an…
 - [[daily-execution]] — Daily execution refers to the consistent application of AI-driven prompts each day to identify trends such as inactive…
@@ -52,8 +55,12 @@ _Generated on 2026-06-30 — 92 topics_
 - [[entropy-management]] — Entropy management in the context of AI/ML systems involves systematically addressing the gradual accumulation of…
 - [[error-handling]] — Error handling in AI/ML loop engineering involves implementing genuine adaptation mechanisms that go beyond simple…
 - [[explore-narrow]] — Explore-narrow in AI/ML loop engineering involves an initial broad exploration of potential solutions or pathways…
+- [[external-knowledge-sources]] — Definition not yet written. Update this stub with content from the sources below.
 - [[feedback-and-adjustment]] — Definition not yet written. Update this stub with content from the sources below.
+- [[generative-language-models]] — Definition not yet written. Update this stub with content from the sources below.
 - [[harness-engineering]] — Harness engineering is an emerging discipline developed around 2026 to design systems for reliable and scalable AI…
+- [[inference-stage]] — Definition not yet written. Update this stub with content from the sources below.
+- [[ingestion-stage]] — Definition not yet written. Update this stub with content from the sources below.
 - [[iterative-cycles]] — Iterative cycles in AI refer to a process where an AI system repeatedly executes a sequence of actions: performing an…
 - [[large-language-models-llms]] — Definition not yet written. Update this stub with content from the sources below.
 - [[large-language-models]] — Large language models are advanced neural networks designed to understand and generate human-like text by processing…
@@ -65,9 +72,12 @@ _Generated on 2026-06-30 — 92 topics_
 - [[network-hardening]] — Network hardening involves restricting outbound network access through configurations such as Docker networks to…
 - [[open-source-standards-in-ai]] — Definition not yet written. Update this stub with content from the sources below.
 - [[persistent-memory]] — Persistent memory in AI and machine learning contexts refers to the capability of systems, such as Large Language…
+- [[personal-ai-assistants]] — Definition not yet written. Update this stub with content from the sources below.
 - [[plan-execute-verify]] — The Plan-Execute-Verify approach in AI/ML involves three distinct phases: planning a strategy to achieve a specific…
 - [[prompt-structure]] — Definition not yet written. Update this stub with content from the sources below.
+- [[prompt-templates]] — Definition not yet written. Update this stub with content from the sources below.
 - [[quantization]] — Quantization is a technique used in artificial intelligence and machine learning models to reduce memory usage by…
+- [[real-time-information-retrieval]] — Definition not yet written. Update this stub with content from the sources below.
 - [[reinforcement-learning-environments]] — Definition not yet written. Update this stub with content from the sources below.
 - [[retrieval-augmented-generation]] — Definition not yet written. Update this stub with content from the sources below.
 - [[retry-pattern]] — Definition not yet written. Update this stub with content from the sources below.
@@ -89,12 +99,15 @@ _Generated on 2026-06-30 — 92 topics_
 - [[claude]] — Description not yet written. Update this stub with content from the sources below.
 - [[cursor]] — Description not yet written. Update this stub with content from the sources below.
 - [[docker]] — Description not yet written. Update this stub with content from the sources below.
+- [[dspy]] — Description not yet written. Update this stub with content from the sources below.
 - [[gemma-4-e2b]] — Description not yet written. Update this stub with content from the sources below.
 - [[how-to-build-an-ai-agent-a-complete-guide]] — Description not yet written. Update this stub with content from the sources below.
 - [[jan-ai]] — Description not yet written. Update this stub with content from the sources below.
 - [[karpathy-s-autoresearch]] — Description not yet written. Update this stub with content from the sources below.
 - [[karpathy]] — Description not yet written. Update this stub with content from the sources below.
+- [[langchain]] — Description not yet written. Update this stub with content from the sources below.
 - [[llamacpp]] — Description not yet written. Update this stub with content from the sources below.
+- [[llamaindex]] — Description not yet written. Update this stub with content from the sources below.
 - [[lm-studio]] — Description not yet written. Update this stub with content from the sources below.
 - [[mcpjam]] — Description not yet written. Update this stub with content from the sources below.
 - [[microsoft-ai]] — Description not yet written. Update this stub with content from the sources below.
@@ -109,4 +122,5 @@ _Generated on 2026-06-30 — 92 topics_
 - [[openclaw]] — Description not yet written. Update this stub with content from the sources below.
 - [[soul-md]] — Description not yet written. Update this stub with content from the sources below.
 - [[visual-studio-code]] — Description not yet written. Update this stub with content from the sources below.
+- [[weaviate]] — Description not yet written. Update this stub with content from the sources below.
 - [[what-is-loop-engineering-the-new-meta-for-ai-coding-agents]] — Description not yet written. Update this stub with content from the sources below.
