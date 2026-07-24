@@ -11,9 +11,9 @@ tags:
   - "source_summary"
   - "introduction-to-llm-rag-retrieval-augmented-generation-explained"
 confidence: "medium"
-confidence_score: null
+confidence_score: 0.92
 generation_method: "ollama_local"
-approved: false
+approved: true
 ---
 
 ### Introduction to RAG (Retrieval Augmented Generation)

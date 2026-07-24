@@ -189,6 +189,13 @@
     "review_status": "synthesized",
     "validation_status": "validated",
     "validation_issues": [],
-    "synthesized_at": "2026-07-23T20:27:56.884331"
+    "synthesized_at": "2026-07-23T20:27:56.884331",
+    "confidence_score": 0.92,
+    "confidence_band": "high",
+    "confidence_reasoning": "The synthesis note accurately represents the source material, capturing all major components and concepts of RAG including its key components, workflow, use cases, implementation tools, advanced techniques, and evaluation methods (Accuracy: High). It successfully condenses the extensive information into a concise summary without omitting critical details, maintaining completeness (Completeness: High). The note is well-structured with clear headings and logical flow, enhancing readability and comprehension (Clarity: High).",
+    "scored_at": "2026-07-23T20:28:16.949958",
+    "review_action": "approved",
+    "review_method": "auto",
+    "reviewed_at": "2026-07-23T20:28:16.949958"
   }
 ]
