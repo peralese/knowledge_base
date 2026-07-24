@@ -15,10 +15,11 @@
       "slug": "retrieval-augmented-generation",
       "title": "Retrieval-Augmented Generation",
       "sources": [
-        "how-to-build-an-ai-agent-a-complete-guide-synthesis"
+        "how-to-build-an-ai-agent-a-complete-guide-synthesis",
+        "introduction-to-llm-rag-retrieval-augmented-generation-explained-synthesis"
       ],
       "date_first_seen": "2026-04-22",
-      "date_updated": "2026-04-22"
+      "date_updated": "2026-07-23"
     },
     {
       "slug": "agent-quality-framework",
@@ -480,6 +481,87 @@
       ],
       "date_first_seen": "2026-06-30",
       "date_updated": "2026-06-30"
+    },
+    {
+      "slug": "external-knowledge-sources",
+      "title": "External Knowledge Sources",
+      "sources": [
+        "introduction-to-llm-rag-retrieval-augmented-generation-explained-synthesis"
+      ],
+      "date_first_seen": "2026-07-23",
+      "date_updated": "2026-07-23"
+    },
+    {
+      "slug": "prompt-templates",
+      "title": "Prompt Templates",
+      "sources": [
+        "introduction-to-llm-rag-retrieval-augmented-generation-explained-synthesis"
+      ],
+      "date_first_seen": "2026-07-23",
+      "date_updated": "2026-07-23"
+    },
+    {
+      "slug": "generative-language-models",
+      "title": "Generative Language Models (LLMs)",
+      "sources": [
+        "introduction-to-llm-rag-retrieval-augmented-generation-explained-synthesis"
+      ],
+      "date_first_seen": "2026-07-23",
+      "date_updated": "2026-07-23"
+    },
+    {
+      "slug": "ingestion-stage",
+      "title": "Ingestion Stage",
+      "sources": [
+        "introduction-to-llm-rag-retrieval-augmented-generation-explained-synthesis"
+      ],
+      "date_first_seen": "2026-07-23",
+      "date_updated": "2026-07-23"
+    },
+    {
+      "slug": "inference-stage",
+      "title": "Inference Stage",
+      "sources": [
+        "introduction-to-llm-rag-retrieval-augmented-generation-explained-synthesis"
+      ],
+      "date_first_seen": "2026-07-23",
+      "date_updated": "2026-07-23"
+    },
+    {
+      "slug": "real-time-information-retrieval",
+      "title": "Real-Time Information Retrieval",
+      "sources": [
+        "introduction-to-llm-rag-retrieval-augmented-generation-explained-synthesis"
+      ],
+      "date_first_seen": "2026-07-23",
+      "date_updated": "2026-07-23"
+    },
+    {
+      "slug": "content-recommendation-systems",
+      "title": "Content Recommendation Systems",
+      "sources": [
+        "introduction-to-llm-rag-retrieval-augmented-generation-explained-synthesis"
+      ],
+      "date_first_seen": "2026-07-23",
+      "date_updated": "2026-07-23"
+    },
+    {
+      "slug": "personal-ai-assistants",
+      "title": "Personal AI Assistants",
+      "sources": [
+        "introduction-to-llm-rag-retrieval-augmented-generation-explained-synthesis"
+      ],
+      "date_first_seen": "2026-07-23",
+      "date_updated": "2026-07-23"
+    },
+    {
+      "slug": "component-level-evaluation",
+      "title": "Component-Level Evaluation",
+      "sources": [
+        "introduction-to-llm-rag-retrieval-augmented-generation-explained-synthesis"
+      ],
+      "date_first_seen": "2026-07-23",
+      "date_updated": "2026-07-23"
     }
   ]
 }
