@@ -15,6 +15,7 @@ MAX_CONTEXT_CHARS = 120_000
 
 sys.path.insert(0, str(Path(__file__).parent))
 from domains import DEFAULT_DOMAIN_SLUG, compiled_domain_dir, outputs_subdir  # noqa: E402
+from runtime_safety import file_lock  # noqa: E402
 
 
 def _split_frontmatter(text: str) -> tuple[dict[str, object], str]:
@@ -226,8 +227,9 @@ def call_ollama(prompt: str, model: str = DEFAULT_MODEL, timeout: int = 120) -> 
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        data = json.loads(resp.read())
+    with file_lock(ROOT, "ollama"):
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = json.loads(resp.read())
     return str(data.get("response", ""))
 
 

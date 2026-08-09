@@ -43,6 +43,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from git_ops import commit_pipeline_stage  # noqa: E402
 from purge_source import purge_source  # noqa: E402
 from domains import DEFAULT_DOMAIN_SLUG, compiled_subdir, metadata_domain_dir, metadata_file, raw_subdir  # noqa: E402
+from runtime_safety import atomic_write_json, atomic_write_text  # noqa: E402
 
 
 def configure_domain_paths(domain: str, root: Path = ROOT) -> None:
@@ -66,8 +67,7 @@ def load_queue() -> list[dict[str, object]]:
 
 
 def save_queue(entries: list[dict[str, object]]) -> None:
-    REVIEW_QUEUE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    REVIEW_QUEUE_PATH.write_text(json.dumps(entries, indent=2) + "\n", encoding="utf-8")
+    atomic_write_json(REVIEW_QUEUE_PATH, entries)
     _write_queue_report(entries)
 
 
@@ -80,7 +80,7 @@ def _write_queue_report(entries: list[dict[str, object]]) -> None:
     ]
     if not entries:
         lines.append("No items in queue.")
-        REVIEW_QUEUE_REPORT_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        atomic_write_text(REVIEW_QUEUE_REPORT_PATH, "\n".join(lines) + "\n")
         return
 
     lines.extend([
@@ -99,7 +99,7 @@ def _write_queue_report(entries: list[dict[str, object]]) -> None:
         )
         for issue in entry.get("validation_issues", []):
             lines.append(f"|  |  |  | issue: {issue} |  |  |")
-    REVIEW_QUEUE_REPORT_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    atomic_write_text(REVIEW_QUEUE_REPORT_PATH, "\n".join(lines) + "\n")
 
 
 # ---------------------------------------------------------------------------

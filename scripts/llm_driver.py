@@ -19,6 +19,7 @@ import sys
 import urllib.request
 from pathlib import Path
 from urllib.error import URLError
+from runtime_safety import file_lock
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MODEL = "phi4:latest"
@@ -71,18 +72,19 @@ def call_ollama(prompt: str, model: str) -> str:
     )
 
     chunks: list[str] = []
-    with urllib.request.urlopen(req) as resp:
-        for raw_line in resp:
-            line = raw_line.strip()
-            if not line:
-                continue
-            data = json.loads(line)
-            token = data.get("response", "")
-            if token:
-                print(token, end="", flush=True)
-                chunks.append(token)
-            if data.get("done"):
-                break
+    with file_lock(ROOT, "ollama"):
+        with urllib.request.urlopen(req) as resp:
+            for raw_line in resp:
+                line = raw_line.strip()
+                if not line:
+                    continue
+                data = json.loads(line)
+                token = data.get("response", "")
+                if token:
+                    print(token, end="", flush=True)
+                    chunks.append(token)
+                if data.get("done"):
+                    break
 
     print()  # trailing newline after streamed output
     return "".join(chunks)

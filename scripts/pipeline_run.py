@@ -46,8 +46,10 @@ from synthesize import (  # noqa: E402
 from concept_aggregator import extract_for_source as extract_concepts  # noqa: E402
 from topic_aggregator import _find_source_summary, _parse_compiled_from, aggregate_for_source  # noqa: E402
 from review import _patch_note_approved  # noqa: E402
+from runtime_safety import LockUnavailable, file_lock  # noqa: E402
+from settings import AUTO_APPROVE_THRESHOLD  # noqa: E402
 
-DEFAULT_THRESHOLD = 0.85
+DEFAULT_THRESHOLD = AUTO_APPROVE_THRESHOLD
 DEFAULT_INTERVAL = 30
 ALL_DOMAINS = "all"
 
@@ -148,6 +150,26 @@ def run_for_item(
 ) -> bool:
     """Run the full pipeline for one queue item. Returns True on success."""
     source_id = str(item.get("source_id", ""))
+    try:
+        with file_lock(root, f"pipeline-item-{source_id}", blocking=False):
+            return _run_for_item_locked(
+                item, model=model, threshold=threshold, root=root, no_commit=no_commit
+            )
+    except LockUnavailable:
+        _log(source_id, "deferred", "another worker owns this item")
+        return True
+
+
+def _run_for_item_locked(
+    item: dict[str, object],
+    *,
+    model: str,
+    threshold: float,
+    root: Path,
+    no_commit: bool,
+) -> bool:
+    """Run one item while its per-item ownership lock is held."""
+    source_id = str(item.get("source_id", ""))
     title = str(item.get("title", ""))
     slug = Path(str(item.get("source_note_path", ""))).stem
     domain = _domain_for_item(item)
@@ -231,6 +253,8 @@ def run_for_item(
 
     if source_summary_path is None:
         _log(source_id, "topic_aggregate", "SKIP   source summary not found")
+    elif not _is_approved(updated_item):
+        _log(source_id, "topic_aggregate", "SKIP   awaiting explicit approval")
     else:
         try:
             aggregate_for_source(updated_item, source_summary_path, model=model, root=root, no_commit=no_commit)
@@ -265,11 +289,14 @@ def run_for_item(
 
 def run_index_rebuild(root: Path, no_commit: bool = False, domain: str = DEFAULT_DOMAIN_SLUG) -> None:
     try:
-        rc = rebuild_index(root, no_commit=no_commit, domain=domain)
+        with file_lock(root, f"index-rebuild-{domain}", blocking=False):
+            rc = rebuild_index(root, no_commit=no_commit, domain=domain)
         compiled = root / "compiled" / "domains" / domain
         n = sum(1 for _ in compiled.rglob("*.md")) if compiled.exists() else 0
         status = f"OK     ({n} notes)" if rc == 0 else "FAILED"
         _log("", "index_rebuild", status)
+    except LockUnavailable:
+        _log("", "index_rebuild", f"SKIP   lock held for {domain}")
     except Exception as exc:
         _log("", "index_rebuild", f"ERROR  {exc}")
 
@@ -320,6 +347,19 @@ def _pending_items(queue: list[dict[str, object]]) -> list[dict[str, object]]:
 
 def cmd_run_all(
     *, model: str, threshold: float, root: Path, domain: str = DEFAULT_DOMAIN_SLUG, no_commit: bool = False
+) -> int:
+    try:
+        with file_lock(root, "pipeline-worker", blocking=False):
+            return _cmd_run_all_locked(
+                model=model, threshold=threshold, root=root, domain=domain, no_commit=no_commit
+            )
+    except LockUnavailable:
+        print("Pipeline worker already active; this run is deferred.")
+        return 0
+
+
+def _cmd_run_all_locked(
+    *, model: str, threshold: float, root: Path, domain: str, no_commit: bool
 ) -> int:
     items_by_domain: list[tuple[str, list[dict[str, object]]]] = []
     for candidate_domain in _domain_slugs_for_arg(domain, root):

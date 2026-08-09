@@ -1,6 +1,6 @@
 # Review Queue
 
-_Generated on 2026-06-20_
+_Generated on 2026-07-23_
 
 | Title | Source Note | Adapter | Validation | Confidence | Review |
 |---|---|---|---|---|---|
@@ -11,3 +11,5 @@ _Generated on 2026-06-20_
 | What is Harness Engineering? A Complete Introduction (2026) | `raw/domains/ai/articles/what-is-harness-engineering-a-complete-introduction-2026.md` | browser | validated | high 0.90 | approved |
 | What Is Loop Engineering? The New Meta for AI Coding Agents | `raw/domains/ai/articles/what-is-loop-engineering-the-new-meta-for-ai-coding-agents.md` | browser | validated | high 0.85 | approved |
 | Build Your AI Powered Morning Brief | `raw/domains/ai/pdfs/build-your-ai-powered-morning-brief.md` | browser | validated | — | approved |
+| Building a hill-climbing machine: Launching seven new MAI models | `raw/domains/ai/articles/building-a-hill-climbing-machine-launching-seven-new-mai-models.md` | browser | validated | — | approved |
+| Introduction to LLM RAG - Retrieval Augmented Generation Explained | `raw/domains/ai/articles/introduction-to-llm-rag-retrieval-augmented-generation-explained.md` | browser | validated | high 0.92 | approved |

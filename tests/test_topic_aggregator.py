@@ -475,7 +475,9 @@ class AggregateForSourceTests(unittest.TestCase):
         )
         # Write source summary
         self.summary_path = self.root / "compiled" / "source_summaries" / "hardening-openclaw-synthesis.md"
-        self.summary_path.write_text("# Summary\n\nSecurity content.", encoding="utf-8")
+        self.summary_path.write_text(
+            "---\napproved: true\n---\n\n# Summary\n\nSecurity content.", encoding="utf-8"
+        )
 
     def tearDown(self) -> None:
         self.tmp.cleanup()
@@ -486,6 +488,7 @@ class AggregateForSourceTests(unittest.TestCase):
             "title": "OpenClaw Security Guide",
             "source_note_path": "raw/articles/hardening-openclaw.md",
             "review_status": "synthesized",
+            "review_action": "approved",
         }
 
     @patch("scripts.topic_aggregator.call_ollama")
@@ -519,6 +522,23 @@ class AggregateForSourceTests(unittest.TestCase):
         aggregate_for_source(item, self.summary_path, root=self.root)
         topic_note = self.root / "compiled" / "topics" / "openclaw-security.md"
         self.assertFalse(topic_note.exists())
+
+    def test_pending_item_cannot_create_topic(self) -> None:
+        item = self._make_item()
+        item.pop("review_action")
+        aggregate_for_source(item, self.summary_path, root=self.root)
+        self.assertFalse((self.root / "compiled" / "topics" / "openclaw-security.md").exists())
+
+    def test_rejected_item_cannot_create_topic(self) -> None:
+        item = self._make_item()
+        item["review_action"] = "rejected"
+        aggregate_for_source(item, self.summary_path, root=self.root)
+        self.assertFalse((self.root / "compiled" / "topics" / "openclaw-security.md").exists())
+
+    def test_approved_queue_item_requires_approved_summary(self) -> None:
+        self.summary_path.write_text("---\napproved: false\n---\n\n# Summary\n", encoding="utf-8")
+        aggregate_for_source(self._make_item(), self.summary_path, root=self.root)
+        self.assertFalse((self.root / "compiled" / "topics" / "openclaw-security.md").exists())
 
 
 # ---------------------------------------------------------------------------

@@ -13,6 +13,7 @@ import json
 import sys
 from datetime import date
 from pathlib import Path
+from runtime_safety import atomic_write_json
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -74,7 +75,7 @@ def purge_source(
     if not dry_run:
         manifest["sources"] = [s for s in sources if s.get("source_id") != source_id]
         manifest["last_updated"] = date.today().isoformat()
-        manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+        atomic_write_json(manifest_path, manifest)
         affected_paths.append(manifest_path)
     removed.append(f"{manifest_path.relative_to(root)} entry")
 

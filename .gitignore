@@ -49,5 +49,6 @@ outputs/domains/*/answers/
 .ruff_cache/
 *.log
 *.tmp
+.*.write.lock
 *.swp
 tmp/

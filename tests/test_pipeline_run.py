@@ -19,6 +19,7 @@ from scripts.pipeline_run import (
     cmd_run_one,
     run_for_item,
 )
+from scripts.runtime_safety import file_lock
 
 
 # ---------------------------------------------------------------------------
@@ -143,6 +144,14 @@ class PendingItemsTests(unittest.TestCase):
             _write_domains(root, ["ai", "aws"])
             self.assertEqual(_domain_slugs_for_arg("all", root), ["ai", "aws"])
 
+    def test_overlapping_pipeline_worker_defers_cleanly(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_domains(root, ["ai"])
+            with file_lock(root, "pipeline-worker"):
+                rc = cmd_run_all(model="phi4:latest", threshold=0.85, root=root, domain="all", no_commit=True)
+            self.assertEqual(rc, 0)
+
 
 # ---------------------------------------------------------------------------
 # run_for_item
@@ -166,7 +175,9 @@ class RunForItemTests(unittest.TestCase):
         self, mock_synth, mock_load_queue, mock_score, mock_update, mock_agg
     ) -> None:
         item = _make_entry()
-        mock_load_queue.return_value = [item]
+        approved_item = {**item, "review_status": "synthesized", "review_action": "approved"}
+        queues = iter([[item], [item], [approved_item]])
+        mock_load_queue.side_effect = lambda: next(queues, [approved_item])
 
         score_result = MagicMock()
         score_result.score = 0.91
@@ -217,6 +228,29 @@ class RunForItemTests(unittest.TestCase):
         with patch("scripts.pipeline_run.load_queue", return_value=[item]):
             result = run_for_item(item, root=self.root)
         self.assertFalse(result)
+
+    @patch("scripts.pipeline_run.extract_concepts", return_value={"concepts_written": [], "entities_written": [], "skipped": "not approved"})
+    @patch("scripts.pipeline_run.aggregate_for_source")
+    def test_pending_existing_summary_does_not_aggregate(self, mock_agg, mock_extract) -> None:
+        item = _make_entry(review_status="synthesized")
+        with patch("scripts.pipeline_run.load_queue", return_value=[item]), \
+             patch("scripts.pipeline_run._find_compiled_note", return_value=Path("/f.md")), \
+             patch("scripts.pipeline_run._find_source_summary", return_value=Path("/s.md")), \
+             patch("scripts.pipeline_run.run_score_synthesis", side_effect=RuntimeError("defer")):
+            run_for_item(item, root=self.root)
+        mock_agg.assert_not_called()
+
+    @patch("scripts.pipeline_run.extract_concepts", return_value={"concepts_written": [], "entities_written": [], "skipped": "not approved"})
+    @patch("scripts.pipeline_run.aggregate_for_source")
+    def test_rejected_existing_summary_does_not_aggregate(self, mock_agg, mock_extract) -> None:
+        item = _make_entry(review_status="synthesized")
+        item["review_action"] = "rejected"
+        with patch("scripts.pipeline_run.load_queue", return_value=[item]), \
+             patch("scripts.pipeline_run._find_compiled_note", return_value=Path("/f.md")), \
+             patch("scripts.pipeline_run._find_source_summary", return_value=Path("/s.md")), \
+             patch("scripts.pipeline_run.run_score_synthesis", side_effect=RuntimeError("defer")):
+            run_for_item(item, root=self.root)
+        mock_agg.assert_not_called()
 
     @patch("scripts.pipeline_run.aggregate_for_source")
     @patch("scripts.pipeline_run.update_queue_with_score")

@@ -89,6 +89,19 @@
       "slug": "projects",
       "title": "Projects",
       "aliases": []
+    },
+    {
+      "slug": "microsoft-ai",
+      "title": "Microsoft.ai",
+      "aliases": [],
+      "keywords": [
+        "llm"
+      ]
+    },
+    {
+      "slug": "llm",
+      "title": "LLM",
+      "aliases": []
     }
   ]
 }

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.kb.feed-poller</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/erickperales/Projects/knowledge_base/.venv/bin/python</string>
+    <string>/Users/erickperales/Projects/knowledge_base/scripts/feed_poller.py</string>
+    <string>--once</string>
+  </array>
+  <key>WorkingDirectory</key><string>/Users/erickperales/Projects/knowledge_base</string>
+  <key>RunAtLoad</key><true/>
+  <key>StartInterval</key><integer>3600</integer>
+  <key>StandardOutPath</key><string>/Users/erickperales/Library/Logs/kb/feed-poller.log</string>
+  <key>StandardErrorPath</key><string>/Users/erickperales/Library/Logs/kb/feed-poller.error.log</string>
+</dict>
+</plist>

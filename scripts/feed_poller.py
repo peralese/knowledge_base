@@ -47,8 +47,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable, Iterator
 
-
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).parent))
+from runtime_safety import atomic_write_json  # noqa: E402
 FEEDS_CONFIG_PATH = ROOT / "metadata" / "feeds.json"
 FEEDS_INBOX_DIR = ROOT / "raw" / "inbox" / "feeds"
 STATE_PATH = ROOT / "metadata" / ".feed-poller-state.json"
@@ -118,8 +119,7 @@ def load_state(state_path: Path) -> dict[str, str]:
 
 
 def save_state(state: dict[str, str], state_path: Path) -> None:
-    state_path.parent.mkdir(parents=True, exist_ok=True)
-    state_path.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
+    atomic_write_json(state_path, state)
 
 
 # ---------------------------------------------------------------------------
@@ -334,7 +334,11 @@ def run(
 ) -> None:
     feeds = load_feed_urls(config_path)
     if not feeds:
-        print(f"No feeds configured. Add URLs to {config_path.relative_to(ROOT)}")
+        try:
+            display_path = config_path.relative_to(ROOT)
+        except ValueError:
+            display_path = config_path
+        print(f"No feeds configured. Add URLs to {display_path}; poll skipped cleanly.")
         return
 
     state = load_state(state_path)

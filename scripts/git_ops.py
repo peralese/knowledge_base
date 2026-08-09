@@ -13,6 +13,7 @@ import os
 import subprocess
 from pathlib import Path
 from typing import Union
+from runtime_safety import file_lock
 
 PROJECT_ROOT = Path(__file__).parent.parent
 GIT_AUTHOR_NAME = "KB Pipeline"
@@ -52,29 +53,30 @@ def commit_pipeline_stage(
     if no_commit or is_git_disabled():
         return False
 
-    if not has_changes(paths, root=root):
-        return False
+    with file_lock(root, "git-write"):
+        if not has_changes(paths, root=root):
+            return False
 
-    str_paths = [str(p) for p in paths]
+        str_paths = [str(p) for p in paths]
 
-    add_result = _git("add", "--", *str_paths, cwd=root)
-    if add_result.returncode != 0:
-        raise RuntimeError(f"git add failed: {add_result.stderr}")
+        add_result = _git("add", "--", *str_paths, cwd=root)
+        if add_result.returncode != 0:
+            raise RuntimeError(f"git add failed: {add_result.stderr.strip()}")
 
-    env = os.environ.copy()
-    env["GIT_AUTHOR_NAME"] = GIT_AUTHOR_NAME
-    env["GIT_AUTHOR_EMAIL"] = GIT_AUTHOR_EMAIL
-    env["GIT_COMMITTER_NAME"] = GIT_AUTHOR_NAME
-    env["GIT_COMMITTER_EMAIL"] = GIT_AUTHOR_EMAIL
+        env = os.environ.copy()
+        env["GIT_AUTHOR_NAME"] = GIT_AUTHOR_NAME
+        env["GIT_AUTHOR_EMAIL"] = GIT_AUTHOR_EMAIL
+        env["GIT_COMMITTER_NAME"] = GIT_AUTHOR_NAME
+        env["GIT_COMMITTER_EMAIL"] = GIT_AUTHOR_EMAIL
 
-    commit_result = subprocess.run(
-        ["git", "commit", "-m", message],
-        cwd=root,
-        capture_output=True,
-        text=True,
-        env=env,
-    )
-    if commit_result.returncode != 0:
-        raise RuntimeError(f"git commit failed: {commit_result.stderr}")
+        commit_result = subprocess.run(
+            ["git", "commit", "-m", message, "--", *str_paths],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        if commit_result.returncode != 0:
+            raise RuntimeError(f"git commit failed: {commit_result.stderr.strip()}")
 
-    return True
+        return True

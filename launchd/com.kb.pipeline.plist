@@ -17,7 +17,7 @@
     <key>RunAtLoad</key>
     <true/>
     <key>StartInterval</key>
-    <integer>30</integer>
+    <integer>60</integer>
     <key>StandardOutPath</key>
     <string>/Users/erickperales/Library/Logs/kb/pipeline.log</string>
     <key>StandardErrorPath</key>

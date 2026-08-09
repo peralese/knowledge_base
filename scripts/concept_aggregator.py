@@ -28,6 +28,7 @@ import re
 import sys
 from datetime import date
 from pathlib import Path
+from runtime_safety import atomic_write_json
 from urllib.error import URLError
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -60,8 +61,7 @@ def load_registry(path: Path) -> dict:
 
 
 def save_registry(data: dict, path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    atomic_write_json(path, data)
 
 
 def _update_registry_entry(

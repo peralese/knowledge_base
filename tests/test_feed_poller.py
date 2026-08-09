@@ -17,6 +17,7 @@ from scripts.feed_poller import (
     parse_rss,
     poll_all,
     poll_feed,
+    run,
     save_state,
     write_entry,
 )
@@ -449,6 +450,22 @@ class PollAllTests(unittest.TestCase):
         feeds = [("Bad", "http://bad"), ("Good", "http://good")]
         total = poll_all(feeds, self.state, self.inbox, self.state_path, fetcher=fetcher)
         self.assertEqual(total, 2)
+
+
+class RunWithoutConfigurationTests(unittest.TestCase):
+    def test_missing_config_exits_cleanly_without_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            run(root / "missing.json", root / "inbox", root / "state.json", 3600, False, False)
+            self.assertFalse((root / "state.json").exists())
+
+    def test_empty_config_exits_cleanly_without_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config = root / "feeds.json"
+            config.write_text("[]\n", encoding="utf-8")
+            run(config, root / "inbox", root / "state.json", 3600, False, False)
+            self.assertFalse((root / "state.json").exists())
 
 
 if __name__ == "__main__":

@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Perales Lab Daily Briefing — Knowledge Base Assessment</title>
+  <style>
+    :root { color-scheme: light dark; --accent:#3b82f6; --muted:#64748b; --border:#94a3b855; --panel:#64748b12; }
+    body { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height:1.58; margin:0; }
+    main { max-width:1050px; margin:auto; padding:3rem 1.4rem 6rem; }
+    h1 { line-height:1.12; font-size:2.25rem; margin-bottom:.4rem; }
+    h2 { border-bottom:1px solid var(--border); padding-bottom:.35rem; margin-top:2.6rem; }
+    h3 { margin-top:1.8rem; }
+    .subtitle,.meta { color:var(--muted); }
+    .summary,.finding { padding:1rem 1.2rem; background:var(--panel); border-left:4px solid var(--accent); border-radius:.25rem; }
+    code,pre { font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    code { background:var(--panel); padding:.1rem .3rem; border-radius:.25rem; }
+    pre { overflow:auto; padding:1rem; background:var(--panel); border:1px solid var(--border); border-radius:.45rem; line-height:1.35; }
+    table { width:100%; border-collapse:collapse; margin:1rem 0; }
+    th,td { text-align:left; vertical-align:top; padding:.55rem .65rem; border:1px solid var(--border); }
+    th { background:var(--panel); }
+    a { color:var(--accent); }
+    li { margin:.25rem 0; }
+    .status { font-weight:700; }
+    @media print { main { max-width:none; padding:.5in; } a { color:inherit; text-decoration:none; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Perales Lab Daily Briefing</h1>
+    <p class="subtitle">Assessment of the Mac mini Knowledge Base Application</p>
+    <p class="meta">Assessment date: August 8, 2026 · Repository: <code>/Users/erickperales/Projects/knowledge_base</code> · Read-only assessment</p>
+  </header>
+
+  <h2>Executive summary</h2>
+  <div class="summary">
+    <p>The Mac mini is the authoritative operational host and is suitable for a future Perales Lab Daily Briefing. The existing application already provides most of the reusable knowledge-retention pipeline: domain-aware ingestion, normalization, local Ollama synthesis, confidence scoring, review, source summaries, topic aggregation, concept/entity extraction, Obsidian notes, Git history, and graph-integrity checks.</p>
+    <p>RSS support exists in code but is not currently ingesting feeds. <code>metadata/feeds.json</code> is absent, and the installed <code>com.kb.feed-poller</code> LaunchAgent repeatedly relaunches the immediately exiting poller. Topic aggregation can also occur before approval, and no locking or transaction layer protects queues, manifests, topic notes, Ollama work, or Git commits.</p>
+    <p>The cleanest Daily Briefing design is an editorial candidate-and-edition layer in front of the existing KB inbox. Only items explicitly promoted should enter the current KB pipeline.</p>
+  </div>
+  <p>No files were changed during the assessment itself. The repository was already dirty, including modified AI artifacts and untracked ingestion/report files.</p>
+
+  <h2>1. Current architecture</h2>
+  <h3>Main components</h3>
+  <ul>
+    <li><code>dashboard.py</code>: FastAPI dashboard for ingestion, mobile sharing, review, querying, domain selection, topics, concepts/entities, feedback, and purge operations. Uvicorn binds to <code>0.0.0.0:7842</code>.</li>
+    <li><code>dashboard/index.html</code>: browser UI.</li>
+    <li><code>scripts/stage_to_inbox.py</code>: browser, clipboard, feed, and PDF intake adapters.</li>
+    <li><code>scripts/inbox_watcher.py</code>: polls the inbox every five seconds, normalizes and validates new inputs, queues them, and by default starts full processing.</li>
+    <li><code>scripts/ingest.py</code>: converts inputs into normalized Markdown and updates the source manifest.</li>
+    <li><code>scripts/pipeline_run.py</code>: orchestrates synthesis, scoring, aggregation, concept/entity extraction, and index rebuilds.</li>
+    <li><code>scripts/compile_notes.py</code>, <code>llm_driver.py</code>, and <code>apply_synthesis.py</code>: build prompts, call Ollama, sanitize output, and persist compiled notes.</li>
+    <li><code>scripts/score_synthesis.py</code> and <code>review.py</code>: confidence scoring and human/automatic review decisions.</li>
+    <li><code>scripts/topic_aggregator.py</code> and <code>concept_aggregator.py</code>: build canonical topics, concepts, and entities.</li>
+    <li><code>scripts/index_notes.py</code> and <code>vector_index.py</code>: Markdown and semantic indexes.</li>
+    <li><code>scripts/domains.py</code>: domain-aware storage routing.</li>
+  </ul>
+
+  <h3>Important directories</h3>
+  <table><thead><tr><th>Directory</th><th>Purpose</th></tr></thead><tbody>
+    <tr><td><code>raw/domains/&lt;domain&gt;/inbox/</code></td><td>Transient intake adapters</td></tr>
+    <tr><td><code>raw/domains/&lt;domain&gt;/articles/</code></td><td>Normalized source notes</td></tr>
+    <tr><td><code>raw/domains/&lt;domain&gt;/archive/</code></td><td>Original staged inputs after ingestion</td></tr>
+    <tr><td><code>metadata/domains/&lt;domain&gt;/</code></td><td>Queues, manifests, registries, and prompt packs</td></tr>
+    <tr><td><code>compiled/domains/&lt;domain&gt;/source_summaries/</code></td><td>Per-source synthesized notes</td></tr>
+    <tr><td><code>compiled/domains/&lt;domain&gt;/topics/</code></td><td>Canonical accumulated topic knowledge</td></tr>
+    <tr><td><code>compiled/domains/&lt;domain&gt;/concepts/</code>, <code>entities/</code></td><td>Knowledge-graph nodes</td></tr>
+    <tr><td><code>outputs/domains/&lt;domain&gt;/</code></td><td>Answers and health/integrity reports</td></tr>
+    <tr><td><code>indexes/domains/&lt;domain&gt;/vector_index.db</code></td><td>Local semantic index</td></tr>
+    <tr><td><code>tmp/</code></td><td>Temporary model output and logs</td></tr>
+  </tbody></table>
+
+  <h3>Existing data flow</h3>
+  <pre>Dashboard / mobile share / file drop / feed JSON
+    ↓
+raw/domains/&lt;domain&gt;/inbox/&lt;adapter&gt;/
+    ↓  inbox_watcher.scan_inbox()
+ingest.ingest_source()
+    ├─→ raw/domains/&lt;domain&gt;/articles/&lt;slug&gt;.md
+    ├─→ metadata/domains/&lt;domain&gt;/source-manifest.json
+    └─→ raw/domains/&lt;domain&gt;/archive/
+    ↓
+metadata/domains/&lt;domain&gt;/review-queue.json
+    ↓
+pipeline_run.run_for_item()
+    ├─→ prompt pack → Ollama → source summary
+    ├─→ confidence score and review state
+    ├─→ topic aggregation
+    └─→ concept/entity extraction
+    ↓
+compiled topics / concepts / entities / indexes
+    ↓
+Obsidian, dashboard queries, BM25/vector retrieval</pre>
+
+  <h2>2. Mac mini operational configuration</h2>
+  <p>The installed LaunchAgents under <code>/Users/erickperales/Library/LaunchAgents/</code>, rather than the Linux-oriented installation guide, are authoritative.</p>
+  <table><thead><tr><th>Agent</th><th>Configuration</th><th>Observed status</th></tr></thead><tbody>
+    <tr><td><code>com.kb.dashboard</code></td><td><code>RunAtLoad</code> + <code>KeepAlive</code>; repository venv; logs in <code>~/Library/Logs/kb/</code></td><td>Running, PID 619, listening on <code>*:7842</code></td></tr>
+    <tr><td><code>com.kb.inbox-watcher</code></td><td><code>RunAtLoad</code> + <code>KeepAlive</code>; default five-second scan</td><td>Running, PID 607</td></tr>
+    <tr><td><code>com.kb.pipeline</code></td><td><code>pipeline_run.py --all --domain all</code>; <code>StartInterval: 30</code></td><td>Recurring one-shot; over 135,000 runs; last exit 0</td></tr>
+    <tr><td><code>com.kb.feed-poller</code></td><td><code>RunAtLoad</code> + <code>KeepAlive</code>; no CLI interval</td><td>Not functional; rapid restart cycle; over 403,000 runs</td></tr>
+    <tr><td><code>com.kb.lint-weekly</code></td><td><code>lint.py --llm --report</code>; Sunday 03:00</td><td>Scheduled</td></tr>
+  </tbody></table>
+  <p>LaunchAgents use the repository virtual environment at <code>/Users/erickperales/Projects/knowledge_base/.venv/bin/python</code> and have only the default launchd <code>PATH=/usr/bin:/bin:/usr/sbin:/sbin</code>. No application-specific environment variables are configured. <code>GIT_DISABLED=1</code> is supported by <code>scripts/git_ops.py</code> but is not set.</p>
+
+  <h3>Models and ports</h3>
+  <ul>
+    <li>Dashboard: <code>0.0.0.0:7842</code>, accessible beyond localhost.</li>
+    <li>Ollama: <code>127.0.0.1:11434</code>.</li>
+    <li>Primary model: <code>phi4:latest</code>.</li>
+    <li>Embedding model: <code>nomic-embed-text:latest</code>.</li>
+    <li>Also installed: <code>llava:13b</code>, <code>qwen2.5:14b</code>, <code>qwen3:latest</code>, and <code>qwen3:8b</code>.</li>
+  </ul>
+
+  <h2>3. RSS ingestion</h2>
+  <p><code>scripts/feed_poller.py</code> supports RSS 2.0 and Atom 1.0 using Python's standard library. It expects <code>metadata/feeds.json</code>, which is absent on the Mac mini. <code>metadata/.feed-poller-state.json</code> is also absent.</p>
+  <div class="finding"><strong>Operational finding:</strong> the poller exits immediately when no feeds are configured. Because its LaunchAgent uses <code>KeepAlive</code>, launchd continually relaunches it. It is therefore not checking RSS hourly in practice.</div>
+  <p>With valid configuration, the default interval is 3,600 seconds. New entries are identified solely by canonical URL membership in <code>metadata/.feed-poller-state.json</code>. This is restart-safe but lacks GUID/Atom ID, normalized URL, content hash, publication watermark, atomic writes, and domain-specific state.</p>
+  <p>The parser retains title, URL, stripped content, and feed name in memory, but persisted feed JSON contains only:</p>
+  <ul><li><code>title</code></li><li><code>canonical_url</code></li><li><code>content</code></li></ul>
+  <p>Feed name, feed URL, author, publication date, GUID, categories, enclosures, and raw RSS metadata are discarded. Output currently targets the legacy <code>raw/inbox/feeds/</code>, not a domain-specific briefing candidate store.</p>
+
+  <h2>4. Processing and synthesis</h2>
+  <p><code>synthesize.synthesize_item()</code> uses <code>compile_notes.build_prompt_pack()</code> to provide canonical identity rules, exact output shape, full source content, grounding instructions, and required lineage. Prompt packs live under <code>metadata/domains/&lt;domain&gt;/prompts/</code>.</p>
+  <p><code>llm_driver.call_ollama()</code> sends the prompt to Ollama's streaming <code>/api/generate</code> endpoint using <code>phi4:latest</code>. Temporary output goes to <code>tmp/synthesis-output.md</code>. <code>apply_synthesis.py</code> removes wrapping fences, duplicate front matter, citation artifacts, suspicious lines, and malformed wikilinks before writing a source summary.</p>
+  <p><code>score_synthesis.score_synthesis()</code> sends the synthesized note back to the same model. Its self-critique rubric is accuracy 40%, completeness 30%, and clarity 30%. It expects JSON containing a numeric score and reasoning. Failures default to 0.5.</p>
+  <p>The normal pipeline auto-approval threshold is 0.85. A score at or above it sets <code>review_action: approved</code>, <code>review_method: auto</code>, and <code>approved: true</code>. A notable inconsistency is the standalone scoring CLI's default threshold of 0.0, which can auto-approve every valid score unless an explicit threshold is supplied.</p>
+
+  <h2>5. Review and retention</h2>
+  <p>Each domain stores an authoritative JSON queue and a generated Markdown view. Entries include source identity, input and normalized paths, adapter, domain, validation results, synthesis/scoring timestamps, confidence data, review action/method, and optional rejection reason.</p>
+  <ul>
+    <li><strong>Approve:</strong> marks the queue entry approved, patches the source summary to <code>approved: true</code>, and makes it eligible for permanent aggregation.</li>
+    <li><strong>Reject:</strong> records the decision/reason and patches the summary to <code>approved: false</code>. Artifacts remain until a separate purge.</li>
+    <li><strong>Purge:</strong> explicitly removes rejected material and associated artifacts.</li>
+  </ul>
+  <p>Existing equivalents are: Discard → reject/purge; Promote → approve and aggregate. There is no distinct Reference state.</p>
+  <div class="finding"><strong>Approval-boundary defect:</strong> <code>pipeline_run.run_for_item()</code> calls <code>topic_aggregator.aggregate_for_source()</code> after scoring even when an item was not approved. The topic aggregator does not verify approval. Concept extraction does verify <code>approved: true</code>. A subsequently rejected source can therefore already have influenced a permanent topic note.</div>
+
+  <h2>6. Knowledge-base structure and integrity</h2>
+  <h3>Raw notes</h3>
+  <p>Raw note front matter can include title, source type, origin, domain, ingestion and publication dates, status, topics, tags, author, language, summary, source ID, canonical URL, related sources, confidence, and license. Bodies use Overview, Source Content, Key Points, Notes, and Lineage sections.</p>
+  <h3>Compiled notes</h3>
+  <p>Source summaries use title, domain, note type, <code>compiled_from</code>, compilation date, topics, tags, confidence, generation method, confidence score, and approval. Topic notes add canonical slug, update/version data, and accumulated sources. Concepts and entities retain source lists, dates, approval, generation method, and entity type where applicable.</p>
+  <h3>Relationships and attribution</h3>
+  <p>Source attribution is represented through canonical URLs, source manifests, Lineage sections, <code>compiled_from</code>, Source Notes, and Obsidian <code>[[wikilinks]]</code>. Topic, concept, and entity registries provide canonical identity mappings.</p>
+  <h3>Integrity tooling</h3>
+  <ul>
+    <li>Structural and wikilink linting in <code>scripts/lint.py</code></li>
+    <li>Contradiction candidates via <code>lint.py --contradictions</code></li>
+    <li>Staleness detection via <code>lint.py --staleness</code></li>
+    <li>Orphan, source coverage, stub, and gap ranking through <code>scripts/graph_health.py</code></li>
+    <li>Wikilink injection through <code>scripts/inject_wikilinks.py</code></li>
+  </ul>
+  <p>Contradictions and stale notes are reported for human action rather than automatically rewritten.</p>
+
+  <h2>7. Git/Obsidian and runtime boundaries</h2>
+  <h3>Safe for read-oriented consumption from other machines</h3>
+  <ul>
+    <li><code>compiled/domains/&lt;domain&gt;/topics/</code></li>
+    <li><code>compiled/domains/&lt;domain&gt;/concepts/</code></li>
+    <li><code>compiled/domains/&lt;domain&gt;/entities/</code></li>
+    <li><code>compiled/domains/&lt;domain&gt;/source_summaries/</code></li>
+    <li><code>compiled/domains/&lt;domain&gt;/index.md</code></li>
+    <li>Selected reports and normalized raw notes where full provenance is useful</li>
+  </ul>
+  <h3>Mac mini runtime-only/single-writer state</h3>
+  <ul>
+    <li>Inbox, archive, temporary files, operational logs, virtual environment, and installed LaunchAgents</li>
+    <li>Watcher and feed-poller state</li>
+    <li>Live vector-index updates</li>
+    <li>Future briefing candidates, jobs, locks, and audio artifacts</li>
+  </ul>
+  <p>Review queues, manifests, registries, prompt packs, generated notes, reports, watcher state, and the SQLite vector index are currently tracked to varying degrees. The safest operating model is a single Mac mini writer, with other machines pulling compiled Markdown for Obsidian. Other machines should not push competing edits to generated artifacts without a reconciliation workflow.</p>
+
+  <h2>8. Concurrency and interference risks</h2>
+  <ul>
+    <li>The watcher immediately processes valid new items while the scheduled pipeline scans all domains every 30 seconds. Both can observe and process the same pending item.</li>
+    <li>There is no <code>processing</code> claim, owner, lease, per-item lock, or global pipeline lock.</li>
+    <li>Queues, manifests, registries, and poller state use direct <code>write_text()</code>, not atomic replacement or transactions.</li>
+    <li>Concurrent processes can duplicate Ollama calls, overwrite summaries or queues, repeat topic aggregation, collide on index rebuilds, and encounter Git index locks.</li>
+    <li><code>git_ops.commit_pipeline_stage()</code> has no application-level serialization or retry and can commit another process's staged changes.</li>
+    <li>Briefing generation, KB synthesis, scoring, topic aggregation, lint, queries, and embeddings would share one Ollama daemon without priority or concurrency controls.</li>
+    <li>Dashboard review actions use the same load-modify-save files as background jobs and can lose concurrent updates.</li>
+  </ul>
+
+  <h2>9. Daily Briefing extension points</h2>
+  <h3>Reusable</h3>
+  <ul>
+    <li>RSS/Atom parsing and HTML cleanup</li>
+    <li>Domain routing and feed staging</li>
+    <li>Raw-note normalization and manifests</li>
+    <li>Review UI patterns and audit metadata</li>
+    <li>Source synthesis and confidence scoring</li>
+    <li>Topic, concept, entity, and index generation</li>
+    <li>Obsidian formats and graph-integrity tooling</li>
+  </ul>
+  <h3>Needs modification</h3>
+  <ul>
+    <li>Domain-aware RSS configuration and richer feed metadata</li>
+    <li>GUID/hash-based deduplication and transactional state</li>
+    <li>Hard approval gate before permanent topic aggregation</li>
+    <li>Atomic queue/state writes, job ownership, Git serialization, and Ollama scheduling</li>
+    <li>A Reference outcome distinct from rejection</li>
+    <li>Briefing-aware dashboard review and explicit scoring thresholds</li>
+  </ul>
+  <h3>New components</h3>
+  <ul>
+    <li>Relevance/editorial ranking and daily diversity/selection rules</li>
+    <li>Briefing edition and candidate state</li>
+    <li>Multi-item narrative/podcast prompts</li>
+    <li>Optional TTS and audio storage/publication</li>
+    <li>Per-item Discard, Reference, and Promote controls</li>
+    <li>Briefing history, regeneration, and delivery</li>
+    <li>Shared job locking and inference scheduling</li>
+  </ul>
+
+  <h2>10. Gap analysis</h2>
+  <table><thead><tr><th>Proposed stage</th><th>Classification</th><th>Assessment</th></tr></thead><tbody>
+    <tr><td>Configure and poll RSS</td><td class="status">Exists but needs modification</td><td>Parser exists; configuration is absent and Mac service is misconfigured.</td></tr>
+    <tr><td>Detect unseen items</td><td class="status">Exists but needs modification</td><td>URL state exists; add GUID/hash, atomic state, and domains.</td></tr>
+    <tr><td>Store feed candidates</td><td class="status">Exists but needs modification</td><td>Feed inbox exists but triggers KB processing too early.</td></tr>
+    <tr><td>Relevance/editorial scoring</td><td class="status">Does not exist</td><td>KB confidence measures synthesis quality, not editorial importance.</td></tr>
+    <tr><td>Select a daily set</td><td class="status">Does not exist</td><td>Needs edition, budget, novelty, and diversity state.</td></tr>
+    <tr><td>Narrative/podcast generation</td><td class="status">Does not exist</td><td>Can reuse the Ollama prompt/driver infrastructure.</td></tr>
+    <tr><td>Audio generation</td><td class="status">Does not exist</td><td>No TTS or audio artifact workflow.</td></tr>
+    <tr><td>Per-item review</td><td class="status">Exists but needs modification</td><td>Review UI patterns are reusable; briefing semantics differ.</td></tr>
+    <tr><td>Discard</td><td class="status">Already exists and reusable</td><td>Reject and optional purge.</td></tr>
+    <tr><td>Reference</td><td class="status">Does not exist</td><td>Needs retained, searchable, noncanonical storage.</td></tr>
+    <tr><td>Promote to KB</td><td class="status">Exists but needs modification</td><td>Approval pipeline exists; aggregation gate must be fixed.</td></tr>
+    <tr><td>Normalize and synthesize promoted item</td><td class="status">Already exists and reusable</td><td>Reuse stage, ingest, synthesize, and scoring functions.</td></tr>
+    <tr><td>Topic/concept/index generation</td><td class="status">Exists but needs modification</td><td>Concepts already enforce approval; topics do not.</td></tr>
+    <tr><td>Contradiction/staleness/gap checks</td><td class="status">Already exists and reusable</td><td>Existing lint and graph-health tooling.</td></tr>
+    <tr><td>Job/Git concurrency control</td><td class="status">Does not exist</td><td>Required before adding more scheduled writers.</td></tr>
+  </tbody></table>
+
+  <h2>11. Smallest clean implementation</h2>
+  <ol>
+    <li>Stabilize the existing Mac runtime: correct the RSS LaunchAgent, add domain-aware feed configuration, enforce approval before topic aggregation, make state writes atomic, and serialize processing/Git operations.</li>
+    <li>Choose one automatic processing owner. Prefer an ingestion-only watcher plus a serialized job runner, rather than watcher and 30-second pipeline both processing items.</li>
+    <li>Add a thin briefing candidate/edition store. SQLite is preferable to several concurrently written JSON files.</li>
+    <li>Keep RSS candidates outside the KB inbox until the user chooses Promote.</li>
+    <li>Add editorial ranking, daily selection, briefing narrative, and optional TTS as briefing-specific stages.</li>
+    <li>Represent Reference as retained and searchable but excluded from topic/concept aggregation.</li>
+    <li>On Promote, call the existing <code>stage_to_inbox.stage_feed()</code> path with richer provenance, then let the existing domain-aware KB pipeline take over.</li>
+    <li>Record the generated KB <code>source_id</code> back on the briefing item.</li>
+    <li>Use a shared Ollama job queue/lock and avoid overlapping the briefing window with weekly lint or bulk processing.</li>
+  </ol>
+  <p>The Mac mini remains the right runtime host because it already owns Ollama, launchd scheduling, the authoritative Git checkout, local source data, the dashboard, and the compiled Obsidian knowledge base.</p>
+
+  <h2>Proposed architecture</h2>
+  <p>Legend: <strong>[E]</strong> existing, <strong>[R]</strong> reused/modified, <strong>[N]</strong> new.</p>
+  <pre>                         MAC MINI — AUTHORITATIVE WRITER
+┌──────────────────────────────────────────────────────────────────────────┐
+│ RSS / Atom feeds                                                         │
+│      ↓                                                                   │
+│ [R] Domain-aware feed poller + GUID/URL/hash deduplication                │
+│      ↓                                                                   │
+│ [N] Briefing candidate/job store                                         │
+│      ↓                                                                   │
+│ [N] Relevance + editorial selector                                       │
+│      ↓                                                                   │
+│ [N] Daily briefing edition                                               │
+│      ├─→ [N] Narrative/podcast prompt → [R] Ollama → [N] optional TTS    │
+│      ↓                                                                   │
+│ [N/R] Per-item review                                                    │
+│      ├─ Discard → audit state or purge                                   │
+│      ├─ Reference → retained, noncanonical reference store               │
+│      └─ Promote                                                          │
+│           ↓                                                              │
+│ [R] stage_to_inbox.stage_feed()                                          │
+│           ↓                                                              │
+│ [E] inbox watcher → ingest → raw article + manifest                      │
+│           ↓                                                              │
+│ [E] synthesize → Ollama → source summary → confidence score              │
+│           ↓                                                              │
+│ [R] Hard approval gate                                                   │
+│           ↓                                                              │
+│ [E] topics → concepts/entities → Markdown/vector indexes                 │
+│           ↓                                                              │
+│ [E] compiled/domains/&lt;domain&gt;/ → Git / Obsidian read consumers          │
+│                                                                          │
+│ [N] Cross-cutting: leases/locks, atomic state, serialized Git/Ollama     │
+└──────────────────────────────────────────────────────────────────────────┘</pre>
+
+  <h2>Verification references</h2>
+  <ul>
+    <li><code>README.md</code>, <code>INSTALL.md</code>, <code>docs/domains.md</code></li>
+    <li><code>dashboard.py</code>, <code>dashboard/index.html</code></li>
+    <li><code>scripts/feed_poller.py</code>, <code>stage_to_inbox.py</code>, <code>inbox_watcher.py</code>, <code>ingest.py</code></li>
+    <li><code>scripts/pipeline_run.py</code>, <code>synthesize.py</code>, <code>compile_notes.py</code>, <code>llm_driver.py</code>, <code>apply_synthesis.py</code></li>
+    <li><code>scripts/score_synthesis.py</code>, <code>review.py</code>, <code>topic_aggregator.py</code>, <code>concept_aggregator.py</code></li>
+    <li><code>scripts/index_notes.py</code>, <code>vector_index.py</code>, <code>lint.py</code>, <code>graph_health.py</code>, <code>git_ops.py</code></li>
+    <li><code>metadata/domains.json</code> and domain-scoped manifests, queues, registries, prompts, and compiled notes</li>
+    <li>Installed LaunchAgents and logs under <code>/Users/erickperales/Library/</code></li>
+  </ul>
+</main>
+</body>
+</html>

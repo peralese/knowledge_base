@@ -118,6 +118,47 @@ Open in Obsidian: point a vault at `compiled/`
 | `kb-lint.timer` | Schedules `kb-lint.service` weekly. |
 | `kb-pipeline.service` | Runs `pipeline_run.py --watch --interval 30` for continuous processing. |
 
+## Mac mini Runtime Ownership and Safety
+
+The Mac mini checkout at `/Users/erickperales/Projects/knowledge_base` is the
+authoritative operational writer. Other machines should normally pull and read
+generated Markdown through Git or Obsidian; they should not run competing inbox,
+pipeline, or index writers against another checkout.
+
+Automatic work has one owner per stage:
+
+```text
+Sources -> inbox watcher (normalize + queue only)
+        -> scheduled pipeline worker (every 30 seconds)
+        -> synthesize -> score -> approval gate
+        -> approved topic/concept/entity aggregation -> indexes -> Git/Obsidian
+```
+
+The watcher never runs synthesis itself. Pending queue entries remain durable and
+are rediscovered by the next worker run after a crash or reboot. The worker uses a
+non-blocking global lock plus a per-source lock, so an overlapping launch defers
+cleanly instead of processing the same source twice. Index rebuilds have a
+per-domain lock.
+
+Runtime locks are advisory `flock` files under `tmp/locks/`. The files may remain,
+but lock ownership is held by the operating system and is automatically released
+when a process exits, crashes, or the Mac reboots; lock files must not be deleted
+to recover. Git staging/commits use a shared `git-write` lock and path-limited
+commits. Ollama generation and embedding requests use a shared `ollama` lock so
+expensive local inference is serialized.
+
+Review queues, source manifests, feed/watcher state, and registries use a
+same-directory temporary file followed by an atomic replacement. This prevents a
+reader from observing a partially written JSON file. The production auto-approval
+threshold is centralized at `0.85`; standalone scoring uses the same safe default.
+Canonical topic aggregation requires both `review_action: approved` and
+`approved: true` on the source summary.
+
+On macOS, RSS is a scheduled one-shot LaunchAgent: `feed_poller.py --once` runs at
+load and hourly. An absent or empty `metadata/feeds.json` logs a clear message and
+exits successfully; it is never configured with `KeepAlive`. The repository ships
+an empty `[]` configuration and does not invent production feeds.
+
 ## Phase 2 Roadmap
 
 Phase 1–13 delivered a fully operational pipeline. Phase 2 focuses on making the knowledge graph richer, more trustworthy, and faster to query — in that order.

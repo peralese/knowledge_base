@@ -29,13 +29,15 @@ ROOT = Path(__file__).resolve().parents[1]
 REVIEW_QUEUE_PATH = ROOT / "metadata" / "review-queue.json"
 REVIEW_QUEUE_REPORT_PATH = ROOT / "metadata" / "review-queue.md"
 DEFAULT_MODEL = "phi4:latest"
-DEFAULT_AUTO_APPROVE_THRESHOLD = 0.0
 
 # Import llm_driver functions at module level so tests can patch them on this module.
 sys.path.insert(0, str(Path(__file__).parent))
+from settings import AUTO_APPROVE_THRESHOLD  # noqa: E402
+DEFAULT_AUTO_APPROVE_THRESHOLD = AUTO_APPROVE_THRESHOLD
 from git_ops import commit_pipeline_stage  # noqa: E402, PLC0415
 from llm_driver import _check_model_available, call_ollama  # noqa: E402, PLC0415
 from domains import compiled_subdir, metadata_file  # noqa: E402, PLC0415
+from runtime_safety import atomic_write_json, atomic_write_text  # noqa: E402
 
 
 def configure_domain_paths(domain: str, root: Path = ROOT) -> None:
@@ -81,8 +83,7 @@ def load_queue() -> list[dict[str, object]]:
 
 
 def save_queue(entries: list[dict[str, object]]) -> None:
-    REVIEW_QUEUE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    REVIEW_QUEUE_PATH.write_text(json.dumps(entries, indent=2) + "\n", encoding="utf-8")
+    atomic_write_json(REVIEW_QUEUE_PATH, entries)
     _write_queue_report(entries)
 
 
@@ -95,7 +96,7 @@ def _write_queue_report(entries: list[dict[str, object]]) -> None:
     ]
     if not entries:
         lines.append("No items in queue.")
-        REVIEW_QUEUE_REPORT_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        atomic_write_text(REVIEW_QUEUE_REPORT_PATH, "\n".join(lines) + "\n")
         return
 
     lines.extend([
@@ -114,7 +115,7 @@ def _write_queue_report(entries: list[dict[str, object]]) -> None:
         )
         for issue in entry.get("validation_issues", []):
             lines.append(f"|  |  |  | issue: {issue} |  |  |")
-    REVIEW_QUEUE_REPORT_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    atomic_write_text(REVIEW_QUEUE_REPORT_PATH, "\n".join(lines) + "\n")
 
 
 # ---------------------------------------------------------------------------

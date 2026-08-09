@@ -45,6 +45,7 @@ INDEX_DB_PATH = ROOT / "outputs" / "vector_index.db"
 STALENESS_DAYS = 7
 
 sys.path.insert(0, str(Path(__file__).parent))
+from runtime_safety import file_lock  # noqa: E402
 from domains import DEFAULT_DOMAIN_SLUG, compiled_domain_dir, vector_index_path  # noqa: E402
 
 
@@ -177,8 +178,9 @@ def call_ollama_embeddings(text: str, model: str = EMBED_MODEL) -> list[float]:
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=60) as resp:
-        data = json.loads(resp.read())
+    with file_lock(ROOT, "ollama"):
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            data = json.loads(resp.read())
 
     # Handle both /api/embeddings (list[float]) and /api/embed (list[list[float]])
     result = data.get("embedding") or data.get("embeddings", [])

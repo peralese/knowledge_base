@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.2.0",
-  "last_updated": "2026-06-20",
+  "last_updated": "2026-07-23",
   "description": "Source manifest for tracking ingested raw notes and preserving lineage.",
   "sources": [
     {
@@ -217,6 +217,34 @@
       "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/ai/inbox/browser/build-your-ai-powered-morning-brief.md",
       "status": "raw",
       "archive_path": "raw/domains/ai/archive/build-your-ai-powered-morning-brief--archived-20260620-181953.md"
+    },
+    {
+      "source_id": "SRC-20260630-0001",
+      "title": "Building a hill-climbing machine:\u00a0Launching seven new MAI models",
+      "filename": "building-a-hill-climbing-machine-launching-seven-new-mai-models.md",
+      "path": "raw/domains/ai/articles/building-a-hill-climbing-machine-launching-seven-new-mai-models.md",
+      "source_type": "article",
+      "origin": "web",
+      "date_ingested": "2026-06-30",
+      "domain": "ai",
+      "canonical_url": "https://microsoft.ai/news/building-a-hillclimbing-machine-launching-seven-new-mai-models/",
+      "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/ai/inbox/browser/building-a-hill-climbing-machine-launching-seven-new-mai-models.md",
+      "status": "raw",
+      "archive_path": "raw/domains/ai/archive/building-a-hill-climbing-machine-launching-seven-new-mai-models--archived-20260630-214140.md"
+    },
+    {
+      "source_id": "SRC-20260723-0001",
+      "title": "Introduction to LLM RAG - Retrieval Augmented Generation Explained",
+      "filename": "introduction-to-llm-rag-retrieval-augmented-generation-explained.md",
+      "path": "raw/domains/ai/articles/introduction-to-llm-rag-retrieval-augmented-generation-explained.md",
+      "source_type": "article",
+      "origin": "web",
+      "date_ingested": "2026-07-23",
+      "domain": "ai",
+      "canonical_url": "https://weaviate.io/blog/introduction-to-rag",
+      "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/ai/inbox/browser/introduction-to-llm-rag-retrieval-augmented-generation-explained.md",
+      "status": "raw",
+      "archive_path": "raw/domains/ai/archive/introduction-to-llm-rag-retrieval-augmented-generation-explained--archived-20260723-202552.md"
     }
   ]
 }

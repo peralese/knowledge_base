@@ -9,11 +9,8 @@ Phase 1 ingestion automation extends this with a second stage after ingest:
 every ingested note is validated against the repository raw-note shape and
 queued for review in metadata/review-queue.json and metadata/review-queue.md.
 
-By default, validated notes are then run through the full pipeline
-(synthesize -> score -> topic-aggregate -> concept/entity extraction -> index
-rebuild) automatically via pipeline_run.run_for_item — no manual trigger
-needed. Notes with validation issues are left at "pending_review" for manual
-attention. Pass --no-auto-process to restore the old queue-only behavior.
+Validated notes are queued for the separately scheduled, serialized pipeline
+worker. The watcher owns intake only and never runs synthesis itself.
 
 Title derivation (in priority order):
   1. YAML frontmatter `title:` field (for markdown files)
@@ -58,7 +55,8 @@ from domains import (  # noqa: E402
     metadata_file,
     raw_domain_dir,
 )
-from pipeline_run import run_for_item, run_index_rebuild, DEFAULT_THRESHOLD  # noqa: E402
+from pipeline_run import DEFAULT_THRESHOLD  # noqa: E402
+from runtime_safety import atomic_write_json, atomic_write_text  # noqa: E402
 from synthesize import DEFAULT_MODEL  # noqa: E402
 
 INBOX_DIR = ROOT / "raw" / "inbox"
@@ -135,8 +133,7 @@ def _state_key(path: Path) -> str:
 
 def save_state(state: dict[str, str]) -> None:
     """Persist the processed-paths state."""
-    STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    STATE_PATH.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    atomic_write_json(STATE_PATH, state)
 
 
 def load_review_queue() -> list[dict[str, object]]:
@@ -154,9 +151,8 @@ def load_review_queue() -> list[dict[str, object]]:
 
 def save_review_queue(entries: list[dict[str, object]]) -> None:
     """Persist the review queue and its markdown view."""
-    REVIEW_QUEUE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    REVIEW_QUEUE_PATH.write_text(json.dumps(entries, indent=2) + "\n", encoding="utf-8")
-    REVIEW_QUEUE_REPORT_PATH.write_text(render_review_queue(entries), encoding="utf-8")
+    atomic_write_json(REVIEW_QUEUE_PATH, entries)
+    atomic_write_text(REVIEW_QUEUE_REPORT_PATH, render_review_queue(entries))
 
 
 def _queue_paths_for_domain(root: Path, domain: str) -> tuple[Path, Path]:
@@ -179,9 +175,8 @@ def load_review_queue_for_domain(root: Path, domain: str) -> list[dict[str, obje
 
 def save_review_queue_for_domain(entries: list[dict[str, object]], root: Path, domain: str) -> None:
     path, report_path = _queue_paths_for_domain(root, domain)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(entries, indent=2) + "\n", encoding="utf-8")
-    report_path.write_text(render_review_queue(entries), encoding="utf-8")
+    atomic_write_json(path, entries)
+    atomic_write_text(report_path, render_review_queue(entries))
 
 
 # ---------------------------------------------------------------------------
@@ -550,7 +545,7 @@ def ingest_file(
     source_type: str,
     domain: str = "",
     *,
-    auto_process: bool = True,
+    auto_process: bool = False,
     model: str = DEFAULT_MODEL,
     threshold: float = DEFAULT_THRESHOLD,
     no_commit: bool = False,
@@ -639,12 +634,7 @@ def ingest_file(
 
         pipeline_ran = False
         if auto_process:
-            if validation_issues:
-                print("  Pipeline    : skipped (validation issues — needs manual review)")
-            else:
-                print("  Pipeline    : running synthesize -> score -> aggregate -> index...")
-                pipeline_ran = run_for_item(entry, model=model, threshold=threshold, root=ROOT, no_commit=no_commit)
-                print(f"  Pipeline    : {'done' if pipeline_ran else 'failed (see log above)'}")
+            print("  Pipeline    : queued; automatic processing is owned by pipeline_run.py")
 
         return IngestOutcome(
             processed=True,
@@ -687,7 +677,7 @@ def scan_inbox(
     source_type: str,
     domain: str = "",
     *,
-    auto_process: bool = True,
+    auto_process: bool = False,
     model: str = DEFAULT_MODEL,
     threshold: float = DEFAULT_THRESHOLD,
     no_commit: bool = False,
@@ -697,7 +687,6 @@ def scan_inbox(
         return state
 
     updated = dict(state)
-    domains_to_reindex: set[str] = set()
     for path in sorted(inbox.rglob("*")):
         if not path.is_file():
             continue
@@ -722,11 +711,6 @@ def scan_inbox(
         if outcome.processed:
             updated[key] = datetime.now().isoformat()
             updated.pop(legacy_key, None)  # replace legacy key if present
-        if outcome.pipeline_ran and outcome.domain:
-            domains_to_reindex.add(outcome.domain)
-
-    for reindex_domain in domains_to_reindex:
-        run_index_rebuild(ROOT, no_commit=no_commit, domain=reindex_domain)
 
     return updated
 
@@ -737,7 +721,7 @@ def watch(
     once: bool,
     domain: str = DEFAULT_DOMAIN_SLUG,
     *,
-    auto_process: bool = True,
+    auto_process: bool = False,
     model: str = DEFAULT_MODEL,
     threshold: float = DEFAULT_THRESHOLD,
     no_commit: bool = False,
@@ -802,7 +786,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-auto-process",
         action="store_true",
         dest="no_auto_process",
-        help="Queue ingested items for review only; do not auto-run synthesize/score/aggregate/index.",
+        help="Deprecated compatibility flag; the watcher is always intake-only.",
     )
     parser.add_argument(
         "--model",
@@ -832,7 +816,7 @@ def main(argv: list[str] | None = None) -> int:
         source_type=args.source_type,
         once=args.once,
         domain=args.domain,
-        auto_process=not args.no_auto_process,
+        auto_process=False,
         model=args.model,
         threshold=args.threshold,
         no_commit=args.no_commit,

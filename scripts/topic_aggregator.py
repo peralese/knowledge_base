@@ -33,6 +33,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from domains import DEFAULT_DOMAIN_SLUG, compiled_subdir, metadata_file  # noqa: E402, PLC0415
 from git_ops import commit_pipeline_stage  # noqa: E402, PLC0415
 from llm_driver import _check_model_available, call_ollama  # noqa: E402, PLC0415
+from runtime_safety import atomic_write_json  # noqa: E402
 
 
 def _topics_dir(root: Path, domain: str) -> Path:
@@ -391,8 +392,7 @@ def _add_topic_to_registry(slug: str, title: str, root: Path = ROOT, domain: str
         return
     registry.setdefault("topics", []).append({"slug": slug, "title": title, "aliases": []})
     path = _topic_registry_path(root, domain)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(registry, indent=2) + "\n", encoding="utf-8")
+    atomic_write_json(path, registry)
 
 
 # ---------------------------------------------------------------------------
@@ -470,6 +470,17 @@ def aggregate_for_source(
     the caller wraps this in a try/except.
     Returns the written topic note path, or None if skipped.
     """
+    if str(item.get("review_action") or "").strip() != "approved":
+        print("  Topic       : skipped — source is not approved")
+        return None
+    try:
+        summary_text = source_summary_path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    if not re.search(r"^approved:\s*true\s*$", summary_text, re.MULTILINE | re.IGNORECASE):
+        print("  Topic       : skipped — source summary is not approved")
+        return None
+
     title = str(item.get("title", ""))
     raw_note_path = root / str(item.get("source_note_path", ""))
     domain = str(item.get("domain", "")).strip() or DEFAULT_DOMAIN_SLUG

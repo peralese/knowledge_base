@@ -6,6 +6,8 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+from runtime_safety import atomic_write_json
+
 
 ROOT = Path(__file__).resolve().parents[1]
 DOMAINS_PATH = ROOT / "metadata" / "domains.json"
@@ -71,13 +73,12 @@ def load_domains(root: Path = ROOT) -> list[Domain]:
 
 def save_domains(domains: list[Domain], root: Path = ROOT) -> None:
     path = root / "metadata" / "domains.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "version": "1.0",
         "default_domain": DEFAULT_DOMAIN_SLUG,
         "domains": [asdict(domain) for domain in domains],
     }
-    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    atomic_write_json(path, payload)
 
 
 def ensure_domains_file(root: Path = ROOT) -> Path:
@@ -147,8 +148,7 @@ def set_default_domain(slug: str, root: Path = ROOT) -> None:
         "default_domain": domain.slug,
         "domains": [asdict(item) for item in domains],
     }
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    atomic_write_json(path, payload)
 
 
 def raw_domain_dir(root: Path, domain_slug: str) -> Path:

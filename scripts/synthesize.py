@@ -33,6 +33,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).parent))
 from git_ops import commit_pipeline_stage  # noqa: E402
 from domains import DEFAULT_DOMAIN_SLUG, compiled_subdir, metadata_file  # noqa: E402
+from runtime_safety import atomic_write_json, atomic_write_text  # noqa: E402
 REVIEW_QUEUE_PATH = ROOT / "metadata" / "review-queue.json"
 REVIEW_QUEUE_REPORT_PATH = ROOT / "metadata" / "review-queue.md"
 TMP_OUTPUT = ROOT / "tmp" / "synthesis-output.md"
@@ -60,8 +61,7 @@ def load_queue() -> list[dict[str, object]]:
 
 
 def save_queue(entries: list[dict[str, object]]) -> None:
-    REVIEW_QUEUE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    REVIEW_QUEUE_PATH.write_text(json.dumps(entries, indent=2) + "\n", encoding="utf-8")
+    atomic_write_json(REVIEW_QUEUE_PATH, entries)
     _write_queue_report(entries)
 
 
@@ -74,7 +74,7 @@ def _write_queue_report(entries: list[dict[str, object]]) -> None:
     ]
     if not entries:
         lines.append("No items in queue.")
-        REVIEW_QUEUE_REPORT_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        atomic_write_text(REVIEW_QUEUE_REPORT_PATH, "\n".join(lines) + "\n")
         return
 
     lines.extend([
@@ -93,7 +93,7 @@ def _write_queue_report(entries: list[dict[str, object]]) -> None:
         )
         for issue in entry.get("validation_issues", []):
             lines.append(f"|  |  |  | issue: {issue} |  |  |")
-    REVIEW_QUEUE_REPORT_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    atomic_write_text(REVIEW_QUEUE_REPORT_PATH, "\n".join(lines) + "\n")
 
 
 def _update_status(
@@ -426,8 +426,9 @@ def cmd_synthesize(
             no_commit=no_commit,
         )
         _run_scoring(item, model=model, root=root, no_commit=no_commit)
-        _run_topic_aggregation(item, model=model, root=root, no_commit=no_commit)
-        _run_concept_extraction(item, model=model, root=root, no_commit=no_commit)
+        refreshed = find_item(load_queue(), source_id) or item
+        _run_topic_aggregation(refreshed, model=model, root=root, no_commit=no_commit)
+        _run_concept_extraction(refreshed, model=model, root=root, no_commit=no_commit)
 
     return 0 if success else 1
 
@@ -486,8 +487,9 @@ def cmd_all(*, title_override: str, model: str, force: bool, root: Path, no_comm
     for item in items:
         if str(item.get("source_id", "")) not in failed_ids:
             _run_scoring(item, model=model, root=root, no_commit=no_commit)
-            _run_topic_aggregation(item, model=model, root=root, no_commit=no_commit)
-            _run_concept_extraction(item, model=model, root=root, no_commit=no_commit)
+            refreshed = find_item(load_queue(), str(item.get("source_id", ""))) or item
+            _run_topic_aggregation(refreshed, model=model, root=root, no_commit=no_commit)
+            _run_concept_extraction(refreshed, model=model, root=root, no_commit=no_commit)
 
     passed = len(items) - failed
     print(f"Done: {passed}/{len(items)} synthesized successfully.")

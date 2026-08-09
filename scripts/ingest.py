@@ -11,6 +11,7 @@ from datetime import date
 from datetime import datetime
 from html.parser import HTMLParser
 from pathlib import Path
+from runtime_safety import atomic_write_json
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -201,10 +202,7 @@ def load_manifest(manifest_path: Path) -> dict:
 
 def save_manifest(manifest_path: Path, manifest: dict) -> None:
     """Write manifest JSON with stable formatting."""
-    manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    with manifest_path.open("w", encoding="utf-8") as handle:
-        json.dump(manifest, handle, indent=2)
-        handle.write("\n")
+    atomic_write_json(manifest_path, manifest)
 
 
 def generate_source_id(manifest: dict, today: date | None = None) -> str:

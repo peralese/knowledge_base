@@ -59,6 +59,7 @@ OLLAMA_BASE_URL = "http://localhost:11434"
 MAX_CONTEXT_CHARS = 120_000
 
 sys.path.insert(0, str(Path(__file__).parent))
+from runtime_safety import file_lock  # noqa: E402
 from domains import DEFAULT_DOMAIN_SLUG, compiled_domain_dir, outputs_subdir, vector_index_path  # noqa: E402
 
 
@@ -228,18 +229,19 @@ def call_ollama(prompt: str, model: str) -> str:
         method="POST",
     )
     chunks: list[str] = []
-    with urllib.request.urlopen(req) as resp:
-        for raw_line in resp:
-            line = raw_line.strip()
-            if not line:
-                continue
-            data = json.loads(line)
-            token = data.get("response", "")
-            if token:
-                print(token, end="", flush=True)
-                chunks.append(token)
-            if data.get("done"):
-                break
+    with file_lock(ROOT, "ollama"):
+        with urllib.request.urlopen(req) as resp:
+            for raw_line in resp:
+                line = raw_line.strip()
+                if not line:
+                    continue
+                data = json.loads(line)
+                token = data.get("response", "")
+                if token:
+                    print(token, end="", flush=True)
+                    chunks.append(token)
+                if data.get("done"):
+                    break
     print()
     return "".join(chunks)
 
