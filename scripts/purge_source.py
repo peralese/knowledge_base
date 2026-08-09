@@ -118,9 +118,7 @@ def purge_source(
                 updated_queue = [e for e in queue if e.get("source_id") != source_id]
                 if len(updated_queue) < len(queue):
                     if not dry_run:
-                        queue_path.write_text(
-                            json.dumps(updated_queue, indent=2) + "\n", encoding="utf-8"
-                        )
+                        atomic_write_json(queue_path, updated_queue)
                         affected_paths.append(queue_path)
                     removed.append(f"{queue_path.relative_to(root)} entry")
                     queue_entry_removed = True

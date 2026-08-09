@@ -86,7 +86,8 @@ Open in Obsidian: point a vault at `compiled/`
 | `apply_synthesis.py` | Applies raw LLM output to durable compiled notes or answer artifacts. |
 | `concept_aggregator.py` | Extracts concepts and entities from approved source summaries into `compiled/concepts/` and `compiled/entities/`. |
 | `compile_notes.py` | Builds prompt packs from source notes for synthesis. |
-| `feed_poller.py` | Polls RSS/Atom feeds from `metadata/feeds.json` into `raw/inbox/feeds/`. |
+| `briefing.py` | Evaluates RSS candidates, selects idempotent daily editions, generates validated contextual narratives, renders Markdown artifacts, and prunes old low-value candidates. |
+| `feed_poller.py` | Polls RSS/Atom feeds from `metadata/feeds.json` into the separate SQLite Daily Briefing candidate store. |
 | `git_ops.py` | Shared helper for pipeline auto-commits. |
 | `inbox_watcher.py` | Watches `raw/inbox/`, ingests new files, validates raw notes, and queues review entries. |
 | `index_notes.py` | Generates `compiled/index.md` from compiled topics, concepts, and source summaries. |
@@ -158,6 +159,289 @@ On macOS, RSS is a scheduled one-shot LaunchAgent: `feed_poller.py --once` runs 
 load and hourly. An absent or empty `metadata/feeds.json` logs a clear message and
 exits successfully; it is never configured with `KeepAlive`. The repository ships
 an empty `[]` configuration and does not invent production feeds.
+
+## Perales Lab Daily Briefing Roadmap
+
+The Perales Lab Daily Briefing is a planned extension of the knowledge-base platform that will turn selected RSS information and existing knowledge-base context into a personalized daily briefing and, eventually, an audio podcast.
+
+The goal is not to archive every RSS item. The Daily Briefing will act as an editorial layer that determines:
+
+- What is worth knowing today
+- What relates to existing interests, projects, and knowledge
+- What is useful only for the current briefing
+- What deserves to be retained for future reference
+- What should be promoted into the permanent knowledge base
+
+The existing knowledge-base pipeline remains the authoritative path for durable knowledge.
+
+### Target architecture
+
+```text
+Selected RSS feeds
+        ↓
+RSS polling and deduplication
+        ↓
+Briefing candidate store
+        ↓
+Relevance and editorial evaluation
+        ↓
+Daily edition selection
+        ↓
+Knowledge-base contextualization
+        ↓
+Narrative Daily Briefing
+        ↓
+Per-item retention decision
+   ┌──────────┼───────────────┐
+   ↓          ↓               ↓
+Discard    Reference     Promote to KB
+                               ↓
+                    Existing KB ingestion
+                               ↓
+                 Synthesis / approval gate
+                               ↓
+              Topics / concepts / entities
+                               ↓
+                       Git / Obsidian
+
+Narrative Daily Briefing
+        ↓
+Future text-to-speech
+        ↓
+Private podcast/audio delivery
+```
+
+The Daily Briefing candidate layer will remain separate from the permanent KB inbox. RSS items will not automatically become durable knowledge.
+
+Only items explicitly promoted should enter the existing knowledge-base ingestion and approval pipeline.
+
+### Editorial principle
+
+The Daily Briefing should not include an item simply because it is new.
+
+An item should be selected when the system can explain why it matters in the context of the configured interests, active projects, or existing knowledge base.
+
+The briefing answers:
+
+> What is worth knowing today?
+
+The knowledge base answers:
+
+> What is worth remembering later?
+
+These are intentionally separate decisions.
+
+### Retention model
+
+Each briefing item will eventually support three outcomes:
+
+#### Discard
+
+The information was useful for the current briefing but has little durable value.
+
+The item may remain in briefing history for audit purposes but should not enter the permanent knowledge base.
+
+#### Reference
+
+The information may be useful later but does not justify full promotion into canonical knowledge.
+
+A reference should retain enough provenance to find and understand the source later while remaining outside normal topic/concept aggregation.
+
+#### Promote to Knowledge Base
+
+The information has durable value.
+
+Promoted items will enter the existing KB pipeline and use the current:
+
+- Domain-aware ingestion
+- Source normalization
+- Local LLM synthesis
+- Confidence scoring
+- Human or automatic approval
+- Topic aggregation
+- Concept/entity extraction
+- Markdown generation
+- Vector indexing
+- Git history
+- Obsidian integration
+
+The existing approval boundary remains authoritative. Information must be approved before it can affect accumulated canonical knowledge.
+
+## Implementation phases
+
+### Phase 1 — Runtime stabilization — Complete
+
+The Mac mini runtime was stabilized before adding Daily Briefing functionality.
+
+Completed work includes:
+
+- Single automatic pipeline-processing owner
+- Intake-only inbox watcher
+- Scheduled one-shot pipeline worker
+- Scheduled one-shot RSS poller
+- Advisory processing locks
+- Per-source locks
+- Git serialization
+- Ollama serialization
+- Atomic shared-state writes
+- Approval enforcement before topic aggregation
+- Centralized `0.85` automatic approval threshold
+- Runtime and launchd documentation
+
+The Mac mini remains the authoritative operational writer.
+
+### Phase 1.5 — Test baseline and isolation — Complete
+
+The full test suite was triaged and repaired before beginning new functionality.
+
+Current baseline:
+
+```text
+Canonical test command:
+make test
+
+Full suite:
+1,082 passed
+
+Focused Phase 1 safety suite:
+201 passed
+```
+
+Two consecutive full-suite runs completed successfully with:
+
+- 0 failures
+- 0 errors
+- 0 skipped tests
+- 0 xfail tests
+- 0 warnings
+
+The default suite uses temporary roots and mocks and does not write test artifacts into the live knowledge base.
+
+### Phase 2A — RSS and briefing candidate layer — Complete
+
+Phase 2A provides a separate SQLite candidate layer, structured Ollama editorial evaluation, deterministic deduplication, novelty-aware daily selection, and Markdown review editions. See [docs/daily-briefing.md](docs/daily-briefing.md) for configuration, storage, scoring, CLI, retry, and retention details.
+
+Implemented scope:
+
+- Configure selected RSS/Atom feeds
+- Improve feed provenance and metadata capture
+- Deduplicate by appropriate identifiers such as URL, GUID, and/or content identity
+- Store new feed items in a briefing-specific candidate store
+- Keep candidates outside the permanent KB inbox
+- Add editorial relevance evaluation
+- Add novelty and duplicate-story detection
+- Select a small daily set of high-value items
+- Track which candidates were considered, selected, or ignored
+
+The output is a structured daily edition containing a small set of selected items.
+
+No podcast generation is required for Phase 2A.
+
+No automatic KB promotion is required for Phase 2A.
+
+### Phase 2B — Contextualized narrative briefing — Complete
+
+Phase 2B converts the selected daily edition into a concise, connected written briefing using locked local Ollama generation. Deterministic topic proposals keep unrelated items separate, while validated structured output supports contextual sections, key takeaways, and what-to-watch notes.
+
+Implemented guarantees:
+
+- Every section references selected candidate IDs, and every selected item is represented
+- Titles, URLs, sources, timestamps, categories, and scores are restored from stored provenance rather than trusted from model output
+- Invalid or hallucinated IDs and malformed schemas are rejected without changing the Phase 2A edition
+- Default generation is idempotent; explicit `--regenerate` creates an auditable replacement only after validation
+- Failed attempts are recorded and cannot displace the last valid narrative
+- Markdown narratives include per-section citations and a source appendix
+
+Generate manually with:
+
+```bash
+.venv/bin/python scripts/briefing.py narrative --date YYYY-MM-DD
+.venv/bin/python scripts/briefing.py narrative --date YYYY-MM-DD --regenerate
+make test-briefing
+```
+
+See [docs/daily-briefing.md](docs/daily-briefing.md) for architecture, provenance, validation, retry, and scope details. Phase 2B remains text-only and does not retrieve or promote permanent KB material.
+
+### Phase 2C — Retention review and controlled KB promotion — Complete
+
+Phase 2C adds an explicit human gate after briefing review. Selected items begin as pending and may be marked `discard`, `reference`, or `promote`; models and scores cannot make these decisions.
+
+Semantics:
+
+```text
+Discard
+Reference
+Promote to Knowledge Base
+```
+
+- Discard preserves all briefing history and records only the auditable decision.
+- Reference creates one deterministic metadata-only briefing reference outside permanent KB ingestion.
+- Promote creates one deterministic domain feed-inbox artifact with briefing provenance. The existing watcher, raw-note validation, review queue, and approval gates remain authoritative; promote never means approved.
+
+SQLite stores current state, append-only decision history, and downstream attempts. Identical actions are idempotent, failures are retryable, canonical-source duplicates are reconciled, and decision changes do not silently delete earlier references or KB intake artifacts.
+
+```bash
+.venv/bin/python scripts/briefing.py retention list --date YYYY-MM-DD --status pending
+.venv/bin/python scripts/briefing.py retention show BFC-… --date YYYY-MM-DD
+.venv/bin/python scripts/briefing.py retention discard BFC-… --date YYYY-MM-DD --reviewer NAME
+.venv/bin/python scripts/briefing.py retention reference BFC-… --date YYYY-MM-DD --reviewer NAME
+.venv/bin/python scripts/briefing.py retention promote BFC-… --date YYYY-MM-DD --reviewer NAME
+.venv/bin/python scripts/briefing.py retention retry BFC-… --date YYYY-MM-DD
+```
+
+See [docs/daily-briefing.md](docs/daily-briefing.md) for the full retention model, provenance chain, promotion boundary, failure behavior, and exclusions.
+
+### Phase 2D — Podcast generation and delivery
+
+Once the written Daily Briefing consistently produces useful output, add audio generation.
+
+Planned scope:
+
+- Convert the final narrative into speech
+- Produce a podcast-style audio artifact
+- Store episode metadata and generation history
+- Support regeneration when the written briefing changes
+- Evaluate private delivery options such as:
+
+  - local/private web playback
+  - private RSS podcast feed
+  - mobile-accessible audio delivery
+
+Text-to-speech is intentionally deferred until editorial selection and contextual narrative quality are proven.
+
+## Longer-term possibilities
+
+Potential future capabilities include:
+
+- Additional private data sources beyond RSS
+- GitHub project activity
+- Personal project status
+- Calendar information
+- Selected email or notification sources
+- User-defined briefing profiles
+- Different weekday/weekend editions
+- Weekly or project-specific briefings
+- Interactive voice follow-up
+- Asking the briefing system to explain an item in more depth
+- Automatically identifying knowledge gaps or follow-up research opportunities
+
+These are future possibilities rather than current implementation commitments.
+
+The guiding architectural principle remains:
+
+```text
+New information
+      ↓
+Editorial judgment
+      ↓
+Useful briefing
+      ↓
+Human-guided retention
+      ↓
+Durable knowledge
+```
+
+---
 
 ## Phase 2 Roadmap
 

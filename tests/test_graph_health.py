@@ -399,94 +399,61 @@ class SnapshotTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.tmp.cleanup()
 
-    def _patch_dir(self, gh):
-        gh.SNAPSHOTS_DIR = self.root / "outputs" / "graph_health"
-
     def test_save_uses_timestamp_filename(self) -> None:
         metrics = compute_metrics(self.root)
-        import scripts.graph_health as gh
-        orig_dir = gh.SNAPSHOTS_DIR
-        self._patch_dir(gh)
-        try:
-            path = save_snapshot(metrics)
-            self.assertTrue(path.exists())
-            # Filename must be timestamp-based: YYYY-MM-DD-HHMMSS.json
-            self.assertRegex(path.name, r"^\d{4}-\d{2}-\d{2}-\d{6}\.json$")
-            loaded = json.loads(path.read_text())
-            self.assertEqual(loaded["date"], metrics["date"])
-            self.assertIn("timestamp", loaded)
-        finally:
-            gh.SNAPSHOTS_DIR = orig_dir
+        path = save_snapshot(metrics, self.root)
+        self.assertTrue(path.exists())
+        # Filename must be timestamp-based: YYYY-MM-DD-HHMMSS.json
+        self.assertRegex(path.name, r"^\d{4}-\d{2}-\d{2}-\d{6}\.json$")
+        loaded = json.loads(path.read_text())
+        self.assertEqual(loaded["date"], metrics["date"])
+        self.assertIn("timestamp", loaded)
 
     def test_load_most_recent_returns_none_when_empty(self) -> None:
-        import scripts.graph_health as gh
-        orig_dir = gh.SNAPSHOTS_DIR
-        self._patch_dir(gh)
-        try:
-            result = load_most_recent_snapshot()
-            self.assertIsNone(result)
-        finally:
-            gh.SNAPSHOTS_DIR = orig_dir
+        result = load_most_recent_snapshot(root=self.root)
+        self.assertIsNone(result)
 
     def test_load_prior_snapshot_finds_earlier(self) -> None:
-        import scripts.graph_health as gh
-        orig_dir = gh.SNAPSHOTS_DIR
-        snap_dir = self.root / "outputs" / "graph_health"
+        snap_dir = self.root / "outputs" / "domains" / "ai" / "graph_health"
         snap_dir.mkdir(parents=True, exist_ok=True)
-        gh.SNAPSHOTS_DIR = snap_dir
-        try:
-            # Write two snapshots with different timestamps
-            snap_a = {"date": "2026-01-01", "timestamp": "2026-01-01-090000",
-                      "stub_count": 10, "stub_ratio_pct": 100.0}
-            snap_b = {"date": "2026-01-01", "timestamp": "2026-01-01-120000",
-                      "stub_count": 5, "stub_ratio_pct": 50.0}
-            (snap_dir / "2026-01-01-090000.json").write_text(json.dumps(snap_a))
-            (snap_dir / "2026-01-01-120000.json").write_text(json.dumps(snap_b))
+        # Write two snapshots with different timestamps
+        snap_a = {"date": "2026-01-01", "timestamp": "2026-01-01-090000",
+                  "stub_count": 10, "stub_ratio_pct": 100.0}
+        snap_b = {"date": "2026-01-01", "timestamp": "2026-01-01-120000",
+                  "stub_count": 5, "stub_ratio_pct": 50.0}
+        (snap_dir / "2026-01-01-090000.json").write_text(json.dumps(snap_a))
+        (snap_dir / "2026-01-01-120000.json").write_text(json.dumps(snap_b))
 
-            # Ask for prior to 120000 → should get 090000
-            result = load_prior_snapshot("2026-01-01-120000")
-            self.assertIsNotNone(result)
-            data, stem = result
-            self.assertEqual(stem, "2026-01-01-090000")
-            self.assertEqual(data["stub_count"], 10)
-        finally:
-            gh.SNAPSHOTS_DIR = orig_dir
+        # Ask for prior to 120000 → should get 090000
+        result = load_prior_snapshot("2026-01-01-120000", self.root)
+        self.assertIsNotNone(result)
+        data, stem = result
+        self.assertEqual(stem, "2026-01-01-090000")
+        self.assertEqual(data["stub_count"], 10)
 
     def test_load_prior_snapshot_returns_none_when_only_one(self) -> None:
-        import scripts.graph_health as gh
-        orig_dir = gh.SNAPSHOTS_DIR
-        snap_dir = self.root / "outputs" / "graph_health"
+        snap_dir = self.root / "outputs" / "domains" / "ai" / "graph_health"
         snap_dir.mkdir(parents=True, exist_ok=True)
-        gh.SNAPSHOTS_DIR = snap_dir
-        try:
-            snap = {"date": "2026-01-01", "timestamp": "2026-01-01-090000",
-                    "stub_count": 10}
-            (snap_dir / "2026-01-01-090000.json").write_text(json.dumps(snap))
+        snap = {"date": "2026-01-01", "timestamp": "2026-01-01-090000",
+                "stub_count": 10}
+        (snap_dir / "2026-01-01-090000.json").write_text(json.dumps(snap))
 
-            # Only one snapshot — nothing prior to it
-            result = load_prior_snapshot("2026-01-01-090000")
-            self.assertIsNone(result)
-        finally:
-            gh.SNAPSHOTS_DIR = orig_dir
+        # Only one snapshot — nothing prior to it
+        result = load_prior_snapshot("2026-01-01-090000", self.root)
+        self.assertIsNone(result)
 
     def test_load_prior_snapshot_normalises_legacy_date_filenames(self) -> None:
-        import scripts.graph_health as gh
-        orig_dir = gh.SNAPSHOTS_DIR
-        snap_dir = self.root / "outputs" / "graph_health"
+        snap_dir = self.root / "outputs" / "domains" / "ai" / "graph_health"
         snap_dir.mkdir(parents=True, exist_ok=True)
-        gh.SNAPSHOTS_DIR = snap_dir
-        try:
-            # Legacy date-only filename (YYYY-MM-DD.json) treated as 000000 timestamp
-            legacy = {"date": "2026-01-01", "stub_count": 14}
-            (snap_dir / "2026-01-01.json").write_text(json.dumps(legacy))
+        # Legacy date-only filename (YYYY-MM-DD.json) treated as 000000 timestamp
+        legacy = {"date": "2026-01-01", "stub_count": 14}
+        (snap_dir / "2026-01-01.json").write_text(json.dumps(legacy))
 
-            # Any later timestamp should find it as a prior
-            result = load_prior_snapshot("2026-01-01-100000")
-            self.assertIsNotNone(result)
-            data, stem = result
-            self.assertEqual(data["stub_count"], 14)
-        finally:
-            gh.SNAPSHOTS_DIR = orig_dir
+        # Any later timestamp should find it as a prior
+        result = load_prior_snapshot("2026-01-01-100000", self.root)
+        self.assertIsNotNone(result)
+        data, stem = result
+        self.assertEqual(data["stub_count"], 14)
 
 
 # ---------------------------------------------------------------------------

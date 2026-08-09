@@ -376,15 +376,15 @@ class AggregateTopicTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
         # Set up directory structure
-        (self.root / "metadata").mkdir(parents=True)
-        (self.root / "compiled" / "topics").mkdir(parents=True)
-        (self.root / "compiled" / "source_summaries").mkdir(parents=True)
+        (self.root / "metadata" / "domains" / "ai").mkdir(parents=True)
+        (self.root / "compiled" / "domains" / "ai" / "topics").mkdir(parents=True)
+        (self.root / "compiled" / "domains" / "ai" / "source_summaries").mkdir(parents=True)
         # Write topic registry
-        (self.root / "metadata" / "topic-registry.json").write_text(
+        (self.root / "metadata" / "domains" / "ai" / "topic-registry.json").write_text(
             json.dumps(SAMPLE_REGISTRY), encoding="utf-8"
         )
         # Write a source summary
-        self.summary_path = self.root / "compiled" / "source_summaries" / "test-article-synthesis.md"
+        self.summary_path = self.root / "compiled" / "domains" / "ai" / "source_summaries" / "test-article-synthesis.md"
         self.summary_path.write_text(
             "# Summary\n\nOpenClaw security best practices.\n\n# Key Insights\n\n- Use Docker.",
             encoding="utf-8",
@@ -417,7 +417,7 @@ class AggregateTopicTests(unittest.TestCase):
     def test_updates_existing_topic_note(self, mock_check: MagicMock, mock_ollama: MagicMock) -> None:
         mock_check.return_value = None
         mock_ollama.return_value = "# Summary\n\nUpdated.\n\n# Key Insights\n\n- Updated point."
-        topic_path = self.root / "compiled" / "topics" / "openclaw-security.md"
+        topic_path = self.root / "compiled" / "domains" / "ai" / "topics" / "openclaw-security.md"
         topic_path.write_text(_make_topic_note(compiled_from=["old-synthesis"]), encoding="utf-8")
 
         result = aggregate_topic(self._make_request())
@@ -449,7 +449,7 @@ class AggregateTopicTests(unittest.TestCase):
         mock_check.return_value = None
         mock_ollama.return_value = "# Summary\n\nContent."
         result = aggregate_topic(self._make_request())
-        self.assertEqual(result, self.root / "compiled" / "topics" / "openclaw-security.md")
+        self.assertEqual(result, self.root / "compiled" / "domains" / "ai" / "topics" / "openclaw-security.md")
 
 
 # ---------------------------------------------------------------------------
@@ -460,21 +460,21 @@ class AggregateForSourceTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
-        (self.root / "metadata").mkdir(parents=True)
-        (self.root / "compiled" / "topics").mkdir(parents=True)
-        (self.root / "compiled" / "source_summaries").mkdir(parents=True)
-        (self.root / "raw" / "articles").mkdir(parents=True)
-        (self.root / "metadata" / "topic-registry.json").write_text(
+        (self.root / "metadata" / "domains" / "ai").mkdir(parents=True)
+        (self.root / "compiled" / "domains" / "ai" / "topics").mkdir(parents=True)
+        (self.root / "compiled" / "domains" / "ai" / "source_summaries").mkdir(parents=True)
+        (self.root / "raw" / "domains" / "ai" / "articles").mkdir(parents=True)
+        (self.root / "metadata" / "domains" / "ai" / "topic-registry.json").write_text(
             json.dumps(SAMPLE_REGISTRY), encoding="utf-8"
         )
         # Write raw article (contains match text)
-        self.raw_path = self.root / "raw" / "articles" / "hardening-openclaw.md"
+        self.raw_path = self.root / "raw" / "domains" / "ai" / "articles" / "hardening-openclaw.md"
         self.raw_path.write_text(
             "---\ntitle: OpenClaw Security Guide\n---\n\nopenClaw security content.",
             encoding="utf-8",
         )
         # Write source summary
-        self.summary_path = self.root / "compiled" / "source_summaries" / "hardening-openclaw-synthesis.md"
+        self.summary_path = self.root / "compiled" / "domains" / "ai" / "source_summaries" / "hardening-openclaw-synthesis.md"
         self.summary_path.write_text(
             "---\napproved: true\n---\n\n# Summary\n\nSecurity content.", encoding="utf-8"
         )
@@ -486,7 +486,7 @@ class AggregateForSourceTests(unittest.TestCase):
         return {
             "source_id": "SRC-20260415-0001",
             "title": "OpenClaw Security Guide",
-            "source_note_path": "raw/articles/hardening-openclaw.md",
+            "source_note_path": "raw/domains/ai/articles/hardening-openclaw.md",
             "review_status": "synthesized",
             "review_action": "approved",
         }
@@ -497,7 +497,7 @@ class AggregateForSourceTests(unittest.TestCase):
         mock_check.return_value = None
         mock_ollama.return_value = "# Summary\n\nContent.\n\n# Key Insights\n\n- Point."
         aggregate_for_source(self._make_item(), self.summary_path, root=self.root)
-        topic_note = self.root / "compiled" / "topics" / "openclaw-security.md"
+        topic_note = self.root / "compiled" / "domains" / "ai" / "topics" / "openclaw-security.md"
         self.assertTrue(topic_note.exists())
 
     @patch("scripts.topic_aggregator.call_ollama")
@@ -508,8 +508,8 @@ class AggregateForSourceTests(unittest.TestCase):
         item = self._make_item()
         item["topic_slug"] = "ollama"
         aggregate_for_source(item, self.summary_path, root=self.root)
-        self.assertTrue((self.root / "compiled" / "topics" / "ollama.md").exists())
-        self.assertFalse((self.root / "compiled" / "topics" / "openclaw-security.md").exists())
+        self.assertTrue((self.root / "compiled" / "domains" / "ai" / "topics" / "ollama.md").exists())
+        self.assertFalse((self.root / "compiled" / "domains" / "ai" / "topics" / "openclaw-security.md").exists())
 
     def test_skips_when_no_registry_match(self) -> None:
         item = {
@@ -549,13 +549,13 @@ class FindSourceSummaryTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
-        (self.root / "compiled" / "source_summaries").mkdir(parents=True)
+        (self.root / "compiled" / "domains" / "ai" / "source_summaries").mkdir(parents=True)
 
     def tearDown(self) -> None:
         self.tmp.cleanup()
 
     def test_finds_existing_summary(self) -> None:
-        path = self.root / "compiled" / "source_summaries" / "my-article-synthesis.md"
+        path = self.root / "compiled" / "domains" / "ai" / "source_summaries" / "my-article-synthesis.md"
         path.write_text("content", encoding="utf-8")
         item = {"source_note_path": "raw/articles/my-article.md"}
         result = _find_source_summary(item, self.root)
@@ -580,13 +580,13 @@ class LoadTopicRegistryTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
-        (self.root / "metadata").mkdir(parents=True)
+        (self.root / "metadata" / "domains" / "ai").mkdir(parents=True)
 
     def tearDown(self) -> None:
         self.tmp.cleanup()
 
     def test_loads_registry(self) -> None:
-        (self.root / "metadata" / "topic-registry.json").write_text(
+        (self.root / "metadata" / "domains" / "ai" / "topic-registry.json").write_text(
             json.dumps(SAMPLE_REGISTRY), encoding="utf-8"
         )
         result = load_topic_registry(self.root)

@@ -202,12 +202,12 @@ class RunTests(unittest.TestCase):
     def test_run_creates_artifact(self) -> None:
         rc = self._patch_run(MINIMAL_SYNTHESIS)
         self.assertEqual(rc, 0)
-        artifact = self.root / "compiled" / "topics" / "test-topic.md"
+        artifact = self.root / "compiled" / "domains" / "ai" / "topics" / "test-topic.md"
         self.assertTrue(artifact.exists(), f"Expected artifact at {artifact}")
 
     def test_run_sets_generation_method_ollama_local(self) -> None:
         self._patch_run(MINIMAL_SYNTHESIS)
-        artifact = self.root / "compiled" / "topics" / "test-topic.md"
+        artifact = self.root / "compiled" / "domains" / "ai" / "topics" / "test-topic.md"
         content = artifact.read_text(encoding="utf-8")
         self.assertIn('generation_method: "ollama_local"', content)
 

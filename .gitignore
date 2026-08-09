@@ -52,3 +52,8 @@ outputs/domains/*/answers/
 .*.write.lock
 *.swp
 tmp/
+
+# Daily Briefing runtime state (configuration remains tracked)
+metadata/briefing/*.db
+metadata/briefing/*.db-shm
+metadata/briefing/*.db-wal

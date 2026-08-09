@@ -76,8 +76,8 @@ class ApplySynthesisTests(unittest.TestCase):
         )
 
         for relative in [
-            "raw/articles/openclaw-security-best-practices.md",
-            "raw/articles/openclaw-security-hardening-guide.md",
+            "raw/domains/ai/articles/openclaw-security-best-practices.md",
+            "raw/domains/ai/articles/openclaw-security-hardening-guide.md",
         ]:
             path = self.root / relative
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -129,7 +129,10 @@ class ApplySynthesisTests(unittest.TestCase):
             )
         )
 
-        self.assertEqual(output_path, self.root / "compiled" / "topics" / "openclaw-security.md")
+        self.assertEqual(
+            output_path,
+            self.root / "compiled" / "domains" / "ai" / "topics" / "openclaw-security.md",
+        )
 
     def test_wrapping_markdown_fences_are_removed(self) -> None:
         output_path = apply_synthesis(

@@ -23,11 +23,11 @@ class ResynthesizeTopicTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
         _write(
-            self.root / "metadata" / "topic-registry.json",
+            self.root / "metadata" / "domains" / "ai" / "topic-registry.json",
             '{"topics": [{"slug": "openclaw-security", "title": "OpenClaw Security"}]}\n',
         )
         _write(
-            self.root / "compiled" / "topics" / "openclaw-security.md",
+            self.root / "compiled" / "domains" / "ai" / "topics" / "openclaw-security.md",
             """---
 title: OpenClaw Security
 note_type: topic
@@ -49,11 +49,11 @@ Old body.
 """,
         )
         _write(
-            self.root / "compiled" / "source_summaries" / "source-a-synthesis.md",
+            self.root / "compiled" / "domains" / "ai" / "source_summaries" / "source-a-synthesis.md",
             "---\ntitle: A\napproved: true\n---\n\nAlpha.",
         )
         _write(
-            self.root / "compiled" / "source_summaries" / "source-b-synthesis.md",
+            self.root / "compiled" / "domains" / "ai" / "source_summaries" / "source-b-synthesis.md",
             "---\ntitle: B\napproved: true\n---\n\nBeta.",
         )
 
@@ -77,25 +77,25 @@ Old body.
         self.assertEqual(result.synthesis_version, 2)
         self.assertEqual(result.sources_used, 2)
         self.assertTrue(result.committed)
-        text = (self.root / "compiled" / "topics" / "openclaw-security.md").read_text(encoding="utf-8")
+        text = (self.root / "compiled" / "domains" / "ai" / "topics" / "openclaw-security.md").read_text(encoding="utf-8")
         self.assertIn("synthesis_version: 2", text)
-        self.assertIn("sources:\n  - compiled/source_summaries/source-a-synthesis.md", text)
+        self.assertIn("sources:\n  - compiled/domains/ai/source_summaries/source-a-synthesis.md", text)
         self.assertIn("## Overview\n\nNew synthesis.", text)
         mock_commit.assert_called_once()
 
     def test_insufficient_sources_raises_without_writing(self) -> None:
-        (self.root / "compiled" / "source_summaries" / "source-b-synthesis.md").write_text(
+        (self.root / "compiled" / "domains" / "ai" / "source_summaries" / "source-b-synthesis.md").write_text(
             "---\ntitle: B\napproved: false\n---\n\nBeta.",
             encoding="utf-8",
         )
-        path = self.root / "compiled" / "topics" / "openclaw-security.md"
+        path = self.root / "compiled" / "domains" / "ai" / "topics" / "openclaw-security.md"
         before = path.read_text(encoding="utf-8")
         with self.assertRaises(InsufficientSourcesError):
             resynthesize_topic("openclaw-security", root=self.root)
         self.assertEqual(path.read_text(encoding="utf-8"), before)
 
     def test_dry_run_returns_preview_without_writing_or_committing(self) -> None:
-        path = self.root / "compiled" / "topics" / "openclaw-security.md"
+        path = self.root / "compiled" / "domains" / "ai" / "topics" / "openclaw-security.md"
         before = path.read_text(encoding="utf-8")
         with patch("scripts.resynthesize_topic.commit_pipeline_stage") as mock_commit:
             result = resynthesize_topic("openclaw-security", root=self.root, dry_run=True)

@@ -127,7 +127,7 @@ class ShareEndpointTests(unittest.TestCase):
                 res = client.post("/api/share", json={"url": "https://unreachable.example.com/"})
         self.assertEqual(res.status_code, 502)
 
-    def test_successful_share_queues_and_returns_inbox_id(self) -> None:
+    def test_successful_share_queues_and_returns_filename(self) -> None:
         """Test the full share flow by writing to a real temp inbox directory."""
         import tempfile
         mock_response = MagicMock()
@@ -142,17 +142,16 @@ class ShareEndpointTests(unittest.TestCase):
             with patch("dashboard._url_is_duplicate", return_value=(False, "")):
                 with patch("httpx.get", return_value=mock_response):
                     with patch("dashboard.ROOT", root):
-                        import stage_to_inbox as sti
-                        with patch.object(sti, "stage_feed", return_value=feeds_dir / "test-article.json") as mock_sf:
-                            res = client.post(
-                                "/api/share",
-                                json={"url": "https://example.com/new-article", "note": "interesting read"},
-                            )
+                        res = client.post(
+                            "/api/share",
+                            json={"url": "https://example.com/new-article", "note": "interesting read"},
+                        )
 
         self.assertEqual(res.status_code, 200)
         body = res.json()
         self.assertEqual(body["status"], "queued")
-        self.assertTrue(body["inbox_id"].startswith("INX-"))
+        self.assertEqual(body["filename"], "test-article.md")
+        self.assertEqual(body["domain"], "ai")
 
     def test_share_with_note_queues_successfully(self) -> None:
         mock_response = MagicMock()
@@ -177,8 +176,7 @@ class ShareEndpointTests(unittest.TestCase):
             self.assertEqual(res.status_code, 200)
             self.assertEqual(res.json()["status"], "queued")
 
-    def test_share_writes_json_file_with_correct_content(self) -> None:
-        """stage_feed actually writes a .json file; verify path and content."""
+    def test_share_writes_domain_scoped_raw_note_with_correct_content(self) -> None:
         mock_response = MagicMock()
         mock_response.raise_for_status = MagicMock()
         mock_response.text = '<html><head><title>CLI Tools Hidden Gems</title></head><body>Body.</body></html>'
@@ -197,16 +195,12 @@ class ShareEndpointTests(unittest.TestCase):
             self.assertEqual(res.status_code, 200)
             body = res.json()
             self.assertEqual(body["status"], "queued")
-            self.assertIn("inbox_id", body)
-            self.assertIn("file", body)
-
-            written = Path(body["file"])
+            written = root / "raw" / "domains" / "ai" / "articles" / body["filename"]
             self.assertTrue(written.exists(), f"Expected file at {written}")
-
-            payload = json.loads(written.read_text(encoding="utf-8"))
-            self.assertEqual(payload["title"], "CLI Tools Hidden Gems")
-            self.assertEqual(payload["canonical_url"], url)
-            self.assertIn("test note", payload["content"])
+            content = written.read_text(encoding="utf-8")
+            self.assertIn("CLI Tools Hidden Gems", content)
+            self.assertIn(url, content)
+            self.assertIn("test note", content)
 
     def test_x_share_uses_handle_when_title_is_generic(self) -> None:
         mock_response = MagicMock()
@@ -224,9 +218,8 @@ class ShareEndpointTests(unittest.TestCase):
                         res = client.post("/api/share", json={"url": url})
 
             self.assertEqual(res.status_code, 200)
-            written = Path(res.json()["file"])
-            payload = json.loads(written.read_text(encoding="utf-8"))
-            self.assertEqual(payload["title"], "X post by @trq212")
+            written = root / "raw" / "domains" / "ai" / "articles" / res.json()["filename"]
+            self.assertIn("X post by @trq212", written.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

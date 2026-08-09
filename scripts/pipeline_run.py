@@ -150,6 +150,7 @@ def run_for_item(
 ) -> bool:
     """Run the full pipeline for one queue item. Returns True on success."""
     source_id = str(item.get("source_id", ""))
+    configure_queue_paths(_domain_for_item(item), root)
     try:
         with file_lock(root, f"pipeline-item-{source_id}", blocking=False):
             return _run_for_item_locked(

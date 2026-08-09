@@ -1,21 +1,17 @@
-"""feed_poller.py — Auto-fetch RSS/Atom feed entries into raw/inbox/feeds/.
+"""feed_poller.py — Fetch RSS/Atom entries into the Daily Briefing candidate layer.
 
-Reads a list of feed URLs from metadata/feeds.json, fetches each feed with
-urllib (no external dependencies), parses RSS 2.0 and Atom 1.0 entries, and
-writes new entries as JSON files to raw/inbox/feeds/ for inbox_watcher.py to
-pick up and ingest.
+Reads structured feed definitions from metadata/feeds.json, fetches each feed
+with urllib (no external dependencies), parses RSS 2.0 and Atom 1.0 entries,
+and stores normalized candidates in metadata/briefing/candidates.db. Briefing
+candidates never enter the permanent KB inbox automatically.
 
-Already-fetched entries are tracked in metadata/.feed-poller-state.json by
-their canonical URL so the poller is safe to stop and restart.
+SQLite candidate identity replaces the legacy URL-only poller state for the
+structured configuration. Legacy helper functions remain for migration and
+regression compatibility but are not used by the production configuration.
 
 Config format (metadata/feeds.json):
-    A JSON array of feed URLs (strings) or objects with a "url" key:
-
-        ["https://example.com/feed.xml"]
-
-    or
-
-        [{"name": "Example Blog", "url": "https://example.com/feed.xml"}]
+    {"feeds": [{"id": "example", "name": "Example", "url":
+    "https://example.com/feed.xml", "enabled": true, "domain": "ai"}]}
 
 Usage:
     # Poll all feeds once then exit
@@ -43,7 +39,8 @@ import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Callable, Iterator
 
@@ -67,6 +64,14 @@ class FeedEntry:
     url: str
     content: str
     feed_name: str = ""
+    feed_id: str = ""
+    feed_url: str = ""
+    guid: str = ""
+    published_at: str = ""
+    updated_at: str = ""
+    author: str = ""
+    categories: list[str] = field(default_factory=list)
+    summary: str = ""
 
 
 @dataclass
@@ -156,6 +161,23 @@ def _element_text(element: ET.Element | None) -> str:
     return (element.text or "").strip()
 
 
+def normalize_timestamp(value: str) -> str:
+    """Normalize common RSS/Atom timestamps to UTC ISO-8601; preserve nothing if absent."""
+    raw = value.strip()
+    if not raw:
+        return ""
+    try:
+        parsed = parsedate_to_datetime(raw)
+    except (TypeError, ValueError, OverflowError):
+        try:
+            parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        except ValueError:
+            return raw
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc).replace(microsecond=0).isoformat()
+
+
 def parse_rss(root: ET.Element, feed_name: str) -> Iterator[FeedEntry]:
     """Yield FeedEntry objects from an RSS 2.0 document."""
     channel = root.find("channel")
@@ -165,16 +187,26 @@ def parse_rss(root: ET.Element, feed_name: str) -> Iterator[FeedEntry]:
         title = _element_text(item.find("title")) or "Untitled"
         link = _element_text(item.find("link")) or ""
 
+        description = _element_text(item.find("description"))
         content_el = item.find(f"{{{_NS_CONTENT}}}encoded")
         raw_content = (
             _element_text(content_el)
             if content_el is not None
-            else _element_text(item.find("description"))
+            else description
         )
         content = _html_to_text(raw_content) if raw_content else ""
 
-        if link:
-            yield FeedEntry(title=title, url=link, content=content, feed_name=feed_name)
+        guid = _element_text(item.find("guid"))
+        author = _element_text(item.find("author")) or _element_text(item.find("{http://purl.org/dc/elements/1.1/}creator"))
+        categories = [_element_text(node) for node in item.findall("category") if _element_text(node)]
+        if link or guid:
+            yield FeedEntry(
+                title=title, url=link, content=content, feed_name=feed_name,
+                guid=guid, published_at=normalize_timestamp(_element_text(item.find("pubDate"))),
+                updated_at=normalize_timestamp(_element_text(item.find("lastBuildDate"))),
+                author=author, categories=categories,
+                summary=_html_to_text(description) if description else "",
+            )
 
 
 def parse_atom(root: ET.Element, feed_name: str) -> Iterator[FeedEntry]:
@@ -197,11 +229,23 @@ def parse_atom(root: ET.Element, feed_name: str) -> Iterator[FeedEntry]:
 
         content_el = entry.find(f"{{{_NS_ATOM}}}content")
         summary_el = entry.find(f"{{{_NS_ATOM}}}summary")
-        raw_content = _element_text(content_el) or _element_text(summary_el)
+        summary_raw = _element_text(summary_el)
+        raw_content = _element_text(content_el) or summary_raw
         content = _html_to_text(raw_content) if raw_content else ""
 
-        if link:
-            yield FeedEntry(title=title, url=link, content=content, feed_name=feed_name)
+        author_el = entry.find(f"{{{_NS_ATOM}}}author")
+        author = _element_text(author_el.find(f"{{{_NS_ATOM}}}name")) if author_el is not None else ""
+        categories = [node.get("term", "").strip() for node in entry.findall(f"{{{_NS_ATOM}}}category") if node.get("term", "").strip()]
+        atom_id = _element_text(entry.find(f"{{{_NS_ATOM}}}id"))
+        if link or atom_id:
+            yield FeedEntry(
+                title=title, url=link, content=content, feed_name=feed_name,
+                guid=atom_id,
+                published_at=normalize_timestamp(_element_text(entry.find(f"{{{_NS_ATOM}}}published"))),
+                updated_at=normalize_timestamp(_element_text(entry.find(f"{{{_NS_ATOM}}}updated"))),
+                author=author, categories=categories,
+                summary=_html_to_text(summary_raw) if summary_raw else "",
+            )
 
 
 def parse_feed(data: bytes, feed_name: str = "") -> list[FeedEntry]:
@@ -332,6 +376,42 @@ def run(
     dry_run: bool,
     fetcher: Callable[[str], bytes] | None = None,
 ) -> None:
+    try:
+        raw_config = json.loads(config_path.read_text(encoding="utf-8")) if config_path.exists() else []
+    except (json.JSONDecodeError, OSError):
+        raw_config = []
+    if isinstance(raw_config, dict) and "feeds" in raw_config:
+        from briefing import poll_configured_feeds  # noqa: PLC0415
+
+        db_path = config_path.parent / "briefing" / "candidates.db"
+        lock_root = config_path.parent.parent if config_path.parent.name == "metadata" else config_path.parent
+
+        def poll_once() -> None:
+            result = poll_configured_feeds(
+                config_path, db_path, root=lock_root, fetcher=fetcher, dry_run=dry_run
+            )
+            for error in result.errors:
+                print(f"  Error   : {error}")
+            print(
+                f"  Fetched : {result.fetched_items}  New candidates: {result.new_candidates}  "
+                f"Duplicates: {result.duplicates}"
+            )
+
+        if not raw_config.get("feeds"):
+            print(f"No feeds configured. Add feed objects to {config_path}; poll skipped cleanly.")
+            return
+        if once:
+            poll_once()
+            return
+        print(f"Briefing feed poller started (interval: {interval}s, Ctrl-C to stop)")
+        try:
+            while True:
+                poll_once()
+                time.sleep(interval)
+        except KeyboardInterrupt:
+            print("\nFeed poller stopped.")
+        return
+
     feeds = load_feed_urls(config_path)
     if not feeds:
         try:
@@ -369,7 +449,7 @@ def run(
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Poll RSS/Atom feeds and write new entries to raw/inbox/feeds/."
+        description="Poll RSS/Atom feeds into the Daily Briefing candidate store."
     )
     parser.add_argument(
         "--config",

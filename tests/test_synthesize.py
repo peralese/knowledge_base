@@ -200,6 +200,9 @@ class SynthesizeItemTests(unittest.TestCase):
             "# Notes\n\n# Lineage\n\n- Ingested via: scripts/ingest.py\n",
             encoding="utf-8",
         )
+        domain_note = self.root / "raw" / "domains" / "ai" / "articles" / "test-article.md"
+        domain_note.parent.mkdir(parents=True, exist_ok=True)
+        domain_note.write_text(self.note_path.read_text(encoding="utf-8"), encoding="utf-8")
         self.item = _make_entry(
             source_id="SRC-20260412-0001",
             title="Test Article",
@@ -260,7 +263,9 @@ class SynthesizeItemTests(unittest.TestCase):
                 root=self.root,
             )
         self.assertTrue(result)
-        compiled_files = list((self.root / "compiled" / "source_summaries").glob("*.md"))
+        compiled_files = list(
+            (self.root / "compiled" / "domains" / "ai" / "source_summaries").glob("*.md")
+        )
         self.assertEqual(len(compiled_files), 1)
         content = compiled_files[0].read_text(encoding="utf-8")
         self.assertIn("Synthesized summary", content)

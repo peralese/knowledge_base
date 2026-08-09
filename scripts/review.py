@@ -56,11 +56,12 @@ def configure_domain_paths(domain: str, root: Path = ROOT) -> None:
 # Queue helpers
 # ---------------------------------------------------------------------------
 
-def load_queue() -> list[dict[str, object]]:
-    if not REVIEW_QUEUE_PATH.exists():
+def load_queue(path: Path | None = None) -> list[dict[str, object]]:
+    queue_path = path or REVIEW_QUEUE_PATH
+    if not queue_path.exists():
         return []
     try:
-        data = json.loads(REVIEW_QUEUE_PATH.read_text(encoding="utf-8"))
+        data = json.loads(queue_path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return []
     return data if isinstance(data, list) else []
@@ -588,7 +589,10 @@ def cmd_purge(
     no_commit: bool = False,
     domain: str = DEFAULT_DOMAIN_SLUG,
 ) -> int:
-    queue = load_queue()
+    queue_path = metadata_file(root, domain, "review-queue.json")
+    if not queue_path.exists():
+        queue_path = root / "metadata" / "review-queue.json"
+    queue = load_queue(queue_path)
 
     targets: list[str]
     if all_rejected:
@@ -611,7 +615,7 @@ def cmd_purge(
 
     purged: list[str] = []
     for sid in targets:
-        current_queue = load_queue()
+        current_queue = load_queue(queue_path)
         ok = _purge_one(sid, current_queue, dry_run=dry_run, force=force, root=root, domain=domain)
         if ok and not dry_run:
             purged.append(sid)

@@ -104,6 +104,7 @@ from domains import (  # noqa: E402
     get_domain,
     load_domains,
     metadata_file,
+    outputs_subdir,
     raw_domain_dir,
     raw_subdir,
     slugify_domain,
@@ -1061,6 +1062,7 @@ class FeedbackRequest(BaseModel):
     answer_id: str
     rating: str
     note: str = ""
+    domain: str = DEFAULT_DOMAIN_SLUG
 
 
 @app.post("/api/feedback")
@@ -1072,7 +1074,8 @@ def post_feedback(body: FeedbackRequest):
     if not answer_id:
         raise HTTPException(status_code=400, detail="answer_id is required.")
     stem = answer_id.removesuffix(".md")
-    path = ROOT / "outputs" / "answers" / f"{stem}.md"
+    domain = _domain_slug(body.domain)
+    path = outputs_subdir(ROOT, domain, "answers") / f"{stem}.md"
     if not path.exists():
         raise HTTPException(status_code=404, detail=f"Answer not found: {answer_id}")
     write_feedback(path, rating, note=body.note)
@@ -1337,7 +1340,7 @@ def preview_item(source_id: str, domain: str = DEFAULT_DOMAIN_SLUG):
 def share_url(body: ShareURLRequest):
     """Accept a URL from a mobile share sheet and queue it to the inbox.
 
-    Returns {"status": "queued", "inbox_id": "INX-..."} on success.
+    Returns the queued filename and domain on success.
     Returns 409 {"status": "duplicate", "existing_id": "..."} if already known.
     Returns 400 for invalid/unreachable URLs.
     """

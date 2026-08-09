@@ -1,0 +1,27 @@
+{
+  "profile_id": "perales-lab-daily",
+  "name": "Perales Lab Daily Briefing",
+  "prompt_version": "1.0",
+  "model": "phi4:latest",
+  "selection_target": 5,
+  "recent_history_days": 7,
+  "candidate_retention_days": 30,
+  "prioritize": [
+    "Generative AI and agentic AI",
+    "Practical AI application development",
+    "Local and self-hosted AI",
+    "Cloud architecture, migration, and modernization",
+    "AWS, Microsoft Azure, and relevant IBM technology",
+    "Infrastructure automation with Terraform or OpenTofu",
+    "Containers, Linux, and platform tooling",
+    "Technologies relevant to active Perales Lab projects"
+  ],
+  "deemphasize": [
+    "Generic vendor marketing",
+    "Executive appointments",
+    "Funding announcements without technical significance",
+    "Minor product announcements",
+    "Repetitive stories with no meaningful update",
+    "Content with little connection to configured interests"
+  ]
+}

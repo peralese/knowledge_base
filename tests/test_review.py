@@ -202,14 +202,14 @@ class ApproveAllHighConfidenceTests(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 class ReviewableItemsTests(unittest.TestCase):
-    def test_excludes_pending_review_items(self) -> None:
+    def test_includes_pending_review_items(self) -> None:
         queue = [
             _make_entry("SRC-001", review_status="pending_review"),
             _make_entry("SRC-002", review_status="synthesized"),
         ]
         result = _reviewable_items(queue)
-        self.assertEqual(len(result), 1)
-        self.assertEqual(result[0]["source_id"], "SRC-002")
+        self.assertEqual(len(result), 2)
+        self.assertEqual({item["source_id"] for item in result}, {"SRC-001", "SRC-002"})
 
     def test_excludes_already_approved(self) -> None:
         queue = [

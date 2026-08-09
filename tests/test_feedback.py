@@ -207,7 +207,7 @@ class WriteFeedbackTests(unittest.TestCase):
 
 class ResolveAnswerPathTests(unittest.TestCase):
     def _make_answers_dir(self, tmp: str) -> Path:
-        answers = Path(tmp) / "outputs" / "answers"
+        answers = Path(tmp) / "outputs" / "domains" / "ai" / "answers"
         answers.mkdir(parents=True)
         return answers
 
@@ -215,40 +215,39 @@ class ResolveAnswerPathTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             answers = self._make_answers_dir(tmp)
             (answers / "my-answer.md").write_text(SAMPLE_ANSWER, encoding="utf-8")
-            # Monkey-patch ANSWERS_DIR
             import scripts.feedback as fb_mod
-            orig = fb_mod.ANSWERS_DIR
-            fb_mod.ANSWERS_DIR = answers
+            orig = fb_mod.ROOT
+            fb_mod.ROOT = Path(tmp)
             try:
                 path = resolve_answer_path("my-answer")
                 self.assertEqual(path.name, "my-answer.md")
             finally:
-                fb_mod.ANSWERS_DIR = orig
+                fb_mod.ROOT = orig
 
     def test_resolves_with_md_suffix(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             answers = self._make_answers_dir(tmp)
             (answers / "my-answer.md").write_text(SAMPLE_ANSWER, encoding="utf-8")
             import scripts.feedback as fb_mod
-            orig = fb_mod.ANSWERS_DIR
-            fb_mod.ANSWERS_DIR = answers
+            orig = fb_mod.ROOT
+            fb_mod.ROOT = Path(tmp)
             try:
                 path = resolve_answer_path("my-answer.md")
                 self.assertEqual(path.name, "my-answer.md")
             finally:
-                fb_mod.ANSWERS_DIR = orig
+                fb_mod.ROOT = orig
 
     def test_missing_raises(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             answers = self._make_answers_dir(tmp)
             import scripts.feedback as fb_mod
-            orig = fb_mod.ANSWERS_DIR
-            fb_mod.ANSWERS_DIR = answers
+            orig = fb_mod.ROOT
+            fb_mod.ROOT = Path(tmp)
             try:
                 with self.assertRaises(FileNotFoundError):
                     resolve_answer_path("nonexistent")
             finally:
-                fb_mod.ANSWERS_DIR = orig
+                fb_mod.ROOT = orig
 
 
 # ---------------------------------------------------------------------------
@@ -267,11 +266,11 @@ class StatsAggregationTests(unittest.TestCase):
 
     def test_counts_good_bad_unrated(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            answers = Path(tmp) / "outputs" / "answers"
+            answers = Path(tmp) / "outputs" / "domains" / "ai" / "answers"
             answers.mkdir(parents=True)
             import scripts.feedback as fb_mod
-            orig = fb_mod.ANSWERS_DIR
-            fb_mod.ANSWERS_DIR = answers
+            orig = fb_mod.ROOT
+            fb_mod.ROOT = Path(tmp)
             try:
                 self._make_answer(answers, "a1", "good")
                 self._make_answer(answers, "a2", "bad", "too generic")
@@ -293,7 +292,7 @@ class StatsAggregationTests(unittest.TestCase):
                 self.assertEqual(bad, 1)
                 self.assertEqual(unrated, 1)
             finally:
-                fb_mod.ANSWERS_DIR = orig
+                fb_mod.ROOT = orig
 
 
 if __name__ == "__main__":

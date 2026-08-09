@@ -313,7 +313,7 @@ class FileReportTests(unittest.TestCase):
 
     def test_creates_report_file(self) -> None:
         file_report("content", self.root, "2026-04-11", force=False)
-        self.assertTrue((self.root / "outputs" / "reports" / "lint-2026-04-11.md").exists())
+        self.assertTrue((self.root / "outputs" / "domains" / "ai" / "reports" / "lint-2026-04-11.md").exists())
 
     def test_raises_on_existing_without_force(self) -> None:
         file_report("content", self.root, "2026-04-11", force=False)
@@ -323,7 +323,7 @@ class FileReportTests(unittest.TestCase):
     def test_force_overwrites(self) -> None:
         file_report("content", self.root, "2026-04-11", force=False)
         file_report("updated", self.root, "2026-04-11", force=True)
-        text = (self.root / "outputs" / "reports" / "lint-2026-04-11.md").read_text(encoding="utf-8")
+        text = (self.root / "outputs" / "domains" / "ai" / "reports" / "lint-2026-04-11.md").read_text(encoding="utf-8")
         self.assertEqual(text, "updated")
 
     def test_creates_parent_dirs(self) -> None:
@@ -366,7 +366,7 @@ class RunIntegrationTests(unittest.TestCase):
     def test_report_flag_creates_file(self) -> None:
         run(self.root, checks=[], use_llm=False, model="x",
             report=True, force=False, dry_run=False)
-        reports = list((self.root / "outputs" / "reports").glob("lint-*.md"))
+        reports = list((self.root / "outputs" / "domains" / "ai" / "reports").glob("lint-*.md"))
         self.assertEqual(len(reports), 1)
 
     def test_llm_check_returns_one_when_model_unavailable(self) -> None:
@@ -804,15 +804,9 @@ class CrossTopicContradictionTests(unittest.TestCase):
         ])
         self._topic("a", claim_block)
         self._topic("b", claim_block)
-        import scripts.lint as lint_mod
-        orig_dir = lint_mod.CONTRADICTIONS_DIR
-        lint_mod.CONTRADICTIONS_DIR = self.root / "outputs" / "contradictions"
-        try:
-            check_cross_topic_contradictions(self.root, "test-model")
-            files = list((self.root / "outputs" / "contradictions").glob("*.json"))
-            self.assertEqual(len(files), 1)
-        finally:
-            lint_mod.CONTRADICTIONS_DIR = orig_dir
+        check_cross_topic_contradictions(self.root, "test-model")
+        files = list((self.root / "outputs" / "domains" / "ai" / "contradictions").glob("*.json"))
+        self.assertEqual(len(files), 1)
 
 
 class StalenessTests(unittest.TestCase):
@@ -913,7 +907,7 @@ class CheckMissingConceptsTests(unittest.TestCase):
         mock_ollama.return_value = '["zero-trust"]'
         self._write_index()
         check_missing_concepts(self.root, "test-model", fix=True)
-        stub = self.root / "compiled" / "concepts" / "zero-trust.md"
+        stub = self.root / "compiled" / "domains" / "ai" / "concepts" / "zero-trust.md"
         self.assertTrue(stub.exists())
         content = stub.read_text(encoding="utf-8")
         self.assertIn('title: "Zero Trust"', content)

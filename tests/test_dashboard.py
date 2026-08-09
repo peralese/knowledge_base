@@ -180,7 +180,7 @@ class IngestURLMetadataTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
-        (self.root / "raw" / "articles").mkdir(parents=True)
+        (self.root / "raw" / "domains" / "ai" / "articles").mkdir(parents=True)
         (self.root / "tmp").mkdir(parents=True)
 
     def tearDown(self) -> None:
@@ -188,7 +188,7 @@ class IngestURLMetadataTests(unittest.TestCase):
 
     def _staged_file(self) -> Path:
         """Return the first raw article markdown file."""
-        files = list((self.root / "raw" / "articles").glob("*.md"))
+        files = list((self.root / "raw" / "domains" / "ai" / "articles").glob("*.md"))
         self.assertTrue(files, "No raw article found")
         return files[0]
 
@@ -401,7 +401,7 @@ class IngestURLTitleTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
-        (self.root / "raw" / "articles").mkdir(parents=True)
+        (self.root / "raw" / "domains" / "ai" / "articles").mkdir(parents=True)
         (self.root / "tmp").mkdir(parents=True)
 
     def tearDown(self) -> None:
@@ -430,7 +430,7 @@ class IngestURLTitleTests(unittest.TestCase):
             dashboard.ARTICLES_DIR = orig_articles
 
     def _staged(self) -> Path:
-        files = list((self.root / "raw" / "articles").glob("*.md"))
+        files = list((self.root / "raw" / "domains" / "ai" / "articles").glob("*.md"))
         self.assertTrue(files, "No raw article found")
         return files[0]
 
@@ -459,14 +459,14 @@ class IngestURLTitleTests(unittest.TestCase):
     def test_conflicting_title_returns_409(self) -> None:
         from fastapi import HTTPException
         # Pre-create an article with the same slug
-        articles = self.root / "raw" / "articles"
+        articles = self.root / "raw" / "domains" / "ai" / "articles"
         articles.mkdir(parents=True, exist_ok=True)
         (articles / "what-is-ollama.md").write_text("existing", encoding="utf-8")
 
         with self.assertRaises(HTTPException) as ctx:
             self._run({"url": "https://example.com/article", "title": "What is Ollama"})
         self.assertEqual(ctx.exception.status_code, 409)
-        article_files = list((self.root / "raw" / "articles").glob("*.md"))
+        article_files = list((self.root / "raw" / "domains" / "ai" / "articles").glob("*.md"))
         self.assertEqual(len(article_files), 1)
 
     def test_url_slug_from_title_not_url_path(self) -> None:
@@ -485,7 +485,7 @@ class IngestFileTitleTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
-        (self.root / "raw" / "articles").mkdir(parents=True)
+        (self.root / "raw" / "domains" / "ai" / "articles").mkdir(parents=True)
         (self.root / "tmp").mkdir(parents=True)
 
     def tearDown(self) -> None:
@@ -516,6 +516,7 @@ class IngestFileTitleTests(unittest.TestCase):
                 tags="",
                 language="",
                 license="",
+                domain="ai",
             )
         finally:
             dashboard.ROOT = orig_root
@@ -523,7 +524,7 @@ class IngestFileTitleTests(unittest.TestCase):
             dashboard.ARTICLES_DIR = orig_articles
 
     def _staged(self) -> Path:
-        files = list((self.root / "raw" / "articles").glob("*"))
+        files = list((self.root / "raw" / "domains" / "ai" / "articles").glob("*"))
         self.assertTrue(files, "No raw article found")
         return files[0]
 
@@ -536,7 +537,7 @@ class IngestFileTitleTests(unittest.TestCase):
 
     def test_conflicting_title_returns_409(self) -> None:
         from fastapi import HTTPException
-        articles = self.root / "raw" / "articles"
+        articles = self.root / "raw" / "domains" / "ai" / "articles"
         articles.mkdir(parents=True, exist_ok=True)
         (articles / "what-is-ollama.md").write_text("existing", encoding="utf-8")
 
@@ -546,14 +547,14 @@ class IngestFileTitleTests(unittest.TestCase):
 
     def test_no_suffix_appended_on_conflict(self) -> None:
         from fastapi import HTTPException
-        articles = self.root / "raw" / "articles"
+        articles = self.root / "raw" / "domains" / "ai" / "articles"
         articles.mkdir(parents=True, exist_ok=True)
         (articles / "what-is-ollama.md").write_text("existing", encoding="utf-8")
 
         with self.assertRaises(HTTPException) as ctx:
             self._run(title="What is Ollama", filename="any.md")
         # No sitemap-2 style files should appear
-        article_files = list((self.root / "raw" / "articles").glob("*"))
+        article_files = list((self.root / "raw" / "domains" / "ai" / "articles").glob("*"))
         self.assertEqual(len(article_files), 1)
 
 
@@ -565,7 +566,7 @@ class IngestEndpointRawArticleTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
-        self.articles_dir = self.root / "raw" / "articles"
+        self.articles_dir = self.root / "raw" / "domains" / "ai" / "articles"
         self.articles_dir.mkdir(parents=True)
         self.original_root = dashboard.ROOT
         self.original_articles = dashboard.ARTICLES_DIR
@@ -633,7 +634,9 @@ class IngestEndpointRawArticleTests(unittest.TestCase):
         self.assertIn("- ai", content)
         self.assertIn("language: en", content)
 
-        manifest = json.loads((self.root / "metadata" / "source-manifest.json").read_text(encoding="utf-8"))
+        manifest = json.loads(
+            (self.root / "metadata" / "domains" / "ai" / "source-manifest.json").read_text(encoding="utf-8")
+        )
         self.assertEqual(manifest["sources"][0]["canonical_url"], "https://example.com/original")
 
     def test_file_ingest_omits_empty_optional_fields(self) -> None:

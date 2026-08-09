@@ -1,4 +1,4 @@
-.PHONY: install setup-dirs setup-services patch-services start stop status logs verify clean
+.PHONY: install setup-dirs setup-services patch-services start stop status logs verify test test-briefing clean
 
 INSTALL_DIR := $(shell pwd)
 PYTHON      := $(INSTALL_DIR)/.venv/bin/python
@@ -123,6 +123,9 @@ verify:
 
 test:
 	$(PYTHON) -m pytest tests/ -q
+
+test-briefing:
+	$(PYTHON) -m pytest tests/test_briefing.py tests/test_feed_poller.py -q
 
 # ---------------------------------------------------------------------------
 # clean — remove Python bytecode and caches
