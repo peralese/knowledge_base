@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+import wave
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -12,15 +13,22 @@ from scripts.briefing import (
     CandidateStore,
     FeedConfig,
     apply_retention_decision,
+    audio_status,
     build_edition,
+    build_narrative_prompt,
+    detect_narrative_violations,
     evaluate_candidates,
     generate_narrative,
+    generate_audio,
     group_related_items,
     load_feed_config,
     normalize_title,
     normalize_url,
     parse_evaluation,
     poll_configured_feeds,
+    prepare_speech_script,
+    validate_narrative,
+    write_speech_script,
 )
 from scripts.feed_poller import FeedEntry, parse_feed
 
@@ -279,6 +287,18 @@ class EditorialEvaluationTests(TempCase):
         with self.assertRaises(ValueError):
             parse_evaluation(json.dumps(payload))
 
+    def test_evaluation_batch_is_recent_and_feed_diverse(self) -> None:
+        store = CandidateStore(self.root / "diverse.db")
+        for feed_id in ("alpha", "beta", "gamma"):
+            for day in (1, 2):
+                topic = "legacy database history" if day == 1 else "current quantum platform"
+                source = entry(title=f"{feed_id} {topic}", url=f"https://{feed_id}.test/{day}", guid=f"{feed_id}-{day}")
+                source.published_at = f"2026-08-0{day}T12:00:00+00:00"
+                store.add_entry(feed(feed_id), source)
+        batch = store.evaluation_candidates(3)
+        self.assertEqual({item["feed_id"] for item in batch}, {"alpha", "beta", "gamma"})
+        self.assertTrue(all(item["published_at"].startswith("2026-08-02") for item in batch))
+
 
 class EditionSelectionTests(TempCase):
     def setUp(self) -> None:
@@ -342,6 +362,21 @@ class EditionSelectionTests(TempCase):
         self.assertIsNotNone(self.store.get(selected))
         self.assertIsNone(self.store.get(duplicate))
 
+    def test_selection_excludes_stale_backfill_items(self) -> None:
+        stale = self.add_evaluated("Old high score", 99, "old", "https://x.test/old")
+        with self.store.connect() as conn:
+            conn.execute("UPDATE candidates SET published_at='2026-01-01T00:00:00+00:00' WHERE candidate_id=?", (stale,))
+        fresh = self.add_evaluated("Current lower score", 80, "fresh", "https://x.test/fresh")
+        edition = build_edition(self.store, "2026-08-09", self.root / "editions", target=2, max_age_days=14)
+        self.assertEqual([item["candidate_id"] for item in edition["items"]], [fresh])
+
+    def test_selection_does_not_fill_slots_below_minimum_score(self) -> None:
+        keep = self.add_evaluated("Useful current story", 70, "keep", "https://x.test/keep")
+        low = self.add_evaluated("Irrelevant current filler", 20, "low", "https://x.test/low")
+        edition = build_edition(self.store, "2026-08-09", self.root / "editions", target=5, min_score=50)
+        self.assertEqual([item["candidate_id"] for item in edition["items"]], [keep])
+        self.assertNotEqual(self.store.get(low)["state"], "selected")
+
 
 class NarrativeGenerationTests(TempCase):
     def setUp(self) -> None:
@@ -382,9 +417,95 @@ class NarrativeGenerationTests(TempCase):
         edition = self.build(2)
         groups = group_related_items(edition["items"])
         self.assertEqual(len(groups), 1)
-        third = dict(edition["items"][0], candidate_id="other", title="Linux kernel filesystem performance", categories_json="[]")
+        third = dict(edition["items"][0], candidate_id="other", title="Linux kernel filesystem performance",
+                     summary="Filesystem benchmark results", editorial_reasoning="Kernel performance analysis",
+                     categories_json="[]")
         groups = group_related_items(edition["items"] + [third])
         self.assertEqual(sorted(len(group["item_ids"]) for group in groups), [1, 2])
+
+    def test_architectural_grouping_is_vendor_independent_and_not_forced(self) -> None:
+        def item(item_id: str, title: str, summary: str, feed_id: str) -> dict:
+            return {
+                "candidate_id": item_id, "title": title, "summary": summary,
+                "editorial_reasoning": "", "categories_json": "[]", "feed_id": feed_id,
+            }
+        vector = item("vector", "DynamoDB real-time vector search", "Native semantic similarity search for AI applications", "aws")
+        runtime = item("runtime", "AgentCore persistent runtime", "Managed runtime for persistent multi-agent workloads", "aws")
+        compute = item("compute", "EC2 R8i instances", "Intel processors and higher memory bandwidth", "aws")
+        network = item("network", "Azure ExpressRoute resiliency guard", "Hybrid network gateway resilience", "azure")
+        groups = group_related_items([vector, runtime, compute, network])
+        self.assertEqual([group["item_ids"] for group in groups], [["vector", "runtime"], ["compute"], ["network"]])
+        self.assertIn("AI application infrastructure", groups[0]["relationship"])
+        self.assertEqual(groups[0]["relationship_type"], "thematic")
+        self.assertFalse(groups[0]["direct_product_integration"])
+        self.assertFalse(groups[0]["causal_relationship"])
+        self.assertEqual(groups[1]["relationship_type"], "standalone")
+        self.assertIn("compute/platform foundation", groups[1]["architectural_themes"])
+        self.assertIn("hybrid network resilience", groups[2]["architectural_themes"])
+
+    def test_prompt_requires_evidence_bounded_wording(self) -> None:
+        edition = self.build(2)
+        prompt = build_narrative_prompt(edition, group_related_items(edition["items"]))
+        self.assertIn("parallel architectural developments", prompt)
+        self.assertIn('"AWS says"', prompt)
+        self.assertIn("may influence", prompt)
+        self.assertIn("It will be worth seeing whether", prompt)
+        self.assertIn("not evidence of direct integration", prompt)
+        self.assertIn("When direct_product_integration is false", prompt)
+        self.assertIn('"One concerns', prompt)
+        self.assertIn('the data layer, while the other concerns runtime infrastructure"', prompt)
+
+    def test_thematic_group_rejects_unsupported_product_relationship_language(self) -> None:
+        edition = self.build(2)
+        groups = group_related_items(edition["items"])
+        self.assertEqual(groups[0]["relationship_type"], "thematic")
+        for wording in (
+            "The products are integrating seamlessly for operators.",
+            "This integration combines the two product capabilities.",
+            "The services provide an interlinked architecture.",
+            "The announcements describe interconnected products.",
+        ):
+            payload = json.loads(self.response(edition))
+            payload["sections"][0]["narrative_text"] = wording
+            with self.subTest(wording=wording), self.assertRaisesRegex(
+                    ValueError, "unsupported_integration"):
+                validate_narrative(json.dumps(payload), edition, groups)
+
+    def test_thematic_architectural_synthesis_without_integration_validates(self) -> None:
+        edition = self.build(2)
+        groups = group_related_items(edition["items"])
+        payload = json.loads(self.response(edition))
+        payload["sections"][0]["narrative_text"] = (
+            "Both announcements are relevant to AI application infrastructure. "
+            "One concerns the data layer, while the other concerns runtime infrastructure."
+        )
+        self.assertEqual(validate_narrative(json.dumps(payload), edition, groups)["topic_groups"], groups)
+
+    def test_global_prose_cannot_imply_integration_for_thematic_group(self) -> None:
+        edition = self.build(2)
+        groups = group_related_items(edition["items"])
+        payload = json.loads(self.response(edition))
+        payload["what_to_watch"] = ["Watch how the integration of these products changes operations."]
+        violations = detect_narrative_violations(payload, groups)
+        self.assertEqual(violations[0]["unit_id"], "what_to_watch.0")
+        self.assertIn("unsupported_integration", violations[0]["violation_types"])
+
+    def test_supported_product_integration_language_remains_possible(self) -> None:
+        edition = self.build(2)
+        groups = group_related_items(edition["items"])
+        groups[0]["direct_product_integration"] = True
+        payload = json.loads(self.response(edition))
+        payload["sections"][0]["narrative_text"] = "The documented integration connects the two services."
+        self.assertEqual(validate_narrative(json.dumps(payload), edition, groups)["topic_groups"], groups)
+
+    def test_related_cross_vendor_networking_groups_but_same_vendor_unrelated_does_not(self) -> None:
+        items = [
+            {"candidate_id": "aws-network", "title": "AWS hybrid network resiliency", "summary": "gateway connectivity resilience", "editorial_reasoning": "", "categories_json": "[]"},
+            {"candidate_id": "azure-network", "title": "Azure ExpressRoute guard", "summary": "multicloud network resilience", "editorial_reasoning": "", "categories_json": "[]"},
+            {"candidate_id": "aws-tool", "title": "AWS developer CLI update", "summary": "developer tooling commands", "editorial_reasoning": "", "categories_json": "[]"},
+        ]
+        groups = group_related_items(items)
+        self.assertEqual([group["item_ids"] for group in groups], [["aws-network", "azure-network"], ["aws-tool"]])
 
     def test_valid_generation_preserves_provenance_and_path(self) -> None:
         edition = self.build()
@@ -411,6 +532,410 @@ class NarrativeGenerationTests(TempCase):
         self.assertIsNone(self.store.current_narrative(edition["edition_id"]))
         self.assertTrue(Path(edition["artifact_path"]).exists())
 
+    def test_high_risk_wording_is_rejected_without_replacing_current_generation(self) -> None:
+        edition = self.build(1)
+        first = generate_narrative(self.store, "2026-08-09", self.out,
+                                   generator=lambda p, m: self.response(edition))
+        payload = json.loads(self.response(edition))
+        payload["sections"][0]["narrative_text"] = "This unprecedented feature is set to change architecture."
+        rejected = generate_narrative(self.store, "2026-08-09", self.out, regenerate=True,
+                                      generator=lambda p, m: json.dumps(payload))
+        self.assertFalse(rejected.success)
+        self.assertIn("cleanup retry limit reached", rejected.error)
+        self.assertEqual(self.store.current_narrative(edition["edition_id"])["generation_id"],
+                         first.generation["generation_id"])
+        with self.store.connect() as conn:
+            history = conn.execute(
+                "SELECT status,is_current FROM narrative_generations WHERE edition_id=? ORDER BY generation_id",
+                (edition["edition_id"],),
+            ).fetchall()
+        self.assertEqual([(row["status"], row["is_current"]) for row in history],
+                         [("ready", 1), ("failed", 0)])
+
+    def test_attributed_claims_and_cautious_prospective_language_validate(self) -> None:
+        edition = self.build(1)
+        payload = json.loads(self.response(edition))
+        payload["sections"][0]["narrative_text"] = (
+            "The vendor says the instance offers higher performance than its prior generation. "
+            "Analysis: this may give architects another option for memory-intensive workloads."
+        )
+        payload["what_to_watch"] = ["It will be worth seeing whether operators report similar results."]
+        result = generate_narrative(self.store, "2026-08-09", self.out,
+                                    generator=lambda p, m: json.dumps(payload))
+        self.assertTrue(result.success)
+
+    def test_absolute_and_vague_performance_wording_is_rejected(self) -> None:
+        edition = self.build(1)
+        groups = group_related_items(edition["items"])
+        for wording in (
+            "This capability eliminates the need for another database.",
+            "The instance provides superior performance for applications.",
+        ):
+            payload = json.loads(self.response(edition))
+            payload["sections"][0]["narrative_text"] = wording
+            with self.subTest(wording=wording), self.assertRaisesRegex(
+                    ValueError, "unsupported_absolute|vague_performance_claim"):
+                validate_narrative(json.dumps(payload), edition, groups)
+
+    def test_eliminate_need_variants_and_cautious_alternatives(self) -> None:
+        edition = self.build(1)
+        groups = group_related_items(edition["items"])
+        for wording in (
+            "This capability can eliminate the need for another database.",
+            "This capability eliminates the need for another database.",
+            "This capability is eliminating the need for another database.",
+        ):
+            payload = json.loads(self.response(edition))
+            payload["sections"][0]["narrative_text"] = wording
+            with self.subTest(wording=wording), self.assertRaisesRegex(ValueError, "unsupported_absolute"):
+                validate_narrative(json.dumps(payload), edition, groups)
+        for wording in (
+            "This capability may reduce the need for another database.",
+            "This capability can reduce the need for another database.",
+        ):
+            payload = json.loads(self.response(edition))
+            payload["sections"][0]["narrative_text"] = wording
+            with self.subTest(wording=wording):
+                self.assertEqual(validate_narrative(json.dumps(payload), edition, groups)["topic_groups"], groups)
+
+    def test_promotional_technical_adjectives_are_rejected_but_precise_measurement_passes(self) -> None:
+        edition = self.build(1)
+        groups = group_related_items(edition["items"])
+        for wording in (
+            "The instance offers exceptional aSAPS ratings.",
+            "The instance delivers outstanding performance.",
+            "The service provides remarkable throughput.",
+        ):
+            payload = json.loads(self.response(edition))
+            payload["sections"][0]["narrative_text"] = wording
+            with self.subTest(wording=wording), self.assertRaisesRegex(ValueError, "vague_performance_claim"):
+                validate_narrative(json.dumps(payload), edition, groups)
+        for wording in (
+            "AWS lists the instance with an aSAPS rating of 142,100.",
+            "The instance uses Intel Xeon 6 processors.",
+            "AWS says the instance provides 20% higher performance than R7i instances.",
+        ):
+            payload = json.loads(self.response(edition))
+            payload["sections"][0]["narrative_text"] = wording
+            with self.subTest(wording=wording):
+                if wording.startswith("AWS"):
+                    payload_item = edition["items"][0]
+                    payload_item["feed_name"] = "AWS What's New"
+                self.assertEqual(validate_narrative(json.dumps(payload), edition, groups)["topic_groups"], groups)
+
+    def test_cleanup_replaces_promotional_core_claim_with_stored_measurement(self) -> None:
+        edition = self.build(1)
+        item_id = edition["items"][0]["candidate_id"]
+        evidence = "R8i instances are SAP-certified and deliver 142,100 aSAPS."
+        with self.store.connect() as conn:
+            conn.execute("UPDATE candidates SET feed_name='AWS What''s New',summary=?,content=? WHERE candidate_id=?",
+                         (evidence, evidence, item_id))
+        payload = json.loads(self.response(edition))
+        payload["sections"][0]["narrative_text"] = "The instances offer exceptional aSAPS ratings."
+        replacement = "AWS lists the instances with an aSAPS rating of 142,100."
+        cleanup = json.dumps({"action": "replace", "replacement_sentence": replacement,
+                              "supporting_item_ids": [item_id]})
+        result = generate_narrative(self.store, "2026-08-09", self.out,
+                                    generator=lambda p, m: json.dumps(payload),
+                                    cleanup_generator=lambda p, m: cleanup)
+        self.assertTrue(result.success)
+        self.assertEqual(result.generation["narrative"]["sections"][0]["narrative_text"], replacement)
+
+    def test_cautious_absolute_alternative_and_product_facts_validate(self) -> None:
+        edition = self.build(1)
+        groups = group_related_items(edition["items"])
+        payload = json.loads(self.response(edition))
+        payload["sections"][0]["narrative_text"] = (
+            "The capability may reduce the need for a separate database in some architectures. "
+            "R8i instances use Intel Xeon 6 processors."
+        )
+        self.assertEqual(validate_narrative(json.dumps(payload), edition, groups)["topic_groups"], groups)
+
+    def test_performance_and_price_performance_claims_require_vendor_attribution(self) -> None:
+        edition = self.build(1)
+        groups = group_related_items(edition["items"])
+        for wording in (
+            "The instance provides improved performance over the prior generation.",
+            "The instance offers better price-performance for these workloads.",
+        ):
+            payload = json.loads(self.response(edition))
+            payload["sections"][0]["narrative_text"] = wording
+            with self.subTest(wording=wording), self.assertRaisesRegex(
+                    ValueError, "unattributed_performance_claim"):
+                validate_narrative(json.dumps(payload), edition, groups)
+
+        for wording in (
+            "The vendor says the instance provides improved performance over the prior generation.",
+            "According to the vendor, the instance offers better price-performance for these workloads.",
+        ):
+            payload = json.loads(self.response(edition))
+            payload["sections"][0]["narrative_text"] = wording
+            with self.subTest(wording=wording):
+                self.assertEqual(validate_narrative(json.dumps(payload), edition, groups)["topic_groups"], groups)
+
+    def test_two_stage_cleanup_replaces_only_flagged_sentence_and_records_audit(self) -> None:
+        edition = self.build(1)
+        payload = json.loads(self.response(edition))
+        payload["sections"][0]["narrative_text"] = (
+            "A stable factual sentence. This capability eliminates the need for another database."
+        )
+        cleanup = json.dumps({"action": "replace",
+                              "replacement_sentence": "This capability may reduce the need for another database.",
+                              "supporting_item_ids": [edition["items"][0]["candidate_id"]]})
+        result = generate_narrative(self.store, "2026-08-09", self.out,
+                                    generator=lambda p, m: json.dumps(payload),
+                                    cleanup_generator=lambda p, m: cleanup)
+        self.assertTrue(result.success)
+        text = result.generation["narrative"]["sections"][0]["narrative_text"]
+        self.assertEqual(text, "A stable factual sentence. This capability may reduce the need for another database.")
+        with self.store.connect() as conn:
+            run = conn.execute("SELECT * FROM narrative_pipeline_runs WHERE generation_id=?",
+                               (result.generation["generation_id"],)).fetchone()
+            attempts = conn.execute("SELECT * FROM narrative_cleanup_attempts WHERE generation_id=?",
+                                    (result.generation["generation_id"],)).fetchall()
+        self.assertEqual(run["final_validation"], "passed")
+        self.assertEqual(len(attempts), 1)
+        self.assertEqual(attempts[0]["status"], "accepted")
+
+    def test_cleanup_can_succeed_on_second_attempt_without_resynthesis(self) -> None:
+        edition = self.build(1)
+        payload = json.loads(self.response(edition))
+        payload["sections"][0]["narrative_text"] = "This capability eliminates the need for another database."
+        calls = {"synthesis": 0, "cleanup": 0}
+        def synth(prompt: str, model: str) -> str:
+            calls["synthesis"] += 1
+            return json.dumps(payload)
+        def clean(prompt: str, model: str) -> str:
+            calls["cleanup"] += 1
+            replacement = ("This capability removes the need for another database." if calls["cleanup"] == 1
+                           else "This capability may reduce the need for another database.")
+            return json.dumps({"action": "replace", "replacement_sentence": replacement,
+                               "supporting_item_ids": [edition["items"][0]["candidate_id"]]})
+        result = generate_narrative(self.store, "2026-08-09", self.out, generator=synth, cleanup_generator=clean)
+        self.assertTrue(result.success)
+        self.assertEqual(calls, {"synthesis": 1, "cleanup": 2})
+
+    def test_cleanup_retry_limit_and_unknown_ids_preserve_previous_current(self) -> None:
+        edition = self.build(1)
+        first = generate_narrative(self.store, "2026-08-09", self.out,
+                                   generator=lambda p, m: self.response(edition))
+        payload = json.loads(self.response(edition))
+        payload["sections"][0]["narrative_text"] = "This capability eliminates the need for another database."
+        bad_cleanup = json.dumps({"action": "replace", "replacement_sentence": "A weaker statement.",
+                                  "supporting_item_ids": ["BFC-unknown"]})
+        failed = generate_narrative(self.store, "2026-08-09", self.out, regenerate=True,
+                                    generator=lambda p, m: json.dumps(payload),
+                                    cleanup_generator=lambda p, m: bad_cleanup)
+        self.assertFalse(failed.success)
+        self.assertIn("cleanup retry limit reached", failed.error)
+        self.assertEqual(self.store.current_narrative(edition["edition_id"])["generation_id"],
+                         first.generation["generation_id"])
+        with self.store.connect() as conn:
+            attempts = conn.execute("SELECT * FROM narrative_cleanup_attempts ORDER BY cleanup_attempt_id").fetchall()
+        self.assertEqual(len(attempts), 2)
+        self.assertTrue(all("unknown supporting item IDs" in row["error"] for row in attempts))
+
+    def test_nonessential_fallback_removes_only_unresolved_watch_entry(self) -> None:
+        edition = self.build(2)
+        payload = json.loads(self.response(edition))
+        payload["what_to_watch"] = [
+            "Watch how the integration of these products changes operations.",
+            "Architects may want to watch adoption patterns.",
+        ]
+        calls = {"synthesis": 0, "cleanup": 0}
+        def synth(prompt: str, model: str) -> str:
+            calls["synthesis"] += 1
+            return json.dumps(payload)
+        def unresolved(prompt: str, model: str) -> str:
+            calls["cleanup"] += 1
+            return json.dumps({"action": "unchanged", "replacement_sentence": "",
+                               "supporting_item_ids": []})
+        result = generate_narrative(self.store, "2026-08-09", self.out,
+                                    generator=synth, cleanup_generator=unresolved)
+        self.assertTrue(result.success)
+        self.assertEqual(calls, {"synthesis": 1, "cleanup": 2})
+        self.assertEqual(result.generation["narrative"]["what_to_watch"],
+                         ["Architects may want to watch adoption patterns."])
+        self.assertEqual(len(result.generation["narrative"]["source_provenance"]), 2)
+        with self.store.connect() as conn:
+            attempts = conn.execute("SELECT * FROM narrative_cleanup_attempts WHERE generation_id=?",
+                                    (result.generation["generation_id"],)).fetchall()
+            fallback = conn.execute("SELECT * FROM narrative_cleanup_fallbacks WHERE generation_id=?",
+                                    (result.generation["generation_id"],)).fetchone()
+        self.assertEqual(len(attempts), 2)
+        self.assertEqual(fallback["action"], "remove")
+        self.assertEqual(fallback["criticality"], "nonessential")
+        self.assertEqual(fallback["cleanup_attempts_exhausted"], 2)
+        self.assertEqual(fallback["reason"], "retry limit exhausted")
+
+    def test_nonessential_fallback_allows_empty_watch_collection(self) -> None:
+        edition = self.build(2)
+        payload = json.loads(self.response(edition))
+        payload["what_to_watch"] = ["The products will integrate seamlessly."]
+        unresolved = json.dumps({"action": "unchanged", "replacement_sentence": "",
+                                 "supporting_item_ids": []})
+        result = generate_narrative(self.store, "2026-08-09", self.out,
+                                    generator=lambda p, m: json.dumps(payload),
+                                    cleanup_generator=lambda p, m: unresolved)
+        self.assertTrue(result.success)
+        self.assertEqual(result.generation["narrative"]["what_to_watch"], [])
+        self.assertNotIn("## What to watch", Path(result.generation["artifact_path"]).read_text())
+
+    def test_core_cleanup_failure_is_never_removed(self) -> None:
+        edition = self.build(1)
+        first = generate_narrative(self.store, "2026-08-09", self.out,
+                                   generator=lambda p, m: self.response(edition))
+        payload = json.loads(self.response(edition))
+        payload["sections"][0]["narrative_text"] = "This capability eliminates the need for another database."
+        unresolved = json.dumps({"action": "unchanged", "replacement_sentence": "",
+                                 "supporting_item_ids": [edition["items"][0]["candidate_id"]]})
+        failed = generate_narrative(self.store, "2026-08-09", self.out, regenerate=True,
+                                    generator=lambda p, m: json.dumps(payload),
+                                    cleanup_generator=lambda p, m: unresolved)
+        self.assertFalse(failed.success)
+        self.assertIn("core unit", failed.error)
+        self.assertEqual(self.store.current_narrative(edition["edition_id"])["generation_id"],
+                         first.generation["generation_id"])
+        with self.store.connect() as conn:
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM narrative_cleanup_fallbacks").fetchone()[0], 0)
+
+    def test_supported_core_claim_gets_deterministic_aws_attribution(self) -> None:
+        edition = self.build(1)
+        item_id = edition["items"][0]["candidate_id"]
+        evidence = ("R8i offers up to 15% better price-performance compared to previous generation "
+                    "Intel-based instances.")
+        with self.store.connect() as conn:
+            conn.execute("UPDATE candidates SET feed_name='AWS What''s New',summary=?,content=? WHERE candidate_id=?",
+                         (evidence, evidence, item_id))
+        payload = json.loads(self.response(edition))
+        claim = "R8i offers up to 15% better price-performance compared to previous generation Intel-based instances."
+        payload["sections"][0]["narrative_text"] = claim
+        calls = {"synthesis": 0, "cleanup": 0}
+        def synth(prompt: str, model: str) -> str:
+            calls["synthesis"] += 1
+            return json.dumps(payload)
+        def unresolved(prompt: str, model: str) -> str:
+            calls["cleanup"] += 1
+            return json.dumps({"action": "unchanged", "replacement_sentence": "",
+                               "supporting_item_ids": [item_id], "publisher": "Microsoft"})
+        result = generate_narrative(self.store, "2026-08-09", self.out,
+                                    generator=synth, cleanup_generator=unresolved)
+        self.assertTrue(result.success)
+        self.assertEqual(calls, {"synthesis": 1, "cleanup": 2})
+        normalized = result.generation["narrative"]["sections"][0]["narrative_text"]
+        self.assertEqual(normalized, "According to AWS, r8i offers up to 15% better price-performance "
+                                     "compared to previous generation Intel-based instances.")
+        self.assertIn("15%", normalized)
+        self.assertIn("previous generation Intel-based instances", normalized)
+        with self.store.connect() as conn:
+            audit = conn.execute("SELECT * FROM narrative_attribution_normalizations WHERE generation_id=?",
+                                 (result.generation["generation_id"],)).fetchone()
+            attempts = conn.execute("SELECT COUNT(*) FROM narrative_cleanup_attempts WHERE generation_id=?",
+                                    (result.generation["generation_id"],)).fetchone()[0]
+        self.assertEqual(attempts, 2)
+        self.assertEqual(audit["canonical_publisher"], "AWS")
+        self.assertEqual(audit["action"], "normalize_attribution")
+        self.assertNotIn("Microsoft", audit["normalized_text"])
+
+    def test_attribution_normalization_rejects_invented_metric(self) -> None:
+        edition = self.build(1)
+        item_id = edition["items"][0]["candidate_id"]
+        with self.store.connect() as conn:
+            conn.execute("UPDATE candidates SET feed_name='AWS What''s New',summary='15% better price-performance',"
+                         "content='15% better price-performance' WHERE candidate_id=?", (item_id,))
+        payload = json.loads(self.response(edition))
+        payload["sections"][0]["narrative_text"] = "R8i offers 99% better price-performance."
+        unresolved = json.dumps({"action": "unchanged", "replacement_sentence": "",
+                                 "supporting_item_ids": [item_id]})
+        result = generate_narrative(self.store, "2026-08-09", self.out,
+                                    generator=lambda p, m: json.dumps(payload),
+                                    cleanup_generator=lambda p, m: unresolved)
+        self.assertFalse(result.success)
+        with self.store.connect() as conn:
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM narrative_attribution_normalizations").fetchone()[0], 0)
+
+    def test_wrong_publisher_and_vague_claim_are_not_rescued(self) -> None:
+        edition = self.build(1)
+        item_id = edition["items"][0]["candidate_id"]
+        with self.store.connect() as conn:
+            conn.execute("UPDATE candidates SET feed_name='AWS What''s New',summary='15% better price-performance',"
+                         "content='15% better price-performance' WHERE candidate_id=?", (item_id,))
+        for claim, replacement in (
+            ("R8i offers 15% better price-performance.", "According to Microsoft, r8i offers 15% better price-performance."),
+            ("R8i provides high performance.", "R8i provides high performance."),
+        ):
+            payload = json.loads(self.response(edition))
+            payload["sections"][0]["narrative_text"] = claim
+            cleanup = json.dumps({"action": "replace", "replacement_sentence": replacement,
+                                  "supporting_item_ids": [item_id]})
+            result = generate_narrative(self.store, "2026-08-09", self.out, regenerate=True,
+                                        generator=lambda p, m, value=json.dumps(payload): value,
+                                        cleanup_generator=lambda p, m, value=cleanup: value)
+            self.assertFalse(result.success)
+
+    def test_comparative_reconstruction_restores_immutable_source_components(self) -> None:
+        edition = self.build(1)
+        item_id = edition["items"][0]["candidate_id"]
+        evidence = ("The R8i and R8i-flex instances offer up to 15% better price-performance "
+                    "compared to previous generation Intel-based instances.")
+        with self.store.connect() as conn:
+            conn.execute("UPDATE candidates SET feed_name='AWS What''s New',summary=?,content=? WHERE candidate_id=?",
+                         (evidence, evidence, item_id))
+        payload = json.loads(self.response(edition))
+        original = "R8i instances offer improved price-performance for cloud workloads."
+        payload["sections"][0]["narrative_text"] = original
+        cleanup_texts = iter([
+            "R8i instances offer up to 20% better price-performance compared to previous generations.",
+            "R8i instances offer better price-performance compared to older Intel instances.",
+        ])
+        calls = {"synthesis": 0, "cleanup": 0}
+        def synth(prompt: str, model: str) -> str:
+            calls["synthesis"] += 1
+            return json.dumps(payload)
+        def altered(prompt: str, model: str) -> str:
+            calls["cleanup"] += 1
+            return json.dumps({"action": "replace", "replacement_sentence": next(cleanup_texts),
+                               "supporting_item_ids": [item_id], "publisher": "Microsoft"})
+        result = generate_narrative(self.store, "2026-08-09", self.out,
+                                    generator=synth, cleanup_generator=altered)
+        self.assertTrue(result.success)
+        self.assertEqual(calls, {"synthesis": 1, "cleanup": 2})
+        expected = ("According to AWS, R8i and R8i-flex instances provide up to 15% better "
+                    "price-performance compared with previous generation Intel-based instances.")
+        self.assertEqual(result.generation["narrative"]["sections"][0]["narrative_text"], expected)
+        with self.store.connect() as conn:
+            audit = conn.execute("SELECT * FROM narrative_comparative_reconstructions WHERE generation_id=?",
+                                 (result.generation["generation_id"],)).fetchone()
+            attempts = conn.execute("SELECT COUNT(*) FROM narrative_cleanup_attempts WHERE generation_id=?",
+                                    (result.generation["generation_id"],)).fetchone()[0]
+        self.assertEqual(attempts, 2)
+        self.assertEqual(audit["publisher"], "AWS")
+        self.assertEqual(audit["metric"], "up to 15%")
+        self.assertEqual(audit["comparison_dimension"], "price-performance")
+        self.assertEqual(audit["baseline"], "previous generation Intel-based instances")
+        self.assertEqual(audit["action"], "reconstruct_comparative_claim")
+        self.assertNotIn("20%", audit["reconstructed_text"])
+        self.assertNotIn("Microsoft", audit["reconstructed_text"])
+
+    def test_ambiguous_source_comparison_prevents_reconstruction(self) -> None:
+        edition = self.build(1)
+        item_id = edition["items"][0]["candidate_id"]
+        evidence = ("The R8i instances offer 15% better price-performance compared to generation A instances. "
+                    "The R8i instances offer 10% better price-performance compared to generation B instances.")
+        with self.store.connect() as conn:
+            conn.execute("UPDATE candidates SET feed_name='AWS What''s New',summary=?,content=? WHERE candidate_id=?",
+                         (evidence, evidence, item_id))
+        payload = json.loads(self.response(edition))
+        payload["sections"][0]["narrative_text"] = "R8i offers improved price-performance."
+        unresolved = json.dumps({"action": "unchanged", "replacement_sentence": "",
+                                 "supporting_item_ids": [item_id]})
+        result = generate_narrative(self.store, "2026-08-09", self.out,
+                                    generator=lambda p, m: json.dumps(payload),
+                                    cleanup_generator=lambda p, m: unresolved)
+        self.assertFalse(result.success)
+        with self.store.connect() as conn:
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM narrative_comparative_reconstructions").fetchone()[0], 0)
+
     def test_failure_does_not_replace_valid_narrative(self) -> None:
         edition = self.build(1)
         first = generate_narrative(self.store, "2026-08-09", self.out, generator=lambda p, m: self.response(edition))
@@ -432,6 +957,14 @@ class NarrativeGenerationTests(TempCase):
         self.assertEqual(len(calls), 2)
         self.assertGreater(regenerated.generation["generation_id"], first.generation["generation_id"])
         self.assertEqual(regenerated.generation["generation_kind"], "regeneration")
+        with self.store.connect() as conn:
+            history = conn.execute("""
+                SELECT generation_id,is_current,status FROM narrative_generations
+                WHERE edition_id=? ORDER BY generation_id
+            """, (edition["edition_id"],)).fetchall()
+        self.assertEqual([(row["generation_id"], row["is_current"], row["status"]) for row in history],
+                         [(first.generation["generation_id"], 0, "ready"),
+                          (regenerated.generation["generation_id"], 1, "ready")])
 
     def test_empty_and_single_item_editions(self) -> None:
         empty = build_edition(self.store, "2026-08-08", self.root / "editions", target=2)
@@ -577,6 +1110,146 @@ class RetentionReviewTests(TempCase):
     def test_retention_marker_is_rendered_from_sqlite(self) -> None:
         self.decide("discard")
         self.assertIn("**Retention:** Discard (completed)", Path(self.edition["artifact_path"]).read_text())
+
+
+class AudioGenerationTests(TempCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.store = CandidateStore(self.db)
+        candidate_id, _ = self.store.add_entry(feed(), entry(title="Audio Story", guid="audio-story"))
+        self.store.transition(candidate_id, "evaluated", editorial_score=90, editorial_reasoning="Useful")
+        self.edition = build_edition(self.store, "2026-08-09", self.root / "editions", target=1)
+        self.audio_dir = self.root / "audio"
+        self.narrative_payload = {
+            "edition_date": "2026-08-09", "headline": "AI and AWS infrastructure",
+            "opening": "A connected opening with [documentation](https://example.com/docs).",
+            "sections": [{
+                "section_title": "## API tooling", "narrative_text": "First fact, then **analysis**.",
+                "supporting_item_ids": [candidate_id], "key_takeaway": "Test the CLI and GPU path.",
+            }],
+            "what_to_watch": ["LLM performance at https://example.com/bench"],
+        }
+        response = json.dumps(self.narrative_payload)
+        result = generate_narrative(self.store, "2026-08-09", self.root / "narratives", generator=lambda p, m: response)
+        self.assertTrue(result.success)
+
+    @staticmethod
+    def valid_tts(script_path: Path, output_path: Path, config: dict) -> dict:
+        with wave.open(str(output_path), "wb") as audio:
+            audio.setnchannels(1)
+            audio.setsampwidth(2)
+            audio.setframerate(8000)
+            audio.writeframes(b"\x01\x00" * 800)
+        return {"engine_version": "mock-1"}
+
+    def test_speech_preparation_removes_markup_urls_and_appendix(self) -> None:
+        narrative = {**self.narrative_payload, "source_provenance": [{"article_title": "Appendix only"}]}
+        script = prepare_speech_script(narrative)
+        self.assertNotIn("https://", script)
+        self.assertNotIn("[documentation]", script)
+        self.assertNotIn("**", script)
+        self.assertNotIn("##", script)
+        self.assertNotIn("Appendix only", script)
+        self.assertIn("A I and A W S", script)
+        self.assertIn("A P I tooling", script)
+        self.assertIn("C L I and G P U", script)
+        self.assertIn("L L M performance", script)
+        self.assertLess(script.index("connected opening"), script.index("First fact"))
+        self.assertLess(script.index("First fact"), script.index("what to watch"))
+
+    def test_script_only_artifact_is_deterministic(self) -> None:
+        result = write_speech_script(self.store, "2026-08-09", self.audio_dir)
+        self.assertTrue(result.success)
+        self.assertEqual(result.script_path, self.audio_dir / "2026-08-09-script.txt")
+        self.assertIn("Perales Lab Daily Briefing", result.script_path.read_text())
+
+    def test_successful_audio_records_metadata_and_provenance(self) -> None:
+        result = generate_audio(self.store, "2026-08-09", self.audio_dir, tts=self.valid_tts)
+        self.assertTrue(result.success)
+        generation = result.generation
+        self.assertEqual(Path(generation["audio_path"]), self.audio_dir / "2026-08-09-briefing.wav")
+        self.assertEqual(Path(generation["script_path"]), self.audio_dir / "2026-08-09-script.txt")
+        self.assertEqual(Path(generation["metadata_path"]), self.audio_dir / "2026-08-09-audio.json")
+        self.assertEqual(generation["narrative_generation_id"], self.store.current_narrative(self.edition["edition_id"])["generation_id"])
+        self.assertGreater(generation["duration_seconds"], 0)
+        self.assertGreater(generation["audio_bytes"], 44)
+        metadata = json.loads(Path(generation["metadata_path"]).read_text())
+        self.assertEqual(metadata["tts_engine"], "macos-say")
+        self.assertEqual(metadata["tts_engine_version"], "mock-1")
+
+    def test_default_idempotency_and_explicit_regeneration(self) -> None:
+        calls = []
+        def tts(script: Path, output: Path, config: dict) -> dict:
+            calls.append(script.read_text())
+            return self.valid_tts(script, output, config)
+        first = generate_audio(self.store, "2026-08-09", self.audio_dir, tts=tts)
+        reused = generate_audio(self.store, "2026-08-09", self.audio_dir, tts=tts)
+        regenerated = generate_audio(self.store, "2026-08-09", self.audio_dir, regenerate=True, tts=tts)
+        self.assertTrue(reused.reused)
+        self.assertEqual(len(calls), 2)
+        self.assertGreater(regenerated.generation["audio_generation_id"], first.generation["audio_generation_id"])
+        self.assertEqual(regenerated.generation["generation_kind"], "regeneration")
+
+    def test_changed_narrative_marks_audio_stale_and_regenerates(self) -> None:
+        first = generate_audio(self.store, "2026-08-09", self.audio_dir, tts=self.valid_tts)
+        changed = {**self.narrative_payload, "headline": "Changed headline"}
+        narrative = generate_narrative(self.store, "2026-08-09", self.root / "narratives", regenerate=True,
+                                       generator=lambda p, m: json.dumps(changed))
+        self.assertTrue(narrative.success)
+        self.assertTrue(audio_status(self.store, "2026-08-09")["stale"])
+        second = generate_audio(self.store, "2026-08-09", self.audio_dir, tts=self.valid_tts)
+        self.assertGreater(second.generation["audio_generation_id"], first.generation["audio_generation_id"])
+        self.assertFalse(audio_status(self.store, "2026-08-09")["stale"])
+
+    def test_missing_or_failed_narrative_is_actionable(self) -> None:
+        empty_store = CandidateStore(self.root / "other" / "briefing.db")
+        self.assertIn("no selected edition", generate_audio(
+            empty_store, "2026-08-09", self.audio_dir, tts=self.valid_tts).error)
+        candidate_id, _ = empty_store.add_entry(feed(), entry(guid="failed-narrative"))
+        empty_store.transition(candidate_id, "evaluated", editorial_score=90, editorial_reasoning="Useful")
+        build_edition(empty_store, "2026-08-09", self.root / "other-editions", target=1)
+        generate_narrative(empty_store, "2026-08-09", self.root / "other-narratives", generator=lambda p, m: "bad")
+        self.assertIn("no successful validated narrative", generate_audio(
+            empty_store, "2026-08-09", self.audio_dir, tts=self.valid_tts).error)
+
+    def test_tts_failure_invalid_output_and_cleanup(self) -> None:
+        failed = generate_audio(self.store, "2026-08-09", self.audio_dir,
+                                tts=lambda s, o, c: (_ for _ in ()).throw(RuntimeError("TTS offline")))
+        self.assertFalse(failed.success)
+        self.assertIn("TTS offline", failed.error)
+        invalid = generate_audio(self.store, "2026-08-09", self.audio_dir,
+                                 tts=lambda s, o, c: o.write_bytes(b""))
+        self.assertFalse(invalid.success)
+        self.assertIn("empty", invalid.error)
+        self.assertFalse(any(path.name.startswith("briefing-audio-") for path in self.audio_dir.iterdir()))
+
+    def test_failed_regeneration_preserves_existing_audio(self) -> None:
+        first = generate_audio(self.store, "2026-08-09", self.audio_dir, tts=self.valid_tts)
+        path = Path(first.generation["audio_path"])
+        original = path.read_bytes()
+        failed = generate_audio(
+            self.store, "2026-08-09", self.audio_dir, regenerate=True,
+            tts=lambda s, o, c: (_ for _ in ()).throw(RuntimeError("regeneration failed")),
+        )
+        self.assertFalse(failed.success)
+        self.assertEqual(path.read_bytes(), original)
+        self.assertEqual(self.store.current_audio(self.edition["edition_id"])["audio_generation_id"],
+                         first.generation["audio_generation_id"])
+
+    def test_empty_and_short_narratives(self) -> None:
+        with self.store.connect() as conn:
+            current = self.store.current_narrative(self.edition["edition_id"])
+            payload = current["narrative"]
+            payload["sections"] = []
+            conn.execute("UPDATE narrative_generations SET narrative_json=? WHERE generation_id=?",
+                         (json.dumps(payload), current["generation_id"]))
+        empty = generate_audio(self.store, "2026-08-09", self.audio_dir, tts=self.valid_tts)
+        self.assertFalse(empty.success)
+        self.assertIn("no substantive sections", empty.error)
+        short = {**self.narrative_payload, "opening": "Brief.", "sections": [{
+            **self.narrative_payload["sections"][0], "narrative_text": "A short update.",
+        }]}
+        self.assertIn("A short update", prepare_speech_script(short))
 
 
 if __name__ == "__main__":

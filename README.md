@@ -339,9 +339,17 @@ No podcast generation is required for Phase 2A.
 
 No automatic KB promotion is required for Phase 2A.
 
-### Phase 2B — Contextualized narrative briefing — Complete
+### Phase 2B — Two-stage contextual narrative briefing — Complete
 
-Phase 2B converts the selected daily edition into a concise, connected written briefing using locked local Ollama generation. Deterministic topic proposals keep unrelated items separate, while validated structured output supports contextual sections, key takeaways, and what-to-watch notes.
+Phase 2B converts the selected daily edition into a concise, connected written briefing using two bounded local-Ollama stages. **2B1 Narrative Synthesis** creates the structured architectural draft. Deterministic topic proposals keep unrelated items separate and preserve explicit relationship semantics. **2B2 Evidence-Bounded Editorial Cleanup** identifies localized risky sentences and may only weaken, attribute, remove, or precisely restate those sentences from stored source evidence.
+
+Cleanup never changes selection, grouping, section order, unrelated prose, or provenance. It gets at most two model attempts per flagged unit. After exhaustion, a deterministic fallback may remove only a field-classified nonessential takeaway or what-to-watch entry; it never removes an opening or substantive section body. Core failures still fail the generation. Legacy generations remain readable in `narrative_generations`; two-stage runs, sentence-level repairs, and fallback removals are recorded additively in `narrative_pipeline_runs`, `narrative_cleanup_attempts`, and `narrative_cleanup_fallbacks`.
+
+For a remaining attribution-only comparison, 2B2 may deterministically prepend canonical publisher attribution after both model attempts. This requires one selected supporting source, an authoritative publisher mapping, exact evidence for every metric and comparison baseline, and no other violation. The original claim is otherwise unchanged, and the action is audited in `narrative_attribution_normalizations`.
+
+If cleanup altered or omitted an evidence-bearing metric or baseline, a narrower reconstruction path may instead rebuild one literal comparative sentence from a single unambiguous stored-source clause. Publisher, product, metric, comparison dimension, and baseline are immutable; the fixed template adds no interpretation. Reconstructions are audited in `narrative_comparative_reconstructions` and must pass the ordinary validators.
+
+Final wording validation also detects the scoped absolute construction `eliminat* … the need` and promotional adjectives such as exceptional/outstanding/remarkable when they directly characterize measurable performance, ratings, benchmarks, latency, throughput, efficiency, price-performance, or bandwidth. Cleanup is instructed to prefer exact stored measurements—such as a concrete aSAPS rating—over promotional paraphrase.
 
 Implemented guarantees:
 
@@ -349,7 +357,8 @@ Implemented guarantees:
 - Titles, URLs, sources, timestamps, categories, and scores are restored from stored provenance rather than trusted from model output
 - Invalid or hallucinated IDs and malformed schemas are rejected without changing the Phase 2A edition
 - Default generation is idempotent; explicit `--regenerate` creates an auditable replacement only after validation
-- Failed attempts are recorded and cannot displace the last valid narrative
+- Only a fully validated post-cleanup narrative becomes current, renders canonical Markdown, and is eligible for Phase 2D
+- Failed synthesis or cleanup attempts are recorded and cannot displace the last valid narrative
 - Markdown narratives include per-section citations and a source appendix
 
 Generate manually with:
@@ -391,23 +400,32 @@ SQLite stores current state, append-only decision history, and downstream attemp
 
 See [docs/daily-briefing.md](docs/daily-briefing.md) for the full retention model, provenance chain, promotion boundary, failure behavior, and exclusions.
 
-### Phase 2D — Podcast generation and delivery
+### Phase 2D — Local audio briefing generation — Complete
 
-Once the written Daily Briefing consistently produces useful output, add audio generation.
+Phase 2D converts the current validated Phase 2B narrative into a deterministic spoken script and local podcast-style WAV artifact. The narrative remains canonical; speech and audio are derived presentation artifacts.
 
-Planned scope:
+The authoritative Mac mini uses the built-in `/usr/bin/say` Speech Synthesis Manager. Direct MP3 and AAC conversion were tested but are not operational on this host, while 22.05 kHz mono PCM WAV generation is reliable and broadly playable without another dependency.
 
-- Convert the final narrative into speech
-- Produce a podcast-style audio artifact
-- Store episode metadata and generation history
-- Support regeneration when the written briefing changes
-- Evaluate private delivery options such as:
+```bash
+# Inspect exactly what will be spoken
+.venv/bin/python scripts/briefing.py audio script
 
-  - local/private web playback
-  - private RSS podcast feed
-  - mobile-accessible audio delivery
+# Generate or reuse today's audio
+.venv/bin/python scripts/briefing.py audio generate
 
-Text-to-speech is intentionally deferred until editorial selection and contextual narrative quality are proven.
+# Explicitly regenerate it
+.venv/bin/python scripts/briefing.py audio generate --regenerate
+
+# Inspect readiness, configuration, provenance, and narrative staleness
+.venv/bin/python scripts/briefing.py audio status
+
+# Listen locally
+afplay outputs/briefing/audio/$(date +%F)-briefing.wav
+```
+
+Speech preparation removes Markdown, citations, raw URLs, and the source appendix; adds natural section transitions; and conservatively expands common technical acronyms. SQLite stores append-only successes/failures, narrative/configuration fingerprints, voice/rate, duration, paths, and provenance. Changed narratives make existing audio stale, and failed regeneration preserves the last valid artifact.
+
+Publishing, distribution, hosting, RSS, dashboard controls, music, multiple speakers, voice cloning, and cloud TTS remain out of scope. See [docs/daily-briefing.md](docs/daily-briefing.md) for configuration and troubleshooting.
 
 ## Longer-term possibilities
 

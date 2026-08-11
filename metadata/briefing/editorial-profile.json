@@ -5,7 +5,14 @@
   "model": "phi4:latest",
   "selection_target": 5,
   "recent_history_days": 7,
+  "candidate_max_age_days": 14,
+  "minimum_editorial_score": 65,
   "candidate_retention_days": 30,
+  "audio": {
+    "voice": "Samantha",
+    "rate": 185,
+    "format": "wav"
+  },
   "prioritize": [
     "Generative AI and agentic AI",
     "Practical AI application development",

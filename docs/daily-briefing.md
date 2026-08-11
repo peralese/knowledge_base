@@ -117,15 +117,35 @@ Candidates rank by editorial score, feed priority, and publication time. Selecti
 
 The Phase 2A Markdown output remains an independent editorial review artifact. It retains the feed, article link, publication date, score, why-it-matters reasoning, and source summary.
 
-## Contextual narrative generation
+## Two-stage contextual narrative generation
 
-`briefing.py narrative` reads only the already-selected edition. Before synthesis it proposes groups using strong overlap in meaningful title/category terms; unmatched stories stay standalone. These groups guide, but do not force, the model's structure. The prompt asks for one connected, concise technical briefing, distinguishes source facts from labeled analysis, treats feed content as untrusted data, and prohibits invented sources.
+`briefing.py narrative` reads only the already-selected edition. Before synthesis it proposes groups using strong overlap in meaningful title/category terms; unmatched stories stay standalone. These groups guide, but do not force, structure and carry explicit thematic, integration, and causality semantics.
+
+### Phase 2B1: Narrative Synthesis
+
+The synthesis model creates a structured draft with the opening, ordered sections, supporting candidate IDs, takeaways, and what-to-watch entries. It is responsible for architectural coherence and flow, but its draft is neither canonical nor audio-eligible. Schema and selected-item linkage are checked and authoritative provenance is restored from SQLite before cleanup.
+
+### Phase 2B2: Evidence-Bounded Editorial Cleanup
+
+Validation identifies the exact prose unit and sentence for localized unsupported absolutes, integration implications, vague or unattributed performance claims, and over-certain projections. Cleanup receives only that sentence, its violation classes, group relationship context, supporting selected IDs, stored source material, and vendor identity. It may weaken, qualify, attribute, replace with supported wording, or remove the claim. It cannot add sources, strengthen the claim, alter grouping/selection/order, or rewrite unrelated prose.
+
+Each flagged prose unit gets at most two cleanup attempts. The exact original, response action, replacement, source IDs, and validation result are appended to `narrative_cleanup_attempts`. Criticality is deterministic: the opening, titles, and substantive section narratives are `core`; what-to-watch entries and optional takeaways are `nonessential`. The model does not choose this classification.
+
+After both model attempts fail, an eligible unresolved nonessential unit is removed without another model call. The fallback adds no filler and is recorded separately in `narrative_cleanup_fallbacks` with the original text, violation types, exhausted-attempt count, reason, timestamp, and validation state. An unresolved core unit always fails the generation and is never deleted. Empty what-to-watch lists and omitted takeaways are valid; openings and section bodies must remain substantive, every selected item must retain a source-linked section, provenance must remain unchanged, and the complete result must pass final validation.
+
+Before core failure or nonessential removal, an attribution-only performance comparison gets one deterministic normalization opportunity. It makes no model call and only prepends `According to <canonical publisher>,` to the existing sentence. Eligibility requires exactly one selected supporting item, a publisher derived from its stored feed identity, every percentage/multiplier present in stored title/summary/content, a supported comparison baseline, and no second violation. Wrong publishers, invented metrics, vague performance praise, unsupported relationships, and absolutes are ineligible. Successful or failed final validation is appended to `narrative_attribution_normalizations`; prior model attempts remain unchanged.
+
+When the cleanup sentence altered or omitted evidence-bearing components, attribution-only normalization is skipped. A narrow comparative reconstruction extractor may identify exactly one explicit stored-source clause containing a product, numeric metric, supported dimension (`performance`, `price-performance`, latency/throughput/efficiency/cost where explicit), and exact `compared to/with` baseline. It then renders only `According to <publisher>, <product> provide <metric> <comparison phrase> compared with <baseline>.` These factual fields are immutable and come exclusively from the selected SQLite source. Ambiguous/conflicting clauses, unsupported original metrics, multiple sources, vague claims, and unrelated violations fail conservatively. The original synthesis sentence, latest cleanup sentence, structured components, reconstructed text, source IDs, action, and validation result are appended to `narrative_comparative_reconstructions`.
+
+The localized wording validator treats grammatical forms of `eliminat* … the need` as the same risky absolute construction while allowing cautious `may/can reduce the need` language. A small scoped pattern also rejects exceptional, superior, outstanding, remarkable, unmatched, or unparalleled when those adjectives characterize measurable performance, ratings, benchmarks, latency, throughput, efficiency, price-performance, or bandwidth. These rules do not ban the words globally. Phase 2B2 receives the same stored evidence and is instructed to replace promotional measurement language with an exact sourced value or neutral capability statement when possible.
 
 The local Ollama response must be a JSON object containing the edition date, headline, opening, one or more sections, section narratives, supporting candidate IDs, key takeaways, and what-to-watch items. Validation rejects missing fields, malformed types, date mismatches, empty support lists, unknown IDs, or omission of any selected item. Titles, URLs, source names, timestamps, categories, and editorial scores are never accepted from the model: they are joined back from SQLite after validation.
 
 Every successful stored narrative includes the immutable source snapshot and the topic groups/relationship explanations used for construction. The Markdown artifact cites its supporting articles per section and includes a compact source appendix.
 
-Generation attempts are append-only in `narrative_generations`. By default, an existing valid narrative is returned without another model call. `--regenerate` performs a new attempt and makes it current only after successful schema and provenance validation. Attempt time, completion time, model, schema/prompt versions, original-versus-regeneration status, artifact path, and failures are recorded. A failed initial attempt leaves the Phase 2A edition usable; a failed regeneration also leaves the prior valid narrative current.
+Generation attempts are append-only in `narrative_generations`. Generations created before the split remain legacy single-stage records and are not migrated. New attempts reserve one generation ID, store the 2B1 draft and detected violations in `narrative_pipeline_runs`, and append each 2B2 action separately. States distinguish synthesis in progress, draft created, cleanup required/in progress, final validation, ready, and failed. By default, an existing ready current narrative is reused; `--regenerate` creates a new two-stage attempt. Only final validation marks it current and atomically renders the canonical Markdown. Failure preserves the draft, edition, previous current narrative, retention/KB state, and audio artifacts.
+
+Phase 2D reads only `current_narrative`, whose query requires both `status='ready'` and `is_current=1`; it therefore cannot consume an uncleaned draft.
 
 Empty editions fail cleanly without calling Ollama. A single-item/undersized edition is supported and produces a concise narrative when the model response validates.
 
@@ -218,3 +238,90 @@ The structured edition Markdown displays the current SQLite-derived retention ma
 ```
 
 Phase 2C does not add automatic decisions, AI-selected promotion, bulk score-based retention, final KB approval, deletion/retraction, audio, publishing, UI, notifications, scraping, feeds, or external models.
+
+## Local audio generation
+
+Phase 2D treats audio as a derived presentation layer:
+
+```text
+current validated narrative generation
+        ↓ deterministic speech preparation
+outputs/briefing/audio/YYYY-MM-DD-script.txt
+        ↓ local macOS Speech Synthesis Manager
+temporary validated PCM WAV
+        ↓ atomic replacement
+outputs/briefing/audio/YYYY-MM-DD-briefing.wav
+        + YYYY-MM-DD-audio.json
+```
+
+### Local engine choice
+
+The authoritative Mac mini has Python 3.9.6, `/usr/bin/say`, `/usr/bin/afconvert`, and `/usr/bin/afinfo`; it does not have FFmpeg or a Python TTS package. A synthetic environment smoke test confirmed that `say` produces valid local audio. Although the installed conversion tooling advertises MP3 and AAC containers, actual MP3/AAC encoding fails on this host. Direct `say` output as 22.05 kHz, mono, 16-bit PCM WAV succeeds and is broadly playable, so Phase 2D uses WAV without adding a large framework or cloud dependency.
+
+The small `macos_say_tts` adapter isolates subprocess execution from preparation, persistence, idempotency, and CLI logic. Tests substitute this adapter and never use speakers or real TTS hardware.
+
+### Speech preparation
+
+The TTS engine never receives raw Markdown. Speech preparation reads only the validated structured narrative and:
+
+- preserves the headline, opening, section order, narrative text, takeaways, and what-to-watch order
+- turns section titles into natural transitions
+- removes Markdown markers, inline citation links, HTML, bullets, and raw URLs
+- omits source provenance/source appendices from spoken output
+- conservatively expands AI, AWS, API, CLI, GPU, LLM, and IaC for reliable pronunciation
+- rejects missing, empty, mismatched, or sectionless narratives rather than generating silence or filler
+
+The exact prepared text remains inspectable at `outputs/briefing/audio/YYYY-MM-DD-script.txt`. The Phase 2B Markdown and SQLite narrative remain unchanged.
+
+### Configuration and CLI
+
+Defaults are explicit in `metadata/briefing/editorial-profile.json`:
+
+```json
+"audio": {
+  "voice": "Samantha",
+  "rate": 185,
+  "format": "wav"
+}
+```
+
+The voice and rate may be overridden per generation. Rate must be 80–450 words per minute. WAV is the only verified format in this phase.
+
+```bash
+# Today's inspectable script, without TTS
+.venv/bin/python scripts/briefing.py audio script
+
+# Generate/reuse today's audio
+.venv/bin/python scripts/briefing.py audio generate
+
+# Another date or configuration
+.venv/bin/python scripts/briefing.py audio generate --date 2026-08-09 --voice Samantha --rate 185 --format wav
+
+# Force a new auditable attempt at the deterministic path
+.venv/bin/python scripts/briefing.py audio generate --date 2026-08-09 --regenerate
+
+# Inspect current state and whether the narrative has changed
+.venv/bin/python scripts/briefing.py audio status --date 2026-08-09
+
+# Listen locally on macOS
+afplay outputs/briefing/audio/2026-08-09-briefing.wav
+```
+
+### Metadata, idempotency, and failures
+
+`audio_generations` is an append-only SQLite attempt table. Every attempt records the edition, narrative generation ID and SHA-256 fingerprint, configuration fingerprint, engine/version, voice, rate, format, timestamps, generation kind, script/narrative/audio/metadata paths, byte size, duration, result, and error. Only a successful generation becomes current.
+
+Default generation reuses a readable artifact only when both the current narrative fingerprint and relevant TTS configuration match. A new Phase 2B generation changes the narrative identity—even if similar in wording—so `audio status` reports the old audio as stale and the next ordinary generation replaces it. `--regenerate` intentionally creates another attempt for the same inputs.
+
+TTS writes inside a temporary directory under the audio output filesystem. WAV headers, channels, sample rate, frame count, byte size, and positive duration are validated before atomic replacement. Temporary files are automatically cleaned. TTS failure, invalid/zero-byte output, or validation failure records a failed attempt without changing the prior current generation or audio artifact. Missing narratives produce an actionable error and are never generated as a hidden side effect.
+
+The provenance chain remains source → candidate → edition → narrative generation → speech script → audio generation. Audio never changes editorial content, retention state, or KB semantics.
+
+Troubleshooting:
+
+- List installed voices with `say -v '?'`.
+- Verify an artifact with `afinfo outputs/briefing/audio/YYYY-MM-DD-briefing.wav`.
+- If `say` fails from a restricted shell, run the command from the authoritative Mac mini user session.
+- If status is stale, run `audio generate`; use `--regenerate` only when intentionally recreating the same version.
+
+Phase 2D does not publish or distribute audio and adds no RSS, Apple Podcasts, Spotify, YouTube, hosting, upload, notifications, dashboard UI, music, multiple hosts, conversational simulation, voice cloning, or cloud TTS.
