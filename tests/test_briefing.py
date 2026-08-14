@@ -10,12 +10,18 @@ from pathlib import Path
 from unittest.mock import patch
 
 from scripts.briefing import (
+    _deduplicate_attribution_sentence,
+    _apply_outcome_modifier_fallback,
+    _extract_supported_core_capabilities,
+    _reconstruct_evidence_backed_core_capability,
+    _reconstruct_evidence_backed_core_performance,
     CandidateStore,
     FeedConfig,
     apply_retention_decision,
     audio_status,
     build_edition,
     build_narrative_prompt,
+    detect_opening_violations,
     detect_narrative_violations,
     evaluate_candidates,
     generate_narrative,
@@ -27,6 +33,7 @@ from scripts.briefing import (
     parse_evaluation,
     poll_configured_feeds,
     prepare_speech_script,
+    reconstruct_thematic_opening,
     validate_narrative,
     write_speech_script,
 )
@@ -454,6 +461,377 @@ class NarrativeGenerationTests(TempCase):
         self.assertIn("When direct_product_integration is false", prompt)
         self.assertIn('"One concerns', prompt)
         self.assertIn('the data layer, while the other concerns runtime infrastructure"', prompt)
+        self.assertIn("opening has no supporting source IDs", prompt)
+        self.assertIn("Sections are different", prompt)
+
+    def test_opening_validator_rejects_evidence_claims_and_accepts_themes(self) -> None:
+        rejected = (
+            "New systems deliver better performance.",
+            "The platform provides improved performance.",
+            "Results are 15% higher.",
+            "The release offers better price-performance.",
+            "Applications get lower latency and cost savings.",
+            "The products seamlessly integrate and work together.",
+        )
+        for opening in rejected:
+            with self.subTest(opening=opening):
+                self.assertTrue(detect_opening_violations(opening))
+        for opening in (
+            "Today's briefing covers AI application infrastructure and hybrid network resilience.",
+            "Today's briefing spans data, runtime, compute, and connectivity concerns.",
+        ):
+            with self.subTest(opening=opening):
+                self.assertEqual(detect_opening_violations(opening), [])
+
+    def test_duplicate_attribution_collapses_to_one_canonical_publisher(self) -> None:
+        source_by_id = {"item": {"feed_name": "AWS What's New"}}
+        for sentence in (
+            "According to AWS, according to AWS, R8i provides up to 15% better price-performance.",
+            "According to AWS, according to a statement from AWS What's New, R8i provides up to 15% better price-performance.",
+            "AWS says, according to AWS, R8i provides up to 15% better price-performance.",
+        ):
+            with self.subTest(sentence=sentence):
+                normalized, publisher = _deduplicate_attribution_sentence(sentence, ["item"], source_by_id)
+                self.assertEqual(publisher, "AWS")
+                self.assertEqual(normalized.count("According to AWS"), 1)
+                self.assertIn("R8i provides up to 15% better price-performance", normalized)
+
+    def test_duplicate_attribution_normalization_is_audited_and_preserves_evidence(self) -> None:
+        edition = self.build(1)
+        item_id = edition["items"][0]["candidate_id"]
+        evidence = ("R8i instances provide up to 15% better price-performance compared with previous "
+                    "generation Intel-based instances.")
+        with self.store.connect() as conn:
+            conn.execute("UPDATE candidates SET feed_name='AWS What''s New',summary=?,content=? WHERE candidate_id=?",
+                         (evidence, evidence, item_id))
+        edition = self.store.edition("2026-08-09")
+        payload = json.loads(self.response(edition))
+        original = ("According to AWS, according to a statement from AWS What's New, R8i instances provide "
+                    "up to 15% better price-performance compared with previous generation Intel-based instances.")
+        payload["sections"][0]["narrative_text"] = original
+        calls = {"cleanup": 0}
+        def should_not_clean(prompt: str, model: str) -> str:
+            calls["cleanup"] += 1
+            raise AssertionError("duplicate attribution must not call the model")
+        result = generate_narrative(self.store, "2026-08-09", self.out,
+                                    generator=lambda p, m: json.dumps(payload), cleanup_generator=should_not_clean)
+        self.assertTrue(result.success)
+        self.assertEqual(calls["cleanup"], 0)
+        normalized = result.generation["narrative"]["sections"][0]["narrative_text"]
+        self.assertEqual(normalized, "According to AWS, R8i instances provide up to 15% better price-performance "
+                                     "compared with previous generation Intel-based instances.")
+        self.assertEqual(result.generation["narrative"]["sections"][0]["supporting_item_ids"], [item_id])
+        with self.store.connect() as conn:
+            audit = conn.execute("SELECT * FROM narrative_attribution_normalizations").fetchone()
+        self.assertEqual(audit["action"], "deduplicate_attribution")
+        self.assertEqual(audit["canonical_publisher"], "AWS")
+        self.assertEqual(audit["validation_result"], "passed")
+
+    def test_mixed_publishers_are_not_collapsed_and_wrong_publisher_still_fails(self) -> None:
+        source_by_id = {"item": {"feed_name": "AWS What's New"}}
+        sentence = "According to AWS, Microsoft says R8i provides 15% better price-performance."
+        with self.assertRaisesRegex(ValueError, "one supporting canonical publisher"):
+            _deduplicate_attribution_sentence(sentence, ["item"], source_by_id)
+        edition = self.build(1)
+        payload = json.loads(self.response(edition))
+        payload["sections"][0]["narrative_text"] = sentence
+        groups = group_related_items(edition["items"])
+        violations = detect_narrative_violations(
+            payload, groups, {item["candidate_id"]: item for item in edition["items"]})
+        self.assertIn("incorrect_vendor_attribution", violations[0]["violation_types"])
+
+    def test_promotional_superlatives_rejected_but_precise_attributed_evidence_passes(self) -> None:
+        edition = self.build(1)
+        groups = group_related_items(edition["items"])
+        for wording in ("highest performance", "best performance", "best-in-class performance",
+                        "leading performance"):
+            payload = json.loads(self.response(edition))
+            payload["sections"][0]["narrative_text"] = f"The instance offers {wording}."
+            with self.subTest(wording=wording), self.assertRaisesRegex(ValueError, "vague_performance_claim"):
+                validate_narrative(json.dumps(payload), edition, groups)
+        item_id = edition["items"][0]["candidate_id"]
+        evidence = "R8i provides the highest performance among comparable Intel processors in the cloud."
+        edition["items"][0].update(feed_name="AWS What's New", summary=evidence, content=evidence)
+        payload = json.loads(self.response(edition))
+        payload["sections"][0]["narrative_text"] = (
+            "According to AWS, R8i provides the highest performance among comparable Intel processors in the cloud.")
+        self.assertEqual(validate_narrative(json.dumps(payload), edition, groups)["sections"][0]
+                         ["supporting_item_ids"], [item_id])
+        payload["sections"][0]["narrative_text"] = "R8i instances use Intel Xeon processors."
+        self.assertEqual(validate_narrative(json.dumps(payload), edition, groups)["sections"][0]
+                         ["supporting_item_ids"], [item_id])
+
+    def test_unsupported_outcome_claims_are_rejected(self) -> None:
+        edition = self.build(1)
+        groups = group_related_items(edition["items"])
+        for wording in (
+            "This reduces infrastructure complexity and cost.",
+            "This improves productivity.",
+            "The workflow enhances efficiency.",
+            "This is a significant advancement.",
+            "This is a transformative improvement.",
+            "This dramatically simplifies operations.",
+        ):
+            payload = json.loads(self.response(edition))
+            payload["sections"][0]["narrative_text"] = wording
+            with self.subTest(wording=wording), self.assertRaisesRegex(ValueError, "unsupported_outcome_claim"):
+                validate_narrative(json.dumps(payload), edition, groups)
+
+    def test_cautious_architectural_interpretation_and_supported_outcome_pass(self) -> None:
+        edition = self.build(1)
+        groups = group_related_items(edition["items"])
+        for wording in (
+            "This may simplify some application architectures.",
+            "This adds another managed option for agent workloads.",
+            "This expands available design choices for architects.",
+            "This capability affects data-layer design choices.",
+        ):
+            payload = json.loads(self.response(edition))
+            payload["sections"][0]["narrative_text"] = wording
+            with self.subTest(wording=wording):
+                validate_narrative(json.dumps(payload), edition, groups)
+        evidence = "The service reduces operational burden for managed runtime maintenance."
+        edition["items"][0].update(feed_name="AWS News Blog", summary=evidence, content=evidence)
+        payload = json.loads(self.response(edition))
+        payload["sections"][0]["narrative_text"] = (
+            "According to AWS, the service reduces operational burden for managed runtime maintenance.")
+        validate_narrative(json.dumps(payload), edition, groups)
+
+    def test_outcome_modifier_fallback_removes_only_unsupported_modifier(self) -> None:
+        draft = {"sections": [{"narrative_text":
+                               "The processor launch is a significant advancement for compute platforms."}]}
+        violation = {
+            "unit_id": "sections.0.narrative_text", "sentence_index": 0,
+            "sentence": draft["sections"][0]["narrative_text"],
+            "violation_types": ["unsupported_outcome_claim"],
+            "supporting_item_ids": ["item"], "criticality": "core",
+        }
+        candidate, replacement = _apply_outcome_modifier_fallback(draft, violation)
+        self.assertEqual(replacement, "The processor launch is an advancement for compute platforms.")
+        self.assertEqual(candidate["sections"][0]["narrative_text"], replacement)
+        self.assertEqual(replacement.replace("an advancement", "a significant advancement"),
+                         violation["sentence"])
+
+    def test_failed_outcome_cleanup_uses_audited_modifier_fallback_without_third_call(self) -> None:
+        edition = self.build(1)
+        payload = json.loads(self.response(edition))
+        payload["sections"][0]["narrative_text"] = (
+            "The processor launch is a significant advancement for compute platforms.")
+        calls = {"cleanup": 0}
+        def unresolved(prompt: str, model: str) -> str:
+            calls["cleanup"] += 1
+            return json.dumps({"action": "unchanged", "replacement_sentence": "",
+                               "supporting_item_ids": [edition["items"][0]["candidate_id"]]})
+        result = generate_narrative(self.store, "2026-08-09", self.out,
+                                    generator=lambda p, m: json.dumps(payload), cleanup_generator=unresolved)
+        self.assertTrue(result.success)
+        self.assertEqual(calls["cleanup"], 2)
+        self.assertEqual(result.generation["narrative"]["sections"][0]["narrative_text"],
+                         "The processor launch is an advancement for compute platforms.")
+        with self.store.connect() as conn:
+            fallback = conn.execute("SELECT * FROM narrative_cleanup_fallbacks").fetchone()
+        self.assertEqual(fallback["action"], "neutralize_outcome_modifier")
+        self.assertIn("replacement: The processor launch is an advancement", fallback["reason"])
+        self.assertEqual(fallback["validation_result"], "passed")
+
+    def test_failed_core_outcome_cleanup_reconstructs_exact_source_capability(self) -> None:
+        vector_id = self.add_selected(
+            "Amazon DynamoDB now supports real-time vector search at any scale",
+            "aws-news-blog", "https://aws.test/vector", ["ai"])
+        runtime_id = self.add_selected(
+            "Runtime instances: persistent compute for production AI agents on Amazon Bedrock AgentCore",
+            "aws-runtime", "https://aws.test/runtime", ["agents"])
+        evidence = ("Today, Amazon DynamoDB supports real-time vector search. You can now store vector embeddings "
+                    "alongside your operational data in DynamoDB and run similarity searches directly against that data.")
+        with self.store.connect() as conn:
+            conn.execute("UPDATE candidates SET feed_name='AWS News Blog',summary=?,content=? WHERE candidate_id=?",
+                         (evidence, evidence, vector_id))
+        edition = build_edition(self.store, "2026-08-09", self.root / "editions", target=2)
+        payload = json.loads(self.response(edition))
+        original = ("This feature reduces infrastructure complexity and cost by eliminating the need for a separate "
+                    "database, thereby enhancing efficiency and productivity.")
+        payload["sections"][0]["narrative_text"] = original
+        calls = {"cleanup": 0}
+        def invalid_cleanup(prompt: str, model: str) -> str:
+            calls["cleanup"] += 1
+            replacement = ("This capability eliminates the need for separate infrastructure."
+                           if calls["cleanup"] == 1 else
+                           "This capability reduces complexity and improves productivity.")
+            return json.dumps({"action": "replace", "replacement_sentence": replacement,
+                               "supporting_item_ids": [vector_id]})
+        result = generate_narrative(self.store, "2026-08-09", self.out,
+                                    generator=lambda p, m: json.dumps(payload), cleanup_generator=invalid_cleanup)
+        self.assertTrue(result.success)
+        self.assertEqual(calls["cleanup"], 2)
+        reconstructed = result.generation["narrative"]["sections"][0]["narrative_text"]
+        self.assertEqual(reconstructed, "Amazon DynamoDB now supports real-time vector search. Applications can "
+                                        "store vector embeddings alongside operational data in DynamoDB and run "
+                                        "similarity searches directly against that data.")
+        self.assertNotRegex(reconstructed, r"complex|eliminat|efficien|cost|productiv")
+        self.assertEqual(result.generation["narrative"]["sections"][0]["supporting_item_ids"],
+                         [vector_id, runtime_id])
+        with self.store.connect() as conn:
+            audit = conn.execute("SELECT * FROM narrative_core_capability_reconstructions").fetchone()
+            attempts = conn.execute("SELECT * FROM narrative_cleanup_attempts").fetchall()
+        self.assertEqual(len(attempts), 2)
+        self.assertEqual(audit["action"], "reconstruct_core_capability")
+        self.assertEqual(audit["claim_type"], "product_capability")
+        self.assertEqual(audit["publisher"], "AWS")
+        self.assertEqual(audit["product"], "Amazon DynamoDB")
+        self.assertEqual(audit["capability"], "supports real-time vector search")
+        self.assertEqual(json.loads(audit["supporting_item_ids_json"]), [vector_id])
+        self.assertEqual(audit["validation_result"], "passed")
+
+    def test_core_capability_reconstruction_eligibility_is_conservative(self) -> None:
+        base_source = {
+            "candidate_id": "vector", "feed_name": "AWS News Blog",
+            "title": "Amazon DynamoDB now supports real-time vector search at any scale",
+            "summary": "Amazon DynamoDB supports real-time vector search.",
+            "content": "Amazon DynamoDB supports real-time vector search.",
+        }
+        self.assertEqual(_extract_supported_core_capabilities(base_source)[0]["product"], "Amazon DynamoDB")
+        conflicting = {**base_source, "content": "Amazon DynamoDB does not support real-time vector search."}
+        self.assertEqual(_extract_supported_core_capabilities(conflicting), [])
+        inferred = {**base_source, "title": "Amazon DynamoDB architecture update"}
+        self.assertEqual(_extract_supported_core_capabilities(inferred), [])
+
+        original = {"unit_id": "sections.0.narrative_text", "sentence": "The products integrate seamlessly.",
+                    "violation_types": ["unsupported_integration"], "supporting_item_ids": ["vector"],
+                    "criticality": "core"}
+        edition = {"items": [base_source]}
+        with self.assertRaisesRegex(ValueError, "unrelated"):
+            _reconstruct_evidence_backed_core_capability({}, original, original, edition)
+
+        outcome = {**original, "sentence": "This reduces complexity.",
+                   "violation_types": ["unsupported_outcome_claim"],
+                   "supporting_item_ids": ["vector", "vector-two"]}
+        duplicate = {**base_source, "candidate_id": "vector-two"}
+        with self.assertRaisesRegex(ValueError, "unambiguous"):
+            _reconstruct_evidence_backed_core_capability({}, outcome, outcome,
+                                                         {"items": [base_source, duplicate]})
+
+    def test_vague_core_performance_reconstructs_exact_comparison_and_processor_fact(self) -> None:
+        edition = self.build(1)
+        item_id = edition["items"][0]["candidate_id"]
+        evidence = ("The R8i and R8i-flex instances offer up to 15% better price-performance compared to "
+                    "previous generation Intel-based instances. These instances are powered by custom Intel "
+                    "Xeon 6 processors.")
+        with self.store.connect() as conn:
+            conn.execute("UPDATE candidates SET feed_name='AWS What''s New',summary=?,content=? WHERE candidate_id=?",
+                         (evidence, evidence, item_id))
+        edition = self.store.edition("2026-08-09")
+        payload = json.loads(self.response(edition))
+        original = ("These instances, powered by custom Intel Xeon 6 processors, offer enhanced memory bandwidth "
+                    "and price-performance ratios crucial for high-demand applications.")
+        payload["sections"][0]["narrative_text"] = original
+        calls = {"cleanup": 0}
+        replacements = iter([
+            "These instances offer better price-performance for demanding workloads.",
+            "These instances deliver superior performance for high-demand applications.",
+        ])
+        def invalid_cleanup(prompt: str, model: str) -> str:
+            calls["cleanup"] += 1
+            return json.dumps({"action": "replace", "replacement_sentence": next(replacements),
+                               "supporting_item_ids": [item_id]})
+        result = generate_narrative(self.store, "2026-08-09", self.out,
+                                    generator=lambda p, m: json.dumps(payload), cleanup_generator=invalid_cleanup)
+        self.assertTrue(result.success)
+        self.assertEqual(calls["cleanup"], 2)
+        expected = ("According to AWS, R8i and R8i-flex instances provide up to 15% better price-performance "
+                    "compared with previous generation Intel-based instances. The instances are powered by "
+                    "custom Intel Xeon 6 processors.")
+        actual = result.generation["narrative"]["sections"][0]["narrative_text"]
+        self.assertEqual(actual, expected)
+        self.assertNotRegex(actual, r"enhanced|crucial|superior|ideal|exceptional|optimized|transformative")
+        self.assertEqual(result.generation["narrative"]["sections"][0]["supporting_item_ids"], [item_id])
+        with self.store.connect() as conn:
+            audit = conn.execute("SELECT * FROM narrative_comparative_reconstructions").fetchone()
+            attempts = conn.execute("SELECT * FROM narrative_cleanup_attempts").fetchall()
+        self.assertEqual(len(attempts), 2)
+        self.assertEqual(audit["action"], "reconstruct_core_performance")
+        self.assertEqual(audit["claim_type"], "core_performance_comparison")
+        self.assertEqual(audit["publisher"], "AWS")
+        self.assertEqual(audit["product"], "R8i and R8i-flex instances")
+        self.assertEqual(audit["metric"], "up to 15%")
+        self.assertEqual(audit["comparison_dimension"], "price-performance")
+        self.assertEqual(audit["baseline"], "previous generation Intel-based instances")
+        self.assertEqual(audit["validation_result"], "passed")
+
+    def test_core_performance_reconstruction_rejects_ambiguous_or_missing_evidence(self) -> None:
+        original = {
+            "unit_id": "sections.0.narrative_text", "sentence": "Instances offer enhanced price-performance.",
+            "violation_types": ["unattributed_performance_claim"], "supporting_item_ids": ["r8"],
+            "criticality": "core",
+        }
+        ambiguous = {
+            "candidate_id": "r8", "feed_name": "AWS What's New", "title": "R8 update",
+            "summary": ("The R8i instances offer 15% better price-performance compared to generation A instances. "
+                        "The R8i instances offer 10% better price-performance compared to generation B instances."),
+            "content": "",
+        }
+        with self.assertRaisesRegex(ValueError, "unambiguous"):
+            _reconstruct_evidence_backed_core_performance({}, original, original, {"items": [ambiguous]})
+        missing = {**ambiguous, "summary": "R8i instances use Intel processors."}
+        with self.assertRaisesRegex(ValueError, "unambiguous"):
+            _reconstruct_evidence_backed_core_performance({}, original, original, {"items": [missing]})
+        integration = {**original, "violation_types": ["unsupported_integration"]}
+        with self.assertRaisesRegex(ValueError, "unrelated"):
+            _reconstruct_evidence_backed_core_performance({}, integration, integration, {"items": [ambiguous]})
+
+    def test_deterministic_opening_uses_only_ordered_group_labels(self) -> None:
+        draft = {"opening": "Invalid better performance."}
+        groups = [
+            {"architectural_themes": ["AI application infrastructure", "data/vector infrastructure"]},
+            {"architectural_themes": ["compute/platform foundation"]},
+            {"architectural_themes": ["hybrid network resilience"]},
+        ]
+        candidate, labels, fallback = reconstruct_thematic_opening(draft, groups)
+        self.assertEqual(labels, ["AI application infrastructure", "compute/platform foundation",
+                                  "hybrid network resilience"])
+        self.assertEqual(candidate["opening"], fallback)
+        self.assertEqual(detect_opening_violations(fallback), [])
+        self.assertNotIn("data/vector", fallback)
+
+    def test_failed_opening_cleanup_uses_audited_fallback_without_third_model_call(self) -> None:
+        edition = self.build(1)
+        payload = json.loads(self.response(edition))
+        payload["opening"] = "New infrastructure promises better performance for AI workloads."
+        calls = {"cleanup": 0}
+        def unresolved(prompt: str, model: str) -> str:
+            calls["cleanup"] += 1
+            self.assertIn("empty supporting_item_ids", prompt)
+            return json.dumps({"action": "unchanged", "replacement_sentence": "",
+                               "supporting_item_ids": []})
+        result = generate_narrative(self.store, "2026-08-09", self.out,
+                                    generator=lambda p, m: json.dumps(payload), cleanup_generator=unresolved)
+        self.assertTrue(result.success)
+        self.assertEqual(calls["cleanup"], 2)
+        opening = result.generation["narrative"]["opening"]
+        self.assertEqual(detect_opening_violations(opening), [])
+        self.assertEqual(result.generation["narrative"]["sections"], payload["sections"])
+        with self.store.connect() as conn:
+            audit = conn.execute("SELECT * FROM narrative_thematic_opening_reconstructions").fetchone()
+        self.assertEqual(audit["action"], "reconstruct_thematic_opening")
+        self.assertEqual(audit["validation_result"], "passed")
+        self.assertEqual(json.loads(audit["group_labels_json"]), ["AI application infrastructure"])
+        self.assertEqual(len(json.loads(audit["cleanup_attempts_json"])), 2)
+
+    def test_invalid_deterministic_opening_fails_and_preserves_current(self) -> None:
+        edition = self.build(1)
+        first = generate_narrative(self.store, "2026-08-09", self.out,
+                                   generator=lambda p, m: self.response(edition))
+        payload = json.loads(self.response(edition))
+        payload["opening"] = "New infrastructure offers improved performance."
+        unresolved = json.dumps({"action": "unchanged", "replacement_sentence": "",
+                                 "supporting_item_ids": []})
+        with patch("scripts.briefing._opening_group_labels", return_value=["better performance"]):
+            failed = generate_narrative(
+                self.store, "2026-08-09", self.out, regenerate=True,
+                generator=lambda p, m: json.dumps(payload), cleanup_generator=lambda p, m: unresolved)
+        self.assertFalse(failed.success)
+        self.assertIn("deterministic opening fallback", failed.error)
+        self.assertEqual(self.store.current_narrative(edition["edition_id"])["generation_id"],
+                         first.generation["generation_id"])
 
     def test_thematic_group_rejects_unsupported_product_relationship_language(self) -> None:
         edition = self.build(2)

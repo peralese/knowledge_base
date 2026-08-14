@@ -37,10 +37,10 @@ DEFAULT_DB_PATH = BRIEFING_DIR / "candidates.db"
 DEFAULT_PROFILE_PATH = BRIEFING_DIR / "editorial-profile.json"
 DEFAULT_EDITIONS_DIR = ROOT / "outputs" / "briefing" / "editions"
 DEFAULT_NARRATIVES_DIR = ROOT / "outputs" / "briefing" / "narratives"
-NARRATIVE_SCHEMA_VERSION = "2b-1"
-NARRATIVE_PROMPT_VERSION = "2b-1"
-NARRATIVE_PIPELINE_VERSION = "2b-two-stage-1"
-CLEANUP_PROMPT_VERSION = "2b2-1"
+NARRATIVE_SCHEMA_VERSION = "2b1-opening-1"
+NARRATIVE_PROMPT_VERSION = "2b1-opening-1"
+NARRATIVE_PIPELINE_VERSION = "2b-two-stage-performance-1"
+CLEANUP_PROMPT_VERSION = "2b2-performance-1"
 DEFAULT_CLEANUP_ATTEMPTS = 2
 VALID_CANDIDATE_STATES = {"new", "evaluated", "selected", "not_selected", "duplicate", "error"}
 VALID_RETENTION_DECISIONS = {"discard", "reference", "promote"}
@@ -367,6 +367,37 @@ class CandidateStore:
                     validation_result TEXT NOT NULL,
                     FOREIGN KEY(generation_id) REFERENCES narrative_generations(generation_id)
                 );
+                CREATE TABLE IF NOT EXISTS narrative_thematic_opening_reconstructions (
+                    reconstruction_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    generation_id INTEGER NOT NULL,
+                    unit_id TEXT NOT NULL,
+                    reconstructed_at TEXT NOT NULL,
+                    original_opening TEXT NOT NULL,
+                    cleanup_attempts_json TEXT NOT NULL,
+                    group_labels_json TEXT NOT NULL,
+                    fallback_text TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    validation_result TEXT NOT NULL,
+                    FOREIGN KEY(generation_id) REFERENCES narrative_generations(generation_id)
+                );
+                CREATE TABLE IF NOT EXISTS narrative_core_capability_reconstructions (
+                    reconstruction_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    generation_id INTEGER NOT NULL,
+                    unit_id TEXT NOT NULL,
+                    reconstructed_at TEXT NOT NULL,
+                    original_synthesis_text TEXT NOT NULL,
+                    latest_cleanup_text TEXT NOT NULL,
+                    reconstructed_text TEXT NOT NULL,
+                    claim_type TEXT NOT NULL,
+                    publisher TEXT NOT NULL,
+                    product TEXT NOT NULL,
+                    capability TEXT NOT NULL,
+                    supported_scope TEXT NOT NULL DEFAULT '',
+                    supporting_item_ids_json TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    validation_result TEXT NOT NULL,
+                    FOREIGN KEY(generation_id) REFERENCES narrative_generations(generation_id)
+                );
                 CREATE TABLE IF NOT EXISTS retention_decisions (
                     edition_id TEXT NOT NULL,
                     candidate_id TEXT NOT NULL,
@@ -668,14 +699,15 @@ class CandidateStore:
                  json.dumps(result.get("supporting_item_ids", [])), status, validation_result, error))
 
     def record_cleanup_fallback(self, generation_id: int, violation: dict, attempts: int,
-                                validation_result: str) -> None:
+                                validation_result: str, *, action: str = "remove",
+                                reason: str = "retry limit exhausted") -> None:
         with self.connect() as conn:
             conn.execute("""INSERT INTO narrative_cleanup_fallbacks
                 (generation_id,unit_id,applied_at,criticality,original_text,violation_types_json,
-                 cleanup_attempts_exhausted,action,reason,validation_result)
-                VALUES (?,?,?,?,?,?,?,'remove','retry limit exhausted',?)""",
+                 cleanup_attempts_exhausted,action,reason,validation_result) VALUES (?,?,?,?,?,?,?,?,?,?)""",
                 (generation_id, violation["unit_id"], utc_now(), violation["criticality"],
-                 violation["sentence"], json.dumps(violation["violation_types"]), attempts, validation_result))
+                 violation["sentence"], json.dumps(violation["violation_types"]), attempts,
+                 action, reason, validation_result))
 
     def record_attribution_normalization(self, generation_id: int, violation: dict, normalized: str,
                                          publisher: str, validation_result: str) -> None:
@@ -684,6 +716,17 @@ class CandidateStore:
                 (generation_id,unit_id,normalized_at,original_text,normalized_text,violation_types_json,
                  supporting_item_ids_json,canonical_publisher,action,validation_result)
                 VALUES (?,?,?,?,?,?,?,?, 'normalize_attribution',?)""",
+                (generation_id, violation["unit_id"], utc_now(), violation["sentence"], normalized,
+                 json.dumps(violation["violation_types"]), json.dumps(violation["supporting_item_ids"]),
+                 publisher, validation_result))
+
+    def record_attribution_deduplication(self, generation_id: int, violation: dict, normalized: str,
+                                         publisher: str, validation_result: str) -> None:
+        with self.connect() as conn:
+            conn.execute("""INSERT INTO narrative_attribution_normalizations
+                (generation_id,unit_id,normalized_at,original_text,normalized_text,violation_types_json,
+                 supporting_item_ids_json,canonical_publisher,action,validation_result)
+                VALUES (?,?,?,?,?,?,?,?, 'deduplicate_attribution',?)""",
                 (generation_id, violation["unit_id"], utc_now(), violation["sentence"], normalized,
                  json.dumps(violation["violation_types"]), json.dumps(violation["supporting_item_ids"]),
                  publisher, validation_result))
@@ -700,6 +743,49 @@ class CandidateStore:
                  reconstructed, claim["claim_type"], claim["publisher"], claim["product"], claim["metric"],
                  claim["comparison_dimension"], claim["baseline"],
                  json.dumps(claim["supporting_item_ids"]), validation_result))
+
+    def record_core_performance_reconstruction(
+        self, generation_id: int, original: dict, latest: dict, claim: dict,
+        reconstructed: str, validation_result: str,
+    ) -> None:
+        with self.connect() as conn:
+            conn.execute("""INSERT INTO narrative_comparative_reconstructions
+                (generation_id,unit_id,reconstructed_at,original_synthesis_text,latest_cleanup_text,
+                 reconstructed_text,claim_type,publisher,product,metric,comparison_dimension,baseline,
+                 supporting_item_ids_json,action,validation_result)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'reconstruct_core_performance',?)""",
+                (generation_id, original["unit_id"], utc_now(), original["sentence"], latest["sentence"],
+                 reconstructed, "core_performance_comparison", claim["publisher"], claim["product"],
+                 claim["metric"], claim["comparison_dimension"], claim["baseline"],
+                 json.dumps(claim["supporting_item_ids"]), validation_result))
+
+    def record_core_capability_reconstruction(
+        self, generation_id: int, original: dict, latest: dict, claim: dict,
+        reconstructed: str, validation_result: str,
+    ) -> None:
+        with self.connect() as conn:
+            conn.execute("""INSERT INTO narrative_core_capability_reconstructions
+                (generation_id,unit_id,reconstructed_at,original_synthesis_text,latest_cleanup_text,
+                 reconstructed_text,claim_type,publisher,product,capability,supported_scope,
+                 supporting_item_ids_json,action,validation_result)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?, 'reconstruct_core_capability',?)""",
+                (generation_id, original["unit_id"], utc_now(), original["sentence"], latest["sentence"],
+                 reconstructed, claim["claim_type"], claim["publisher"], claim["product"],
+                 claim["capability"], claim.get("supported_scope", ""),
+                 json.dumps(claim["supporting_item_ids"]), validation_result))
+
+    def record_thematic_opening_reconstruction(
+        self, generation_id: int, original_opening: str, cleanup_attempts: list[dict],
+        group_labels: list[str], fallback_text: str, validation_result: str,
+    ) -> None:
+        with self.connect() as conn:
+            conn.execute("""INSERT INTO narrative_thematic_opening_reconstructions
+                (generation_id,unit_id,reconstructed_at,original_opening,cleanup_attempts_json,
+                 group_labels_json,fallback_text,action,validation_result)
+                VALUES (?,'opening',?,?,?,?,?,'reconstruct_thematic_opening',?)""",
+                (generation_id, utc_now(), original_opening,
+                 json.dumps(cleanup_attempts, sort_keys=True), json.dumps(group_labels),
+                 fallback_text, validation_result))
 
     def finalize_narrative_pipeline(self, generation_id: int, narrative: dict) -> dict:
         now = utc_now()
@@ -1237,7 +1323,14 @@ def build_narrative_prompt(edition: dict, groups: list[dict]) -> str:
         "what_to_watch": ["string"],
     }
     return f"""Write a concise, connected technical briefing for an experienced cloud architect—not a set of article summaries.
-Frame the opening around the edition's overall architectural theme rather than vendors or a headline list.
+The opening has no supporting source IDs. Treat it as core, non-evidentiary thematic synthesis: orient the
+listener using only the architectural themes in PROPOSED GROUPS. It may say the briefing covers, spans,
+looks at, or focuses on those areas. Do not put detailed product facts in the opening; those belong only in
+source-backed sections. The opening must contain no metrics, percentages, benchmarks, aSAPS values, latency,
+throughput, performance or price-performance comparisons, efficiency or cost claims, guarantees, vendor
+comparisons, claimed outcomes, or unsupported product relationships. Do not say products integrate, work
+together, build on, improve, or enable one another. Orient the briefing instead of summarizing every announcement.
+Sections are different: use their supporting item IDs for detailed, evidence-backed factual and interpretive content.
 Synthesize items in the same proposed group into one section: explain their distinct architectural roles
 and why the developments matter together. A shared theme is context, not evidence of direct integration,
 causation, product dependency, or competition; never claim those relationships unless source data states them.
@@ -1300,7 +1393,8 @@ _ABSOLUTE_OUTCOME_PATTERN = re.compile(
     r"\b(?:guarantees?|ensures?)\b|\beliminat\w*\s+(?:\w+\s+){0,2}the need\b", re.IGNORECASE
 )
 _PROMOTIONAL_TECHNICAL_PATTERN = re.compile(
-    r"\b(?:exceptional|superior|outstanding|remarkable|unmatched|unparalleled)\s+"
+    r"\b(?:exceptional|superior|outstanding|remarkable|unmatched|unparalleled|highest|best|"
+    r"best-in-class|top|leading|maximum|fastest)\s+"
     r"(?:[A-Za-z0-9-]+\s+){0,2}(?:performance|ratings?|benchmarks?|latency|throughput|efficiency|"
     r"price[- ]performance|bandwidth)\b", re.IGNORECASE
 )
@@ -1318,6 +1412,50 @@ _ATTRIBUTION_PUBLISHER_PATTERN = re.compile(
     r"\b(AWS|Amazon|Microsoft|Azure|Google|Anthropic)\s+(?:says|reports|states|claims|describes)\b)",
     re.IGNORECASE,
 )
+_ATTRIBUTION_CLAUSE_PATTERN = re.compile(
+    r"(?:\baccording to\s+(?:a statement from\s+)?"
+    r"(?P<according>AWS(?: What's New| News Blog)?|Amazon|Microsoft|Azure|Google|Anthropic)\b|"
+    r"\b(?P<says>AWS(?: What's New| News Blog)?|Amazon|Microsoft|Azure|Google|Anthropic)\s+"
+    r"(?:says|reports|states|claims|describes)\b)\s*,?\s*",
+    re.IGNORECASE,
+)
+
+_OPENING_EVIDENCE_BEARING_PATTERN = re.compile(
+    r"\b(?:performance|price[- ]performance|latency|throughput|efficien\w*|cost savings?|reduces? costs?|"
+    r"benchmarks?|aSAPS|higher|faster|better|improved|improves?|industry-leading|"
+    r"guarantees?|ensures?|eliminates?)\b|\b\d+(?:\.\d+)?\s*(?:%|percent|x\b)", re.IGNORECASE,
+)
+_OPENING_METRIC_PATTERN = re.compile(
+    r"\b\d+(?:[,.]\d+)*\b",
+    re.IGNORECASE,
+)
+_OPENING_UNSUPPORTED_RELATIONSHIP_PATTERN = re.compile(
+    r"\b(?:integrat\w*|interoperab\w*|seamless\w*|works? together|builds? on|"
+    r"enables? (?:one another|each other)|complementar\w*|interlink\w*|interconnect\w*)\b", re.IGNORECASE,
+)
+_OUTCOME_SIGNIFICANCE_PATTERN = re.compile(
+    r"\b(?:reduces?\s+(?:infrastructure\s+)?(?:complexity|costs?|operational burden)|"
+    r"improves?\s+productivity|enhanc(?:e|es|ed|ing)\s+(?:efficiency|productivity)|"
+    r"significantly\s+reduces?\s+operational burden|"
+    r"(?:major|significant)\s+(?:advancement|improvement)|"
+    r"transformative\s+(?:improvement|capability)|"
+    r"dramatic(?:ally)?\s+(?:simplification|simplifies?))\b", re.IGNORECASE,
+)
+_OUTCOME_MODIFIER_PATTERN = re.compile(
+    r"\b(?:significant|major|transformative|dramatic(?:ally)?)\b\s*", re.IGNORECASE,
+)
+
+
+def detect_opening_violations(text: str) -> list[str]:
+    """Return strict claim classes for the source-less thematic opening."""
+    kinds: set[str] = set()
+    if _OPENING_EVIDENCE_BEARING_PATTERN.search(text):
+        kinds.add("opening_evidence_bearing_claim")
+    if _OPENING_METRIC_PATTERN.search(text):
+        kinds.add("opening_metric_claim")
+    if _OPENING_UNSUPPORTED_RELATIONSHIP_PATTERN.search(text):
+        kinds.add("unsupported_integration")
+    return sorted(kinds)
 
 
 def _canonical_publisher(source_name: str) -> str:
@@ -1331,6 +1469,76 @@ def _canonical_publisher(source_name: str) -> str:
     if "google" in folded:
         return "Google"
     return ""
+
+
+def _attribution_mentions(sentence: str) -> list[tuple[re.Match[str], str]]:
+    mentions: list[tuple[re.Match[str], str]] = []
+    for match in _ATTRIBUTION_CLAUSE_PATTERN.finditer(sentence):
+        publisher = _canonical_publisher(match.group("according") or match.group("says") or "")
+        if publisher:
+            mentions.append((match, publisher))
+    return mentions
+
+
+def _expected_publishers(item_ids: list[str], source_by_id: dict[str, dict] | None) -> set[str]:
+    if not source_by_id:
+        return set()
+    return {_canonical_publisher(source_by_id[item_id]["feed_name"])
+            for item_id in item_ids if item_id in source_by_id
+            and _canonical_publisher(source_by_id[item_id]["feed_name"])}
+
+
+def _supported_attributed_superlative(
+    sentence: str, item_ids: list[str], source_by_id: dict[str, dict] | None,
+) -> bool:
+    if not source_by_id or len(item_ids) != 1 or item_ids[0] not in source_by_id:
+        return False
+    mentions = _attribution_mentions(sentence)
+    expected = _expected_publishers(item_ids, source_by_id)
+    if not mentions or {publisher for _, publisher in mentions} != expected:
+        return False
+    comparison = _PROMOTIONAL_TECHNICAL_PATTERN.search(sentence)
+    if not comparison or not re.search(r"\b(?:among|compared (?:to|with)|than)\b", sentence, re.I):
+        return False
+    source = source_by_id[item_ids[0]]
+    evidence = " ".join((source.get("title", ""), source.get("summary", ""), source.get("content", "")))
+    return normalize_title(comparison.group(0)) in normalize_title(evidence)
+
+
+def _supported_attributed_outcome(
+    sentence: str, item_ids: list[str], source_by_id: dict[str, dict] | None,
+) -> bool:
+    """Allow a narrow promotional outcome only when its wording and publisher are explicit."""
+    if not source_by_id or len(item_ids) != 1 or item_ids[0] not in source_by_id:
+        return False
+    claim = _OUTCOME_SIGNIFICANCE_PATTERN.search(sentence)
+    mentions = _attribution_mentions(sentence)
+    expected = _expected_publishers(item_ids, source_by_id)
+    if not claim or not mentions or {publisher for _, publisher in mentions} != expected:
+        return False
+    source = source_by_id[item_ids[0]]
+    evidence = " ".join((source.get("title", ""), source.get("summary", ""), source.get("content", "")))
+    return normalize_title(claim.group(0)) in normalize_title(evidence)
+
+
+def _deduplicate_attribution_sentence(
+    sentence: str, item_ids: list[str], source_by_id: dict[str, dict] | None,
+) -> tuple[str, str]:
+    mentions = _attribution_mentions(sentence)
+    publishers = {publisher for _, publisher in mentions}
+    expected = _expected_publishers(item_ids, source_by_id)
+    if len(mentions) < 2 or len(publishers) != 1 or publishers != expected:
+        raise ValueError("duplicate attribution does not resolve to one supporting canonical publisher")
+    publisher = next(iter(publishers))
+    body = sentence
+    for match, _ in reversed(mentions):
+        body = body[:match.start()] + body[match.end():]
+    body = re.sub(r"^[\s,;:]+", "", body).strip()
+    body = re.sub(r"\s{2,}", " ", body)
+    if not body:
+        raise ValueError("duplicate attribution normalization removed the substantive sentence")
+    body = body[0].upper() + body[1:]
+    return f"According to {publisher}, {body}", publisher
 
 
 def _prose_units(payload: dict) -> list[tuple[str, str, list[str]]]:
@@ -1363,23 +1571,30 @@ def detect_narrative_violations(payload: dict, groups: list[dict], source_by_id:
         for sentence_index, sentence in enumerate(sentences):
             kinds: set[str] = set()
             folded = sentence.casefold()
+            if unit_id == "opening":
+                kinds.update(detect_opening_violations(sentence))
             if any(phrase in folded for phrase in _HIGH_RISK_NARRATIVE_PHRASES) or _ABSOLUTE_OUTCOME_PATTERN.search(sentence):
                 vague = any(value in folded for value in
                             ("superior performance", "exceptional performance", "industry-leading",
                              "high performance", "low latency"))
                 kinds.add("vague_performance_claim" if vague else "unsupported_absolute")
-            if _PROMOTIONAL_TECHNICAL_PATTERN.search(sentence):
+            if (_PROMOTIONAL_TECHNICAL_PATTERN.search(sentence)
+                    and not _supported_attributed_superlative(sentence, item_ids, source_by_id)):
                 kinds.add("vague_performance_claim")
+            if (_OUTCOME_SIGNIFICANCE_PATTERN.search(sentence)
+                    and not _supported_attributed_outcome(sentence, item_ids, source_by_id)):
+                kinds.add("unsupported_outcome_claim")
             claims = _ATTRIBUTION_SENSITIVE_PATTERN.search(sentence)
             if claims and not _VENDOR_ATTRIBUTION_PATTERN.search(sentence):
                 kinds.add("unattributed_performance_claim")
             attribution = _ATTRIBUTION_PUBLISHER_PATTERN.search(sentence)
+            mentions = _attribution_mentions(sentence)
+            expected_publishers = _expected_publishers(item_ids, source_by_id)
+            if len(mentions) > 1 and len({publisher for _, publisher in mentions}) == 1:
+                kinds.add("duplicate_attribution")
             if claims and attribution and source_by_id and item_ids:
-                stated = (attribution.group(1) or attribution.group(2)).casefold()
-                stated = "microsoft" if stated == "azure" else "aws" if stated == "amazon" else stated
-                expected = {_canonical_publisher(source_by_id[item_id]["feed_name"]).casefold()
-                            for item_id in item_ids if item_id in source_by_id}
-                if stated not in expected:
+                stated_publishers = {publisher for _, publisher in mentions}
+                if not stated_publishers or not stated_publishers <= expected_publishers:
                     kinds.add("incorrect_vendor_attribution")
             relationship_context = ((len(item_ids) > 1
                                      and any(group_ids.issubset(set(item_ids)) for group_ids in unsupported))
@@ -1496,6 +1711,16 @@ def render_narrative(generation: dict) -> str:
 
 
 def build_cleanup_prompt(violation: dict, draft: dict, edition: dict, groups: list[dict]) -> str:
+    if violation["unit_id"] == "opening":
+        return f"""Generalize exactly one flagged opening sentence into neutral thematic architectural language.
+The opening has no source IDs: do not attribute it to a vendor and do not add supporting IDs or facts. Remove
+metrics, comparisons, performance, latency, throughput, efficiency, cost, guarantees, outcomes, and product
+relationship language. Use only the architectural group themes below and say what the briefing covers, spans,
+looks at, or focuses on. Return exactly one JSON object with action "replace", replacement_sentence, and an
+empty supporting_item_ids list.
+FLAGGED OPENING: {json.dumps(violation, indent=2)}
+ARCHITECTURAL GROUP METADATA: {json.dumps(groups, indent=2)}
+"""
     source_ids = set(violation["supporting_item_ids"])
     sources = [{"item_id": item["candidate_id"], "vendor": item["feed_name"], "title": item["title"],
                 "summary": (item["summary"] or item["content"])[:5000]}
@@ -1508,6 +1733,10 @@ remove the claim or use cautious wording. Return exactly one JSON object with ac
 replacement_sentence, and supporting_item_ids. For remove, replacement_sentence must be empty.
 For promotional performance or rating language, prefer an exact measurement from the stored source material;
 otherwise use a neutral factual capability statement without promotional adjectives.
+For unsupported outcome or significance language, describe the capability or its architectural role directly.
+Do not assert cost reduction, productivity, efficiency, simplification, reduced complexity, business value, or
+major impact as established fact. Cautious architectural interpretation such as "may simplify", "gives teams
+another option", or "expands available design choices" is allowed only when it does not add a new fact.
 FLAGGED UNIT: {json.dumps(violation, indent=2)}
 GROUP CONTEXT: {json.dumps(context_groups, indent=2)}
 AUTHORITATIVE STORED SOURCE MATERIAL: {json.dumps(sources, indent=2)}
@@ -1548,9 +1777,24 @@ def _apply_cleanup(draft: dict, violation: dict, result: dict) -> dict:
     return cleaned
 
 
+def _deduplicate_narrative_attribution(
+    draft: dict, violation: dict, source_by_id: dict[str, dict],
+) -> tuple[dict, str, str]:
+    if "duplicate_attribution" not in violation.get("violation_types", []):
+        raise ValueError("sentence has no duplicate attribution defect")
+    normalized, publisher = _deduplicate_attribution_sentence(
+        violation["sentence"], violation.get("supporting_item_ids", []), source_by_id)
+    candidate = _apply_cleanup(draft, violation, {
+        "action": "replace", "replacement_sentence": normalized,
+        "supporting_item_ids": violation.get("supporting_item_ids", []),
+    })
+    return candidate, publisher, normalized
+
+
 _NONESSENTIAL_FALLBACK_VIOLATIONS = {
     "unsupported_integration", "overcertain_projection", "unsupported_comparative",
     "vague_performance_claim", "unsupported_absolute", "unattributed_performance_claim",
+    "unsupported_outcome_claim",
 }
 
 
@@ -1574,6 +1818,54 @@ def _apply_nonessential_fallback(draft: dict, violation: dict) -> dict:
     else:
         raise ValueError("prose unit is not eligible for deterministic removal")
     return cleaned
+
+
+def _apply_outcome_modifier_fallback(draft: dict, violation: dict) -> tuple[dict, str]:
+    """Remove only a flagged significance modifier, preserving the sentence's factual remainder."""
+    if set(violation.get("violation_types", [])) != {"unsupported_outcome_claim"}:
+        raise ValueError("outcome fallback cannot resolve unrelated violations")
+    sentence = violation["sentence"]
+    match = _OUTCOME_SIGNIFICANCE_PATTERN.search(sentence)
+    if not match or not _OUTCOME_MODIFIER_PATTERN.search(match.group(0)):
+        raise ValueError("outcome claim is not eligible for modifier-only neutralization")
+    replacement = _OUTCOME_MODIFIER_PATTERN.sub("", sentence, count=1)
+    replacement = re.sub(r"\ba\s+advancement\b", "an advancement", replacement, flags=re.I)
+    replacement = re.sub(r"\ban\s+improvement\b", "an improvement", replacement, flags=re.I)
+    replacement = re.sub(r"\s{2,}", " ", replacement).strip()
+    if not replacement or replacement == sentence:
+        raise ValueError("outcome modifier neutralization made no safe change")
+    candidate = _apply_cleanup(draft, violation, {
+        "action": "replace", "replacement_sentence": replacement,
+        "supporting_item_ids": violation.get("supporting_item_ids", []),
+    })
+    return candidate, replacement
+
+
+def _opening_group_labels(groups: list[dict]) -> list[str]:
+    """Choose one ordered, deterministic architectural label per current group."""
+    labels: list[str] = []
+    for group in groups:
+        themes = group.get("architectural_themes", [])
+        label = next((str(value).strip() for value in themes if str(value).strip()), "")
+        if label and label not in labels:
+            labels.append(label)
+    return labels
+
+
+def reconstruct_thematic_opening(draft: dict, groups: list[dict]) -> tuple[dict, list[str], str]:
+    labels = _opening_group_labels(groups)
+    if not labels:
+        raise ValueError("deterministic opening fallback has no architectural group labels")
+    if len(labels) == 1:
+        joined = labels[0]
+    elif len(labels) == 2:
+        joined = f"{labels[0]} and {labels[1]}"
+    else:
+        joined = ", ".join(labels[:-1]) + f", and {labels[-1]}"
+    fallback = f"Today's briefing covers developments across {joined}."
+    candidate = json.loads(json.dumps(draft))
+    candidate["opening"] = fallback
+    return candidate, labels, fallback
 
 
 def _normalize_evidence_backed_attribution(draft: dict, violation: dict, edition: dict) -> tuple[dict, str, str]:
@@ -1682,6 +1974,102 @@ def _reconstruct_evidence_backed_comparison(draft: dict, original: dict, latest:
     return candidate, claim, reconstructed
 
 
+def _reconstruct_evidence_backed_core_performance(
+    draft: dict, original: dict, latest: dict, edition: dict,
+) -> tuple[dict, dict, str]:
+    """Recover an exact source comparison from vague core performance prose."""
+    allowed = {"unattributed_performance_claim", "vague_performance_claim", "unsupported_outcome_claim"}
+    original_types = set(original.get("violation_types", []))
+    if original.get("criticality") != "core" or not original_types or not original_types <= allowed:
+        raise ValueError("core performance reconstruction cannot resolve unrelated or non-core violations")
+    item_ids = original.get("supporting_item_ids", [])
+    if len(item_ids) != 1:
+        raise ValueError("core performance reconstruction requires exactly one supporting source")
+    source = next((item for item in edition["items"] if item["candidate_id"] == item_ids[0]), None)
+    if not source:
+        raise ValueError("supporting performance source is not selected")
+    claims = _extract_supported_comparative_claims(source)
+    folded = original["sentence"].casefold()
+    if "price-performance" in folded or "price performance" in folded:
+        claims = [claim for claim in claims if claim["comparison_dimension"] == "price-performance"]
+    elif "memory bandwidth" in folded:
+        claims = [claim for claim in claims if claim["comparison_dimension"] == "memory bandwidth"]
+    elif "performance" in folded:
+        claims = [claim for claim in claims if claim["comparison_dimension"] == "performance"]
+    if len(claims) != 1:
+        raise ValueError("stored evidence does not identify one unambiguous core performance comparison")
+    claim = claims[0]
+    reconstructed = (f"According to {claim['publisher']}, {claim['product']} provide "
+                     f"{claim['metric']} {claim['comparison_phrase']} compared with {claim['baseline']}.")
+    evidence = " ".join((source.get("summary", ""), source.get("content", "")))
+    processor_fact = "powered by custom intel xeon 6 processors"
+    if "intel xeon 6" in folded and processor_fact in evidence.casefold():
+        reconstructed += " The instances are powered by custom Intel Xeon 6 processors."
+    candidate = _apply_cleanup(draft, latest, {
+        "action": "replace", "replacement_sentence": reconstructed,
+        "supporting_item_ids": claim["supporting_item_ids"],
+    })
+    return candidate, {**claim, "claim_type": "core_performance_comparison"}, reconstructed
+
+
+_CAPABILITY_TITLE_PATTERN = re.compile(
+    r"^(?P<product>(?:Amazon|AWS|Microsoft|Azure|Google)\s+[A-Za-z0-9][A-Za-z0-9 ._-]*?)\s+"
+    r"(?:now\s+)?supports?\s+(?P<capability>.+?)(?:\s+at any scale)?$", re.IGNORECASE,
+)
+_VECTOR_SCOPE_PATTERN = re.compile(
+    r"store vector embeddings alongside your operational data in DynamoDB and run similarity searches "
+    r"directly against that data", re.IGNORECASE,
+)
+
+
+def _extract_supported_core_capabilities(source: dict) -> list[dict]:
+    """Extract only literal product capabilities encoded by authoritative source wording."""
+    publisher = _canonical_publisher(source.get("feed_name", ""))
+    title = str(source.get("title", "")).strip()
+    match = _CAPABILITY_TITLE_PATTERN.fullmatch(title)
+    if not publisher or not match:
+        return []
+    product = match.group("product").strip()
+    capability_object = match.group("capability").strip()
+    evidence = " ".join((title, source.get("summary", ""), source.get("content", "")))
+    if re.search(rf"\b(?:does not|doesn't|cannot|can't)\s+support\w*\s+{re.escape(capability_object)}\b",
+                 evidence, re.IGNORECASE):
+        return []
+    supported_scope = ""
+    if _VECTOR_SCOPE_PATTERN.search(evidence):
+        supported_scope = ("applications can store vector embeddings alongside operational data in DynamoDB "
+                           "and run similarity searches directly against that data")
+    return [{
+        "claim_type": "product_capability", "publisher": publisher, "product": product,
+        "capability": f"supports {capability_object}", "supported_scope": supported_scope,
+        "supporting_item_ids": [source["candidate_id"]],
+    }]
+
+
+def _reconstruct_evidence_backed_core_capability(
+    draft: dict, original: dict, latest: dict, edition: dict,
+) -> tuple[dict, dict, str]:
+    allowed = {"unsupported_absolute", "unsupported_outcome_claim"}
+    original_types = set(original.get("violation_types", []))
+    if original.get("criticality") != "core" or not original_types or not original_types <= allowed:
+        raise ValueError("capability reconstruction cannot resolve unrelated or non-core violations")
+    sources = [item for item in edition["items"]
+               if item["candidate_id"] in set(original.get("supporting_item_ids", []))]
+    claims = [claim for source in sources for claim in _extract_supported_core_capabilities(source)]
+    if len(claims) != 1:
+        raise ValueError("stored evidence does not identify one unambiguous core capability")
+    claim = claims[0]
+    reconstructed = f"{claim['product']} now {claim['capability']}."
+    if claim["supported_scope"]:
+        scope = claim["supported_scope"]
+        reconstructed += f" {scope[0].upper() + scope[1:]}."
+    candidate = _apply_cleanup(draft, latest, {
+        "action": "replace", "replacement_sentence": reconstructed,
+        "supporting_item_ids": claim["supporting_item_ids"],
+    })
+    return candidate, claim, reconstructed
+
+
 def generate_narrative(
     store: CandidateStore, briefing_date: str, narratives_dir: Path, *, model: str = DEFAULT_MODEL,
     regenerate: bool = False, generator: Callable[[str, str], str] = call_ollama,
@@ -1716,8 +2104,28 @@ def generate_narrative(
         pending = list(violations)
         while pending:
             violation = pending[0]
+            if "duplicate_attribution" in violation.get("violation_types", []):
+                try:
+                    candidate, publisher, normalized = _deduplicate_narrative_attribution(
+                        narrative, violation, source_by_id)
+                    normalization_remaining = [value for value in
+                                               detect_narrative_violations(candidate, groups, source_by_id)
+                                               if value["unit_id"] == violation["unit_id"]
+                                               and value["sentence"] == normalized]
+                    store.record_attribution_deduplication(
+                        generation_id, violation, normalized, publisher,
+                        "passed" if not normalization_remaining else
+                        json.dumps(normalization_remaining, sort_keys=True))
+                    if not normalization_remaining:
+                        narrative = candidate
+                        pending = detect_narrative_violations(narrative, groups, source_by_id)
+                        continue
+                except ValueError:
+                    pass
             resolved = False
             current = violation
+            opening_cleanup_history: list[dict] = []
+            original_opening = narrative["opening"] if violation["unit_id"] == "opening" else ""
             for attempt in range(1, cleanup_attempts + 1):
                 store.update_narrative_pipeline(generation_id, "cleanup_in_progress")
                 result: dict = {}
@@ -1729,10 +2137,13 @@ def generate_narrative(
                                    if result.get("action") == "replace" else current["sentence"])
                     remaining = [value for value in detect_narrative_violations(candidate, groups, source_by_id)
                                  if value["unit_id"] == current["unit_id"]
-                                 and value["sentence"] == replacement]
+                                 and (value["sentence"] in replacement or replacement in value["sentence"])]
                     store.record_cleanup_attempt(generation_id, current, attempt, result,
                                                  "accepted" if not remaining else "rejected",
                                                  "passed" if not remaining else json.dumps(remaining))
+                    if violation["unit_id"] == "opening":
+                        opening_cleanup_history.append({"attempt": attempt, "result": result,
+                                                        "validation": "passed" if not remaining else remaining})
                     if not remaining:
                         narrative, resolved = candidate, True
                         break
@@ -1741,6 +2152,22 @@ def generate_narrative(
                 except Exception as cleanup_error:
                     store.record_cleanup_attempt(generation_id, current, attempt, result, "failed",
                                                  error=str(cleanup_error))
+                    if violation["unit_id"] == "opening":
+                        opening_cleanup_history.append({"attempt": attempt, "result": result,
+                                                        "error": str(cleanup_error)})
+            if not resolved and violation["unit_id"] == "opening":
+                candidate, group_labels, fallback = reconstruct_thematic_opening(narrative, groups)
+                fallback_remaining = [value for value in
+                                      detect_narrative_violations(candidate, groups, source_by_id)
+                                      if value["unit_id"] == "opening"]
+                validation_result = ("passed" if not fallback_remaining else
+                                     json.dumps(fallback_remaining, sort_keys=True))
+                store.record_thematic_opening_reconstruction(
+                    generation_id, original_opening, opening_cleanup_history,
+                    group_labels, fallback, validation_result)
+                if fallback_remaining:
+                    raise ValueError("deterministic opening fallback did not pass opening validation")
+                narrative, resolved = candidate, True
             if not resolved:
                 try:
                     candidate, publisher, normalized = _normalize_evidence_backed_attribution(
@@ -1769,6 +2196,57 @@ def generate_narrative(
                         "passed" if not reconstruction_remaining else
                         json.dumps(reconstruction_remaining, sort_keys=True))
                     if not reconstruction_remaining:
+                        narrative, resolved = candidate, True
+                except ValueError:
+                    pass
+            if not resolved:
+                try:
+                    candidate, claim, reconstructed = _reconstruct_evidence_backed_core_performance(
+                        narrative, violation, current, edition)
+                    reconstruction_remaining = [value for value in
+                                                detect_narrative_violations(candidate, groups, source_by_id)
+                                                if value["unit_id"] == current["unit_id"]
+                                                and (value["sentence"] in reconstructed
+                                                     or reconstructed in value["sentence"])]
+                    store.record_core_performance_reconstruction(
+                        generation_id, violation, current, claim, reconstructed,
+                        "passed" if not reconstruction_remaining else
+                        json.dumps(reconstruction_remaining, sort_keys=True))
+                    if not reconstruction_remaining:
+                        narrative, resolved = candidate, True
+                except ValueError:
+                    pass
+            if not resolved:
+                try:
+                    candidate, claim, reconstructed = _reconstruct_evidence_backed_core_capability(
+                        narrative, violation, current, edition)
+                    reconstruction_remaining = [value for value in
+                                                detect_narrative_violations(candidate, groups, source_by_id)
+                                                if value["unit_id"] == current["unit_id"]
+                                                and (value["sentence"] in reconstructed
+                                                     or reconstructed in value["sentence"])]
+                    store.record_core_capability_reconstruction(
+                        generation_id, violation, current, claim, reconstructed,
+                        "passed" if not reconstruction_remaining else
+                        json.dumps(reconstruction_remaining, sort_keys=True))
+                    if not reconstruction_remaining:
+                        narrative, resolved = candidate, True
+                except ValueError:
+                    pass
+            if not resolved:
+                try:
+                    candidate, neutralized = _apply_outcome_modifier_fallback(narrative, current)
+                    neutralization_remaining = [value for value in
+                                                detect_narrative_violations(candidate, groups, source_by_id)
+                                                if value["unit_id"] == current["unit_id"]
+                                                and value["sentence"] == neutralized]
+                    store.record_cleanup_fallback(
+                        generation_id, current, cleanup_attempts,
+                        "passed" if not neutralization_remaining else
+                        json.dumps(neutralization_remaining, sort_keys=True),
+                        action="neutralize_outcome_modifier",
+                        reason=f"retry limit exhausted; replacement: {neutralized}")
+                    if not neutralization_remaining:
                         narrative, resolved = candidate, True
                 except ValueError:
                     pass
