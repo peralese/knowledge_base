@@ -1,6 +1,6 @@
 # Perales Lab Daily Briefing
 
-Phase 2A implements story discovery and editorial selection. Phase 2B turns a selected edition into a validated, contextual written narrative. Both layers keep RSS candidates completely separate from durable knowledge-base ingestion.
+Phases 2A–2D are implemented and functionally validated. Phase 2A discovers, evaluates, and selects stories; Phase 2B produces an evidence-bounded contextual narrative; Phase 2C applies human-only retention decisions; and Phase 2D prepares speech and generates a validated local WAV. Briefing candidates remain separate from durable knowledge-base ingestion unless a human explicitly promotes one through Phase 2C.
 
 ## Architecture
 
@@ -28,12 +28,15 @@ deterministic topic-group proposal + briefing.py narrative (local Ollama)
 schema/provenance validation + append-only attempt record
         ↓
 outputs/briefing/narratives/YYYY-MM-DD-narrative.md
-        ↓
-explicit human retention decision
-        ├── discard: audit only
-        ├── reference: outputs/briefing/references/YYYY-MM-DD/BFC-….md
-        └── promote: raw/domains/<domain>/inbox/feeds/briefing-BFC-….json
-                         ↓ existing inbox watcher / review queue / approval controls
+        ├── explicit human retention decision
+        │     ├── discard: audit only
+        │     ├── reference: outputs/briefing/references/YYYY-MM-DD/BFC-….md
+        │     └── promote: raw/domains/<domain>/inbox/feeds/briefing-BFC-….json
+        │                    ↓ existing inbox watcher / review queue / approval controls
+        └── deterministic speech preparation
+              ↓ outputs/briefing/audio/YYYY-MM-DD-script.txt
+              ↓ local /usr/bin/say
+            validated PCM WAV + audio metadata
 ```
 
 The poller does not write briefing candidates to `raw/domains/<domain>/inbox/`. Ordinary candidates cannot trigger KB synthesis, confidence scoring, approval, topic/concept/entity aggregation, or permanent indexing. The only exception is a later explicit human Phase 2C `promote` action.
@@ -113,7 +116,7 @@ The final editorial score is clamped to 0–100. It measures attention value, no
 
 An edition has a deterministic ID (`BFE-YYYY-MM-DD`) and `ready` state. Generation is idempotent: a second build for the same date returns the existing edition unless a future regeneration feature is explicitly added.
 
-Candidates rank by editorial score, feed priority, and publication time. Selection excludes duplicate states and recent repetitions, suppresses near-identical stories in the same edition, and ordinarily caps one feed at two stories when alternatives exist. The default target is five items and is configurable in the profile or with `--target`.
+Evaluation prioritizes the newest candidate from each feed in round-robin order. Selection considers only candidates published within the last 14 days, ranks eligible candidates by editorial score, feed priority, and publication time, and never fills an edition with stories below the configured minimum score (currently 65). It excludes duplicate states and recent repetitions, suppresses near-identical stories in the same edition, and ordinarily caps one feed at two stories when alternatives exist. The default target is five items and is configurable in the profile or with `--target`.
 
 The Phase 2A Markdown output remains an independent editorial review artifact. It retains the feed, article link, publication date, score, why-it-matters reasoning, and source summary.
 
@@ -138,6 +141,8 @@ Before core failure or nonessential removal, an attribution-only performance com
 When the cleanup sentence altered or omitted evidence-bearing components, attribution-only normalization is skipped. A narrow comparative reconstruction extractor may identify exactly one explicit stored-source clause containing a product, numeric metric, supported dimension (`performance`, `price-performance`, latency/throughput/efficiency/cost where explicit), and exact `compared to/with` baseline. It then renders only `According to <publisher>, <product> provide <metric> <comparison phrase> compared with <baseline>.` These factual fields are immutable and come exclusively from the selected SQLite source. Ambiguous/conflicting clauses, unsupported original metrics, multiple sources, vague claims, and unrelated violations fail conservatively. The original synthesis sentence, latest cleanup sentence, structured components, reconstructed text, source IDs, action, and validation result are appended to `narrative_comparative_reconstructions`.
 
 The localized wording validator treats grammatical forms of `eliminat* … the need` as the same risky absolute construction while allowing cautious `may/can reduce the need` language. A small scoped pattern also rejects exceptional, superior, outstanding, remarkable, unmatched, or unparalleled when those adjectives characterize measurable performance, ratings, benchmarks, latency, throughput, efficiency, price-performance, or bandwidth. These rules do not ban the words globally. Phase 2B2 receives the same stored evidence and is instructed to replace promotional measurement language with an exact sourced value or neutral capability statement when possible.
+
+A final deterministic evidence-only pass scans for residual unsupported significance, efficiency/productivity, simplification/complexity, strategic-intent, necessity, and generalized-optimization language. It reduces only the flagged evaluative clause or optional unit, uses stored evidence for eligible core capability reconstruction, records actions in `narrative_evidence_only_actions`, and then runs the complete structural and wording validation again. Model-returned publisher or provenance fields are never trusted.
 
 The local Ollama response must be a JSON object containing the edition date, headline, opening, one or more sections, section narratives, supporting candidate IDs, key takeaways, and what-to-watch items. Validation rejects missing fields, malformed types, date mismatches, empty support lists, unknown IDs, or omission of any selected item. Titles, URLs, source names, timestamps, categories, and editorial scores are never accepted from the model: they are joined back from SQLite after validation.
 
@@ -197,7 +202,7 @@ make test
 
 Tests use local XML fixtures, temporary SQLite databases, temporary output roots, and mocked Ollama calls. Phase 2B coverage includes grouping boundaries, provenance, schema/ID rejection, failure isolation, idempotency, regeneration, empty/undersized editions, and deterministic artifact naming. They do not fetch arbitrary feeds, write to the live KB, or require runtime services.
 
-Phase 2B itself remains text-only. Audio/TTS, publishing, dashboards, delivery/notifications, KB entity/topic generation, new feeds, scraping, and cloud LLMs remain explicitly out of scope across the briefing phases.
+Phase 2B itself remains text-only; only a ready current narrative may proceed to the separate Phase 2D presentation layer. Publishing, dashboards, delivery/notifications, new feeds, scraping, and cloud LLMs remain out of scope.
 
 ## Retention review and controlled promotion
 
@@ -269,6 +274,8 @@ The TTS engine never receives raw Markdown. Speech preparation reads only the va
 - removes Markdown markers, inline citation links, HTML, bullets, and raw URLs
 - omits source provenance/source appendices from spoken output
 - conservatively expands AI, AWS, API, CLI, GPU, LLM, and IaC for reliable pronunciation
+- converts known structural heading/category slashes such as `Compute/Platform`, `Data/Vector`, and `Runtime/Model` to spoken conjunctions without globally rewriting body slashes or paths
+- collapses accidental duplicate terminal periods while preserving decimals, version punctuation, ordinary periods, and intentional ellipses
 - rejects missing, empty, mismatched, or sectionless narratives rather than generating silence or filler
 
 The exact prepared text remains inspectable at `outputs/briefing/audio/YYYY-MM-DD-script.txt`. The Phase 2B Markdown and SQLite narrative remain unchanged.
@@ -325,3 +332,34 @@ Troubleshooting:
 - If status is stale, run `audio generate`; use `--regenerate` only when intentionally recreating the same version.
 
 Phase 2D does not publish or distribute audio and adds no RSS, Apple Podcasts, Spotify, YouTube, hosting, upload, notifications, dashboard UI, music, multiple hosts, conversational simulation, voice cloning, or cloud TTS.
+
+## End-to-end operational validation
+
+A live operational run used all 18 configured RSS/Atom feeds. Seventeen returned entries successfully; arXiv returned a valid but empty Atom feed. The initial poll fetched 2,564 items, inserted 2,525 candidates, and classified 39 as duplicates. The exercise exposed and drove corrections for historical backfill, stale selection, single-source dominance, below-threshold filler, architectural grouping, unsupported integration/comparative/outcome/evaluative language, vendor attribution, opening constraints, and deterministic speech cleanup.
+
+The final accepted August 9, 2026 edition contains:
+
+1. DynamoDB real-time vector search
+2. Bedrock AgentCore persistent runtime instances
+3. EC2 R8i/R8i-Flex availability in Milan
+4. Azure ExpressRoute resiliency guard
+
+Narrative generation 22 is current. It passed normal validation, the final evidence-only validation, and manual speech-readiness review; generations 1–21 remain in append-only history. The canonical narrative is `outputs/briefing/narratives/2026-08-09-narrative.md`. Its deterministic speech script was inspected, and a real local WAV was generated and listened to successfully. Listening confirmed understandable end-to-end output; Samantha at 185 WPM sounded somewhat robotic and possibly slightly fast, which is a polish concern rather than a functional blocker.
+
+Latest verification for this milestone:
+
+```text
+Focused speech tests: 3 passed
+make test-briefing: 159 passed
+make test: 1,188 passed
+git diff --check: passed
+```
+
+## Deferred polish
+
+The following are possible later enhancements, not blockers for the completed Phase 2A–2D baseline:
+
+- evaluate a slower rate around 165–175 WPM and compare other installed macOS voices
+- improve voice naturalness or optionally adopt a higher-quality local TTS engine
+- add MP3/AAC only if a lightweight reliable encoder becomes available
+- add dashboard controls, publishing/distribution, podcast RSS, notifications, or automated delivery

@@ -23,6 +23,7 @@ from scripts.briefing import (
     build_narrative_prompt,
     detect_opening_violations,
     detect_narrative_violations,
+    detect_evidence_only_violations,
     evaluate_candidates,
     generate_narrative,
     generate_audio,
@@ -596,6 +597,61 @@ class NarrativeGenerationTests(TempCase):
         payload["sections"][0]["narrative_text"] = (
             "According to AWS, the service reduces operational burden for managed runtime maintenance.")
         validate_narrative(json.dumps(payload), edition, groups)
+
+    def test_final_evidence_only_categories_are_narrowly_detected(self) -> None:
+        cases = [
+            ("significance", wording) for wording in
+            ("This is a significant advancement.", "This is a major step forward.",
+             "This is a substantial improvement.")
+        ] + [
+            ("efficiency_productivity", wording) for wording in
+            ("This enhances efficiency.", "This improves productivity.", "This streamlines operations.")
+        ] + [
+            ("simplification_complexity", wording) for wording in
+            ("This simplifies architectural complexities.", "This reduces operational complexity.")
+        ] + [
+            ("strategic_intent", wording) for wording in
+            ("This is a strategic investment in optimizing cloud performance.",
+             "This demonstrates AWS commitment.", "This signals a strategic push.")
+        ] + [
+            ("necessity", wording) for wording in
+            ("This is crucial for resilience.", "This is essential for resilience.",
+             "This is critical for maintaining resilience.")
+        ] + [("generalized_optimization", "This is about optimizing cloud performance.")]
+        for category, wording in cases:
+            payload = {"opening": "Neutral opening.", "sections": [{
+                "section_title": "Capability", "narrative_text": wording,
+                "supporting_item_ids": ["item"], "key_takeaway": "",
+            }], "what_to_watch": []}
+            with self.subTest(category=category):
+                violations = detect_evidence_only_violations(payload)
+                self.assertEqual(violations[0]["evaluative_category"], category)
+        accepted = {"opening": "Neutral opening.", "sections": [{
+            "section_title": "Capability", "narrative_text": "This gives teams another managed option.",
+            "supporting_item_ids": ["item"], "key_takeaway": "This is relevant to the data layer.",
+        }], "what_to_watch": ["It is worth watching."]}
+        self.assertEqual(detect_evidence_only_violations(accepted), [])
+
+    def test_final_evidence_only_pass_reduces_core_and_removes_optional_unit_with_audit(self) -> None:
+        edition = self.build(1)
+        payload = json.loads(self.response(edition))
+        item_ids = payload["sections"][0]["supporting_item_ids"]
+        payload["sections"][0]["narrative_text"] = (
+            "The service adds a managed capability, which streamlines operations.")
+        payload["sections"][0]["key_takeaway"] = "This signals a strategic push."
+        result = generate_narrative(
+            self.store, "2026-08-09", self.out, generator=lambda p, m: json.dumps(payload))
+        self.assertTrue(result.success, result.error)
+        section = result.generation["narrative"]["sections"][0]
+        self.assertEqual(section["narrative_text"], "The service adds a managed capability.")
+        self.assertEqual(section["key_takeaway"], "")
+        self.assertEqual(section["supporting_item_ids"], item_ids)
+        with self.store.connect() as conn:
+            actions = conn.execute(
+                "SELECT * FROM narrative_evidence_only_actions ORDER BY action_id").fetchall()
+        self.assertEqual(len(actions), 2)
+        self.assertTrue(all(row["action"] == "evidence_only_reduce" for row in actions))
+        self.assertTrue(all(row["validation_result"] == "passed" for row in actions))
 
     def test_outcome_modifier_fallback_removes_only_unsupported_modifier(self) -> None:
         draft = {"sections": [{"narrative_text":
@@ -1534,6 +1590,37 @@ class AudioGenerationTests(TempCase):
         self.assertIn("L L M performance", script)
         self.assertLess(script.index("connected opening"), script.index("First fact"))
         self.assertLess(script.index("First fact"), script.index("what to watch"))
+
+    def test_speech_preparation_normalizes_structural_heading_slash_only(self) -> None:
+        narrative = json.loads(json.dumps(self.narrative_payload))
+        narrative["sections"][0]["section_title"] = "Compute/Platform Foundation"
+        narrative["sections"][0]["narrative_text"] = (
+            "Keep /srv/app/config and product/name unchanged in body prose.")
+        script = prepare_speech_script(narrative)
+        self.assertIn("First, Compute and Platform Foundation.", script)
+        self.assertNotIn("Compute/Platform", script)
+        self.assertIn("/srv/app/config", script)
+        self.assertIn("product/name", script)
+
+    def test_speech_preparation_normalizes_only_duplicate_terminal_periods(self) -> None:
+        narrative = json.loads(json.dumps(self.narrative_payload))
+        narrative["headline"] = "Release 2.1 notes."
+        narrative["sections"][0]["narrative_text"] = (
+            "Version 2.1 remains unchanged. A body sentence has a duplicated ending..")
+        narrative["what_to_watch"] = [
+            "An ordinary sentence.", "A duplicated ending..", "An intentional pause...",
+        ]
+        script = prepare_speech_script(narrative)
+        self.assertIn("Release 2.1 notes.", script)
+        self.assertNotIn("Release 2.1 notes..", script)
+        self.assertIn("Version 2.1 remains unchanged.", script)
+        self.assertIn("A body sentence has a duplicated ending.", script)
+        self.assertNotIn("A body sentence has a duplicated ending..", script)
+        self.assertIn("An ordinary sentence.", script)
+        self.assertNotIn("An ordinary sentence..", script)
+        self.assertIn("A duplicated ending.", script)
+        self.assertNotIn("A duplicated ending..", script)
+        self.assertIn("An intentional pause...", script)
 
     def test_script_only_artifact_is_deterministic(self) -> None:
         result = write_speech_script(self.store, "2026-08-09", self.audio_dir)

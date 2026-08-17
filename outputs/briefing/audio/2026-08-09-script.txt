@@ -1,0 +1,23 @@
+Perales Lab Daily Briefing for August 9, 2026.
+
+Evolving Cloud Architectures: New Developments in A I Application Infrastructure and Beyond.
+
+This briefing examines recent developments in cloud architecture. These developments span multiple architectural layers, offering new tools and capabilities for architects to consider.
+
+First, A I Application Infrastructure.
+
+Recent developments address different parts of the architectural problem in A I application infrastructure. Amazon Bedrock AgentCore has announced runtime instances that provide persistent compute infrastructure, supporting multi-agent collaboration and G P U acceleration. Amazon DynamoDB now supports real-time vector search. Applications can store vector embeddings alongside operational data in DynamoDB and run similarity searches directly against that data.
+
+Next, Compute and Platform Foundation Developments.
+
+Amazon EC2 R8i and R8i-Flex instances are now available in the Europe (Milan) region. According to A W S, R8i and R8i-flex instances provide up to 15% better price-performance compared with previous generation Intel-based instances. According to A W S, R8i and R8i-flex instances deliver 20% higher performance than R7i instances, including up to 30% faster performance for PostgreSQL databases, up to 60% faster for NGINX web applications, and up to 40% faster for A I deep learning recommendation models compared to R7i instances.
+
+Also worth your attention, Hybrid Network Resilience.
+
+In the domain of hybrid network resilience, Azure's public preview of the ExpressRoute resiliency guard offers architects new tools for specifying gateway configurations.
+
+To close, here is what to watch next.
+
+Architects may want to observe the deployment of memory-intensive workloads on R8i and R8i-flex instances.
+
+That is today's Perales Lab Daily Briefing.

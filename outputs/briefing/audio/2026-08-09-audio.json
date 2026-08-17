@@ -1,0 +1,22 @@
+{
+  "edition_date": "2026-08-09",
+  "edition_id": "BFE-2026-08-09",
+  "narrative_generation_id": 22,
+  "narrative_fingerprint": "fefdd00a8b19c60c6c8bda9bf35b7307a6ec11c1c96e85884616c64537189ad2",
+  "configuration_fingerprint": "2d3098bdf3dbfd30710add7b6791c84071dbc3f71fbe5ae6438df3117ef67208",
+  "narrative_artifact_path": "/Users/erickperales/Projects/knowledge_base/outputs/briefing/narratives/2026-08-09-narrative.md",
+  "script_path": "/Users/erickperales/Projects/knowledge_base/outputs/briefing/audio/2026-08-09-script.txt",
+  "audio_path": "/Users/erickperales/Projects/knowledge_base/outputs/briefing/audio/2026-08-09-briefing.wav",
+  "metadata_path": "/Users/erickperales/Projects/knowledge_base/outputs/briefing/audio/2026-08-09-audio.json",
+  "tts_engine": "macos-say",
+  "tts_engine_version": "macOS built-in Speech Synthesis Manager",
+  "voice": "Samantha",
+  "speech_rate": 185,
+  "output_format": "wav",
+  "generated_at": "2026-08-17T01:17:25+00:00",
+  "duration_seconds": 115.42462585034014,
+  "audio_bytes": 5094322,
+  "schema_version": "2d-1",
+  "generation_kind": "original",
+  "status": "ready"
+}

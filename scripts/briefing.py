@@ -39,8 +39,8 @@ DEFAULT_EDITIONS_DIR = ROOT / "outputs" / "briefing" / "editions"
 DEFAULT_NARRATIVES_DIR = ROOT / "outputs" / "briefing" / "narratives"
 NARRATIVE_SCHEMA_VERSION = "2b1-opening-1"
 NARRATIVE_PROMPT_VERSION = "2b1-opening-1"
-NARRATIVE_PIPELINE_VERSION = "2b-two-stage-performance-1"
-CLEANUP_PROMPT_VERSION = "2b2-performance-1"
+NARRATIVE_PIPELINE_VERSION = "2b2-evidence-only-1"
+CLEANUP_PROMPT_VERSION = "2b2-evidence-only-1"
 DEFAULT_CLEANUP_ATTEMPTS = 2
 VALID_CANDIDATE_STATES = {"new", "evaluated", "selected", "not_selected", "duplicate", "error"}
 VALID_RETENTION_DECISIONS = {"discard", "reference", "promote"}
@@ -393,6 +393,19 @@ class CandidateStore:
                     product TEXT NOT NULL,
                     capability TEXT NOT NULL,
                     supported_scope TEXT NOT NULL DEFAULT '',
+                    supporting_item_ids_json TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    validation_result TEXT NOT NULL,
+                    FOREIGN KEY(generation_id) REFERENCES narrative_generations(generation_id)
+                );
+                CREATE TABLE IF NOT EXISTS narrative_evidence_only_actions (
+                    action_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    generation_id INTEGER NOT NULL,
+                    unit_id TEXT NOT NULL,
+                    applied_at TEXT NOT NULL,
+                    original_text TEXT NOT NULL,
+                    normalized_text TEXT NOT NULL,
+                    evaluative_category TEXT NOT NULL,
                     supporting_item_ids_json TEXT NOT NULL,
                     action TEXT NOT NULL,
                     validation_result TEXT NOT NULL,
@@ -773,6 +786,18 @@ class CandidateStore:
                  reconstructed, claim["claim_type"], claim["publisher"], claim["product"],
                  claim["capability"], claim.get("supported_scope", ""),
                  json.dumps(claim["supporting_item_ids"]), validation_result))
+
+    def record_evidence_only_action(
+        self, generation_id: int, violation: dict, normalized: str, validation_result: str,
+    ) -> None:
+        with self.connect() as conn:
+            conn.execute("""INSERT INTO narrative_evidence_only_actions
+                (generation_id,unit_id,applied_at,original_text,normalized_text,evaluative_category,
+                 supporting_item_ids_json,action,validation_result)
+                VALUES (?,?,?,?,?,?,?,'evidence_only_reduce',?)""",
+                (generation_id, violation["unit_id"], utc_now(), violation["sentence"], normalized,
+                 violation["evaluative_category"],
+                 json.dumps(violation.get("supporting_item_ids", [])), validation_result))
 
     def record_thematic_opening_reconstruction(
         self, generation_id: int, original_opening: str, cleanup_attempts: list[dict],
@@ -1445,6 +1470,84 @@ _OUTCOME_MODIFIER_PATTERN = re.compile(
     r"\b(?:significant|major|transformative|dramatic(?:ally)?)\b\s*", re.IGNORECASE,
 )
 
+# Final, deliberately narrow semantic classes. These are kept separate from the
+# normal repair detector so existing targeted repair ordering remains unchanged.
+_EVIDENCE_ONLY_PATTERNS = {
+    "significance": re.compile(
+        r"\b(?:(?:significant|major)\s+(?:advancements?|improvements?|steps?(?:\s+forward)?)|"
+        r"substantial\s+improvements?|important\s+breakthroughs?|meaningful\s+leaps?|"
+        r"(?:standalone\s+)?advancements?\s+in|focus\w*\s+on\s+advancements?\s+in)\b", re.I),
+    "efficiency_productivity": re.compile(
+        r"\b(?:significantly\s+)?(?:enhanc\w*|improv\w*|boost\w*)\s+"
+        r"(?:the\s+)?(?:capability\s+and\s+)?(?:efficiency|productivity)|"
+        r"\b(?:significantly\s+)?impact\w*\s+(?:the\s+)?(?:scalability\s+and\s+)?efficiency|"
+        r"\bstreamlin\w+\s+(?:operations?|workflows?)\b", re.I),
+    "simplification_complexity": re.compile(
+        r"\b(?:simplif\w+\s+(?:the\s+)?(?:architectural\s+)?(?:process|architectures?|complexit\w*)|"
+        r"reduc\w+\s+(?:infrastructure\s+|architectural\s+|operational\s+)?complexity|"
+        r"remov\w+\s+operational\s+complexity|mak\w+\s+architecture\s+easier|"
+        r"simplif\w+\s+operations?)\b", re.I),
+    "strategic_intent": re.compile(
+        r"\b(?:(?:strategic|broad|ongoing)\s+investment|strategic\s+(?:move|push)|"
+        r"demonstrat\w+\s+(?:AWS(?:'s)?|Microsoft(?:'s)?|"
+        r"the vendor(?:'s)?)\s+(?:strategy|commitment)|show\w+\s+(?:AWS(?:'s)?|Microsoft(?:'s)?)\s+"
+        r"commitment|signal\w+\s+(?:a\s+)?strategic\s+push)\b", re.I),
+    "necessity": re.compile(r"\b(?:(?:crucial|essential|critical|vital|necessary)\s+for|integral\s+to)\b", re.I),
+    "generalized_optimization": re.compile(
+        r"\b(?:optimiz\w+\s+cloud\s+performance|maximiz\w+\s+performance|"
+        r"improv\w+\s+(?:the\s+)?overall\s+architecture|improv\w+\s+operational\s+outcomes?|"
+        r"enhanc\w+\s+network\s+resilience|greater\s+flexibility)\b", re.I),
+}
+_EVALUATIVE_HEADING_PATTERN = re.compile(
+    r"\b(?:advancements?|enhancements?|innovations?)\b", re.I)
+
+
+def _supported_attributed_evaluative_claim(
+    sentence: str, match: re.Match[str], item_ids: list[str], source_by_id: dict[str, dict] | None,
+) -> bool:
+    if not source_by_id or len(item_ids) != 1 or item_ids[0] not in source_by_id:
+        return False
+    mentions = _attribution_mentions(sentence)
+    expected = _expected_publishers(item_ids, source_by_id)
+    if not mentions or {publisher for _, publisher in mentions} != expected:
+        return False
+    source = source_by_id[item_ids[0]]
+    evidence = " ".join((source.get("title", ""), source.get("summary", ""), source.get("content", "")))
+    return normalize_title(match.group(0)) in normalize_title(evidence)
+
+
+def detect_evidence_only_violations(
+    payload: dict, source_by_id: dict[str, dict] | None = None,
+) -> list[dict]:
+    """Find residual unsupported evaluation in the post-repair final draft."""
+    violations: list[dict] = []
+    for unit_id, unit_text, item_ids in _prose_units(payload):
+        sentences = [value.strip() for value in re.split(r"(?<=[.!?])\s+|\n+", unit_text) if value.strip()]
+        for sentence_index, sentence in enumerate(sentences):
+            if unit_id.endswith(".section_title") and _EVALUATIVE_HEADING_PATTERN.search(sentence):
+                violations.append({
+                    "unit_id": unit_id, "sentence_index": sentence_index, "sentence": sentence,
+                    "evaluative_category": "significance",
+                    "violation_types": ["evidence_only_significance"],
+                    "supporting_item_ids": item_ids,
+                    "criticality": prose_unit_criticality(unit_id),
+                })
+                continue
+            for category, pattern in _EVIDENCE_ONLY_PATTERNS.items():
+                match = pattern.search(sentence)
+                if match and not _supported_attributed_evaluative_claim(
+                    sentence, match, item_ids, source_by_id,
+                ):
+                    violations.append({
+                        "unit_id": unit_id, "sentence_index": sentence_index, "sentence": sentence,
+                        "evaluative_category": category,
+                        "violation_types": [f"evidence_only_{category}"],
+                        "supporting_item_ids": item_ids,
+                        "criticality": prose_unit_criticality(unit_id),
+                    })
+                    break
+    return violations
+
 
 def detect_opening_violations(text: str) -> list[str]:
     """Return strict claim classes for the source-less thematic opening."""
@@ -1616,6 +1719,11 @@ def _validate_narrative_wording(payload: dict, groups: list[dict], source_by_id:
     if localized:
         first = localized[0]
         raise ValueError(f"{','.join(first['violation_types'])} at {first['unit_id']}: {first['sentence']}")
+    evidence_only = detect_evidence_only_violations(payload, source_by_id)
+    if evidence_only:
+        first = evidence_only[0]
+        raise ValueError(f"evidence_only_{first['evaluative_category']} at "
+                         f"{first['unit_id']}: {first['sentence']}")
 
 
 def validate_narrative(text: str, edition: dict, groups: list[dict], *, enforce_wording: bool = True) -> dict:
@@ -1795,6 +1903,9 @@ _NONESSENTIAL_FALLBACK_VIOLATIONS = {
     "unsupported_integration", "overcertain_projection", "unsupported_comparative",
     "vague_performance_claim", "unsupported_absolute", "unattributed_performance_claim",
     "unsupported_outcome_claim",
+    "evidence_only_significance", "evidence_only_efficiency_productivity",
+    "evidence_only_simplification_complexity", "evidence_only_strategic_intent",
+    "evidence_only_necessity", "evidence_only_generalized_optimization",
 }
 
 
@@ -2016,6 +2127,10 @@ _CAPABILITY_TITLE_PATTERN = re.compile(
     r"^(?P<product>(?:Amazon|AWS|Microsoft|Azure|Google)\s+[A-Za-z0-9][A-Za-z0-9 ._-]*?)\s+"
     r"(?:now\s+)?supports?\s+(?P<capability>.+?)(?:\s+at any scale)?$", re.IGNORECASE,
 )
+_AVAILABLE_TITLE_PATTERN = re.compile(
+    r"^(?P<product>(?:Amazon|AWS|Microsoft|Azure|Google)\s+[A-Za-z0-9][A-Za-z0-9 ._-]*?)\s+"
+    r"are\s+now\s+available\s+in\s+(?P<region>.+?)\s+region$", re.I,
+)
 _VECTOR_SCOPE_PATTERN = re.compile(
     r"store vector embeddings alongside your operational data in DynamoDB and run similarity searches "
     r"directly against that data", re.IGNORECASE,
@@ -2027,8 +2142,18 @@ def _extract_supported_core_capabilities(source: dict) -> list[dict]:
     publisher = _canonical_publisher(source.get("feed_name", ""))
     title = str(source.get("title", "")).strip()
     match = _CAPABILITY_TITLE_PATTERN.fullmatch(title)
-    if not publisher or not match:
+    availability = _AVAILABLE_TITLE_PATTERN.fullmatch(title)
+    if not publisher or (not match and not availability):
         return []
+    if availability:
+        product = availability.group("product").strip()
+        region = availability.group("region").strip()
+        return [{
+            "claim_type": "product_capability", "publisher": publisher, "product": product,
+            "capability": f"is available in the {region} region", "supported_scope": "",
+            "reconstructed_text": f"{product} are now available in the {region} region.",
+            "supporting_item_ids": [source["candidate_id"]],
+        }]
     product = match.group("product").strip()
     capability_object = match.group("capability").strip()
     evidence = " ".join((title, source.get("summary", ""), source.get("content", "")))
@@ -2059,7 +2184,7 @@ def _reconstruct_evidence_backed_core_capability(
     if len(claims) != 1:
         raise ValueError("stored evidence does not identify one unambiguous core capability")
     claim = claims[0]
-    reconstructed = f"{claim['product']} now {claim['capability']}."
+    reconstructed = claim.get("reconstructed_text", f"{claim['product']} now {claim['capability']}.")
     if claim["supported_scope"]:
         scope = claim["supported_scope"]
         reconstructed += f" {scope[0].upper() + scope[1:]}."
@@ -2068,6 +2193,91 @@ def _reconstruct_evidence_backed_core_capability(
         "supporting_item_ids": claim["supporting_item_ids"],
     })
     return candidate, claim, reconstructed
+
+
+def _reduce_evidence_only_clause(draft: dict, violation: dict) -> tuple[dict, str]:
+    """Delete an evaluative clause/sentence without synthesizing replacement facts."""
+    sentence = violation["sentence"]
+    category = violation["evaluative_category"]
+    if violation.get("criticality") == "nonessential":
+        candidate = _apply_nonessential_fallback(draft, violation)
+        return candidate, ""
+    if violation["unit_id"].endswith(".section_title"):
+        normalized = re.sub(
+            r"\b(?:advancements?|enhancements?|innovations?|significant|major|substantial)\b",
+            "", sentence, flags=re.I)
+        normalized = re.sub(r"\s{2,}", " ", normalized).strip(" -:,.!")
+        if len(normalized.split()) < 2:
+            raise ValueError("evidence-only heading has no neutral descriptive remainder")
+        candidate = _apply_cleanup(draft, violation, {
+            "action": "replace", "replacement_sentence": normalized,
+            "supporting_item_ids": violation.get("supporting_item_ids", []),
+        })
+        return candidate, normalized
+
+    match = _EVIDENCE_ONLY_PATTERNS[category].search(sentence)
+    if not match:
+        raise ValueError("evidence-only violation no longer matches its category")
+
+    prefix = sentence[:match.start()]
+    # A factual independent clause may precede the flagged evaluation.
+    clause = re.sub(r"(?:[,;:]\s*(?:which|thereby|and)?|\s+(?:and|while|thereby))\s*$", "", prefix,
+                    flags=re.I).strip()
+    clause = re.sub(r"[,;:]\s*which\s+(?:is|are|was|were)\s*$", "", clause, flags=re.I).strip()
+    clause = re.sub(r"\b(?:and|which|thereby)\s*$", "", clause, flags=re.I).strip(" ,;:")
+    incomplete = re.search(
+        r"\b(?:is|are|was|were|represents?|reflects?|marks?|constitutes?|remains?|becomes?|"
+        r"a|an|the|very)\s*$", clause, re.I,
+    )
+    if re.search(r"\bintroduction of\b", clause, re.I):
+        incomplete = True
+    if len(clause.split()) >= 4 and not incomplete:
+        normalized = clause.rstrip(".!?") + (sentence[-1] if sentence[-1] in ".!?" else ".")
+        candidate = _apply_cleanup(draft, violation, {
+            "action": "replace", "replacement_sentence": normalized,
+            "supporting_item_ids": violation.get("supporting_item_ids", []),
+        })
+        return candidate, normalized
+
+    raise ValueError("core evidence-only sentence has no safe deterministic factual remainder")
+
+
+def apply_evidence_only_final_pass(
+    store: CandidateStore, generation_id: int, narrative: dict, edition: dict,
+) -> dict:
+    """Apply deterministic final reductions after all normal Phase 2B2 repairs."""
+    source_by_id = {item["candidate_id"]: item for item in edition["items"]}
+    pending = detect_evidence_only_violations(narrative, source_by_id)
+    while pending:
+        violation = pending[0]
+        try:
+            candidate, normalized = _reduce_evidence_only_clause(narrative, violation)
+        except ValueError:
+            # Reuse the existing literal-title capability representation for a
+            # single-sentence core unit; no model generation occurs here.
+            capability_violation = {**violation, "violation_types": ["unsupported_outcome_claim"]}
+            try:
+                if violation["evaluative_category"] in {"strategic_intent", "generalized_optimization"}:
+                    raise ValueError("evaluative-only core sentence is not capability evidence")
+                candidate, _, normalized = _reconstruct_evidence_backed_core_capability(
+                    narrative, capability_violation, capability_violation, edition)
+            except ValueError:
+                candidate = _apply_cleanup(narrative, violation, {
+                    "action": "remove", "replacement_sentence": "",
+                    "supporting_item_ids": violation.get("supporting_item_ids", []),
+                })
+                normalized = ""
+        target_text = normalized or violation["sentence"]
+        remaining = [value for value in detect_evidence_only_violations(candidate, source_by_id)
+                     if value["unit_id"] == violation["unit_id"]
+                     and value["sentence"] == target_text]
+        validation_result = "passed" if not remaining else json.dumps(remaining, sort_keys=True)
+        store.record_evidence_only_action(generation_id, violation, normalized, validation_result)
+        if remaining:
+            raise ValueError(f"evidence-only reduction did not validate: {violation['unit_id']}")
+        narrative = candidate
+        pending = detect_evidence_only_violations(narrative, source_by_id)
+    return narrative
 
 
 def generate_narrative(
@@ -2262,6 +2472,9 @@ def generate_narrative(
                     raise ValueError(f"cleanup retry limit reached for core unit {violation['unit_id']}: "
                                      f"{violation['sentence']}")
             pending = detect_narrative_violations(narrative, groups, source_by_id)
+        store.update_narrative_pipeline(generation_id, "evidence_only_final_pass")
+        narrative = apply_evidence_only_final_pass(store, generation_id, narrative, edition)
+        # Full structural/wording validation includes the final narrow speech-readiness scan.
         narrative = validate_narrative(json.dumps(narrative), edition, groups)
         preview = {"narrative": narrative, "model": model, "schema_version": NARRATIVE_SCHEMA_VERSION,
                    "generation_kind": kind}
@@ -2289,7 +2502,30 @@ def _clean_spoken_text(value: str) -> str:
     text = re.sub(r"<[^>]+>", "", text)
     for acronym, spoken in _SPOKEN_ACRONYMS.items():
         text = re.sub(rf"(?<![A-Za-z0-9]){re.escape(acronym)}(?![A-Za-z0-9])", spoken, text)
-    return " ".join(text.split()).strip(" -")
+    text = " ".join(text.split()).strip(" -")
+    return _normalize_duplicate_terminal_punctuation(text)
+
+
+def _normalize_duplicate_terminal_punctuation(value: str) -> str:
+    """Collapse an accidental terminal double period while preserving ellipses."""
+    return re.sub(r"(?<!\.)\.\.(?!\.)$", ".", value)
+
+
+_STRUCTURAL_HEADING_SLASH_PATTERN = re.compile(
+    r"\b(Compute|Platform|Data|Vector|Runtime|Model)/(Compute|Platform|Data|Vector|Runtime|Model)\b",
+    re.IGNORECASE,
+)
+
+
+def _clean_spoken_heading(value: str) -> str:
+    """Clean a structural label and speak known architectural slashes as conjunctions."""
+    return _STRUCTURAL_HEADING_SLASH_PATTERN.sub(r"\1 and \2", _clean_spoken_text(value))
+
+
+def _with_terminal_period(value: str) -> str:
+    """Add one spoken terminal period without changing ellipses or internal punctuation."""
+    value = _normalize_duplicate_terminal_punctuation(value.strip())
+    return value if re.search(r"[.!?]$", value) else value + "."
 
 
 def prepare_speech_script(narrative: dict) -> str:
@@ -2307,25 +2543,26 @@ def prepare_speech_script(narrative: dict) -> str:
     opening = _clean_spoken_text(str(narrative["opening"]))
     if not headline or not opening:
         raise ValueError("narrative has no substantive opening for audio")
-    paragraphs = [f"Perales Lab Daily Briefing for {spoken_date}.", headline + ".", opening]
+    paragraphs = [f"Perales Lab Daily Briefing for {spoken_date}.",
+                  _with_terminal_period(headline), opening]
     transitions = ["First", "Next", "Also worth your attention", "Turning to another development"]
     for index, section in enumerate(narrative["sections"]):
         if not isinstance(section, dict):
             raise ValueError("narrative section is invalid")
-        title = _clean_spoken_text(str(section.get("section_title", "")))
+        title = _clean_spoken_heading(str(section.get("section_title", "")))
         body = _clean_spoken_text(str(section.get("narrative_text", "")))
         takeaway = _clean_spoken_text(str(section.get("key_takeaway", "")))
         if not title or not body:
             raise ValueError("narrative has an empty substantive section")
         transition = transitions[index] if index < len(transitions) else "In another development"
-        paragraphs.extend([f"{transition}, {title}.", body])
+        paragraphs.extend([_with_terminal_period(f"{transition}, {title}"), body])
         if takeaway:
             paragraphs.append(f"The key takeaway is: {takeaway}")
     watch = [_clean_spoken_text(str(value)) for value in narrative["what_to_watch"]]
     watch = [value for value in watch if value]
     if watch:
         paragraphs.append("To close, here is what to watch next.")
-        paragraphs.extend(f"{value}." for value in watch)
+        paragraphs.extend(_with_terminal_period(value) for value in watch)
     paragraphs.append("That is today's Perales Lab Daily Briefing.")
     script = "\n\n".join(paragraph.strip() for paragraph in paragraphs if paragraph.strip()).strip() + "\n"
     if len(re.sub(r"\W", "", script)) < 20:

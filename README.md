@@ -157,12 +157,12 @@ Canonical topic aggregation requires both `review_action: approved` and
 
 On macOS, RSS is a scheduled one-shot LaunchAgent: `feed_poller.py --once` runs at
 load and hourly. An absent or empty `metadata/feeds.json` logs a clear message and
-exits successfully; it is never configured with `KeepAlive`. The repository ships
-an empty `[]` configuration and does not invent production feeds.
+exits successfully; it is never configured with `KeepAlive`. The authoritative
+configuration currently enables 18 public RSS/Atom feeds.
 
-## Perales Lab Daily Briefing Roadmap
+## Perales Lab Daily Briefing
 
-The Perales Lab Daily Briefing is a planned extension of the knowledge-base platform that will turn selected RSS information and existing knowledge-base context into a personalized daily briefing and, eventually, an audio podcast.
+The Perales Lab Daily Briefing is an implemented, functionally validated extension of the knowledge-base platform. Phases 2A–2D provide an end-to-end local path from selected RSS information through an evidence-bounded narrative and human retention review to an inspectable speech script and WAV briefing.
 
 The goal is not to archive every RSS item. The Daily Briefing will act as an editorial layer that determines:
 
@@ -174,7 +174,7 @@ The goal is not to archive every RSS item. The Daily Briefing will act as an edi
 
 The existing knowledge-base pipeline remains the authoritative path for durable knowledge.
 
-### Target architecture
+### Current architecture
 
 ```text
 Selected RSS feeds
@@ -206,9 +206,11 @@ Discard    Reference     Promote to KB
 
 Narrative Daily Briefing
         ↓
-Future text-to-speech
+Deterministic speech preparation
         ↓
-Private podcast/audio delivery
+Local macOS text-to-speech
+        ↓
+Validated PCM WAV
 ```
 
 The Daily Briefing candidate layer will remain separate from the permanent KB inbox. RSS items will not automatically become durable knowledge.
@@ -233,7 +235,7 @@ These are intentionally separate decisions.
 
 ### Retention model
 
-Each briefing item will eventually support three outcomes:
+Each briefing item supports three outcomes:
 
 #### Discard
 
@@ -251,7 +253,7 @@ A reference should retain enough provenance to find and understand the source la
 
 The information has durable value.
 
-Promoted items will enter the existing KB pipeline and use the current:
+Promoted items enter the existing KB pipeline and use the current:
 
 - Domain-aware ingestion
 - Source normalization
@@ -425,6 +427,34 @@ afplay outputs/briefing/audio/$(date +%F)-briefing.wav
 
 Speech preparation removes Markdown, citations, raw URLs, and the source appendix; adds natural section transitions; and conservatively expands common technical acronyms. SQLite stores append-only successes/failures, narrative/configuration fingerprints, voice/rate, duration, paths, and provenance. Changed narratives make existing audio stale, and failed regeneration preserves the last valid artifact.
 
+The speech layer also normalizes known structural heading slashes (for example, `Compute/Platform` becomes `Compute and Platform`) and accidental duplicate terminal periods without globally rewriting body slashes, paths, decimals, versions, or intentional ellipses.
+
+### Completed operational baseline
+
+The live-feed operational test completed the full path across 18 configured feeds. Seventeen returned entries and arXiv returned a valid empty Atom feed. Initial ingestion fetched 2,564 items, creating 2,525 candidates and identifying 39 duplicates. The test drove fixes for stale backfill selection, source domination, below-threshold filler, narrative grouping, evidence controls, attribution, and speech preparation.
+
+The accepted August 9, 2026 edition contains four stories: DynamoDB real-time vector search, Bedrock AgentCore persistent runtime instances, EC2 R8i/R8i-Flex availability in Milan, and Azure ExpressRoute resiliency guard. Narrative generation 22 passed normal validation, the final evidence-only pass, and manual speech-readiness review. Its speech script and local WAV were generated, inspected, and listened to successfully.
+
+The system has therefore reached a stable end-to-end baseline:
+
+```text
+RSS / Atom sources → candidate ingestion → editorial evaluation
+→ current/diverse selection → contextual narrative synthesis
+→ evidence-bounded editorial cleanup → human retention review
+→ speech preparation → local WAV briefing
+```
+
+Latest milestone verification:
+
+```text
+Focused speech tests: 3 passed
+make test-briefing: 159 passed
+make test: 1,188 passed
+git diff --check: passed
+```
+
+Operational artifacts are written under `outputs/briefing/editions/`, `outputs/briefing/narratives/`, `outputs/briefing/references/`, and `outputs/briefing/audio/`. The detailed design, commands, audit behavior, and operational findings are documented in [docs/daily-briefing.md](docs/daily-briefing.md).
+
 Publishing, distribution, hosting, RSS, dashboard controls, music, multiple speakers, voice cloning, and cloud TTS remain out of scope. See [docs/daily-briefing.md](docs/daily-briefing.md) for configuration and troubleshooting.
 
 ## Longer-term possibilities
@@ -442,8 +472,13 @@ Potential future capabilities include:
 - Interactive voice follow-up
 - Asking the briefing system to explain an item in more depth
 - Automatically identifying knowledge gaps or follow-up research opportunities
+- Evaluating a slower speech rate, likely around 165–175 WPM
+- Comparing additional locally available macOS voices
+- Improving voice naturalness or optionally adopting a higher-quality local TTS engine
+- Adding MP3/AAC when a lightweight reliable encoder is available
+- Dashboard controls, publishing/distribution, podcast RSS, notifications, or automated delivery
 
-These are future possibilities rather than current implementation commitments.
+These are polish and later-stage possibilities, not blockers for the completed baseline or current implementation commitments.
 
 The guiding architectural principle remains:
 
