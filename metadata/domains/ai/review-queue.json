@@ -197,5 +197,24 @@
     "review_action": "approved",
     "review_method": "auto",
     "reviewed_at": "2026-07-23T20:28:16.949958"
+  },
+  {
+    "source_id": "SRC-20260820-0001",
+    "title": "Are We Thinking Correctly About AI Intelligence?",
+    "source_note_path": "raw/domains/ai/articles/are-we-thinking-correctly-about-ai-intelligence.md",
+    "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/ai/inbox/browser/are-we-thinking-correctly-about-ai-intelligence.md",
+    "adapter": "browser",
+    "source_type": "article",
+    "origin": "web",
+    "topic_slug": "artificial-intelligence",
+    "domain": "ai",
+    "queued_at": "2026-08-20T09:55:13.156995",
+    "review_status": "synthesized",
+    "validation_status": "validated",
+    "validation_issues": [],
+    "review_action": "approved",
+    "review_method": "manual",
+    "reviewed_at": "2026-08-20T09:55:22.040243",
+    "synthesized_at": "2026-08-20T09:57:04.054557"
   }
 ]
