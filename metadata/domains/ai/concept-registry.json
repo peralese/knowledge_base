@@ -562,6 +562,60 @@
       ],
       "date_first_seen": "2026-07-23",
       "date_updated": "2026-07-23"
+    },
+    {
+      "slug": "human-ai-interaction",
+      "title": "Human AI Interaction",
+      "sources": [
+        "are-we-thinking-correctly-about-ai-intelligence-synthesis"
+      ],
+      "date_first_seen": "2026-08-20",
+      "date_updated": "2026-08-20"
+    },
+    {
+      "slug": "philosophical-perspective-on-excellence",
+      "title": "Philosophical Perspective on Excellence",
+      "sources": [
+        "are-we-thinking-correctly-about-ai-intelligence-synthesis"
+      ],
+      "date_first_seen": "2026-08-20",
+      "date_updated": "2026-08-20"
+    },
+    {
+      "slug": "ai-as-a-tool-vs-replacement",
+      "title": "AI as a Tool vs. Replacement",
+      "sources": [
+        "are-we-thinking-correctly-about-ai-intelligence-synthesis"
+      ],
+      "date_first_seen": "2026-08-20",
+      "date_updated": "2026-08-20"
+    },
+    {
+      "slug": "human-role-in-interpretation",
+      "title": "Human Role in Interpretation",
+      "sources": [
+        "are-we-thinking-correctly-about-ai-intelligence-synthesis"
+      ],
+      "date_first_seen": "2026-08-20",
+      "date_updated": "2026-08-20"
+    },
+    {
+      "slug": "optimism-for-golden-age-of-science",
+      "title": "Optimism for a Golden Age of Science",
+      "sources": [
+        "are-we-thinking-correctly-about-ai-intelligence-synthesis"
+      ],
+      "date_first_seen": "2026-08-20",
+      "date_updated": "2026-08-20"
+    },
+    {
+      "slug": "existential-considerations",
+      "title": "Existential Considerations",
+      "sources": [
+        "are-we-thinking-correctly-about-ai-intelligence-synthesis"
+      ],
+      "date_first_seen": "2026-08-20",
+      "date_updated": "2026-08-20"
     }
   ]
 }
