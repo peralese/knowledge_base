@@ -319,6 +319,46 @@
       "date_first_seen": "2026-07-23",
       "date_updated": "2026-07-23",
       "entity_type": "tool"
+    },
+    {
+      "slug": "claude-skills",
+      "title": "Claude Skills",
+      "sources": [
+        "what-are-claude-skills-the-complete-guide-2026-synthesis"
+      ],
+      "date_first_seen": "2026-08-20",
+      "date_updated": "2026-08-20",
+      "entity_type": "product"
+    },
+    {
+      "slug": "mcp-servers",
+      "title": "MCP Servers",
+      "sources": [
+        "what-are-claude-skills-the-complete-guide-2026-synthesis"
+      ],
+      "date_first_seen": "2026-08-20",
+      "date_updated": "2026-08-20",
+      "entity_type": "product"
+    },
+    {
+      "slug": "claudeai",
+      "title": "Claude.ai",
+      "sources": [
+        "what-are-claude-skills-the-complete-guide-2026-synthesis"
+      ],
+      "date_first_seen": "2026-08-20",
+      "date_updated": "2026-08-20",
+      "entity_type": "tool"
+    },
+    {
+      "slug": "agenticskillsio",
+      "title": "Agenticskills.io",
+      "sources": [
+        "what-are-claude-skills-the-complete-guide-2026-synthesis"
+      ],
+      "date_first_seen": "2026-08-20",
+      "date_updated": "2026-08-20",
+      "entity_type": "company"
     }
   ]
 }

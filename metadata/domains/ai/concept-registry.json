@@ -616,6 +616,78 @@
       ],
       "date_first_seen": "2026-08-20",
       "date_updated": "2026-08-20"
+    },
+    {
+      "slug": "text-based-instructions",
+      "title": "Text-based Instructions",
+      "sources": [
+        "what-are-claude-skills-the-complete-guide-2026-synthesis"
+      ],
+      "date_first_seen": "2026-08-20",
+      "date_updated": "2026-08-20"
+    },
+    {
+      "slug": "ai-agent-task-execution",
+      "title": "AI Agent Task Execution",
+      "sources": [
+        "what-are-claude-skills-the-complete-guide-2026-synthesis"
+      ],
+      "date_first_seen": "2026-08-20",
+      "date_updated": "2026-08-20"
+    },
+    {
+      "slug": "integration-process",
+      "title": "Integration Process",
+      "sources": [
+        "what-are-claude-skills-the-complete-guide-2026-synthesis"
+      ],
+      "date_first_seen": "2026-08-20",
+      "date_updated": "2026-08-20"
+    },
+    {
+      "slug": "knowledge-imparting",
+      "title": "Knowledge Imparting",
+      "sources": [
+        "what-are-claude-skills-the-complete-guide-2026-synthesis"
+      ],
+      "date_first_seen": "2026-08-20",
+      "date_updated": "2026-08-20"
+    },
+    {
+      "slug": "skill-installation",
+      "title": "Skill Installation",
+      "sources": [
+        "what-are-claude-skills-the-complete-guide-2026-synthesis"
+      ],
+      "date_first_seen": "2026-08-20",
+      "date_updated": "2026-08-20"
+    },
+    {
+      "slug": "best-practices-creation",
+      "title": "Best Practices for Skill Creation",
+      "sources": [
+        "what-are-claude-skills-the-complete-guide-2026-synthesis"
+      ],
+      "date_first_seen": "2026-08-20",
+      "date_updated": "2026-08-20"
+    },
+    {
+      "slug": "popular-skill-categories",
+      "title": "Popular Skill Categories",
+      "sources": [
+        "what-are-claude-skills-the-complete-guide-2026-synthesis"
+      ],
+      "date_first_seen": "2026-08-20",
+      "date_updated": "2026-08-20"
+    },
+    {
+      "slug": "industry-wide-standard",
+      "title": "Industry-wide Standard",
+      "sources": [
+        "what-are-claude-skills-the-complete-guide-2026-synthesis"
+      ],
+      "date_first_seen": "2026-08-20",
+      "date_updated": "2026-08-20"
     }
   ]
 }
