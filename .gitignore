@@ -57,3 +57,6 @@ tmp/
 metadata/briefing/*.db
 metadata/briefing/*.db-shm
 metadata/briefing/*.db-wal
+
+# Reference library index (rebuildable from the books)
+library/data/
