@@ -102,6 +102,20 @@
       "slug": "llm",
       "title": "LLM",
       "aliases": []
+    },
+    {
+      "slug": "artificial-intelligence",
+      "title": "Artificial Intelligence",
+      "aliases": []
+    },
+    {
+      "slug": "claude-skills",
+      "title": "Claude Skills",
+      "aliases": [],
+      "keywords": [
+        "Claude",
+        "Skills"
+      ]
     }
   ]
 }

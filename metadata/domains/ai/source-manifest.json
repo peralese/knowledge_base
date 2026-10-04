@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.2.0",
-  "last_updated": "2026-07-23",
+  "last_updated": "2026-08-20",
   "description": "Source manifest for tracking ingested raw notes and preserving lineage.",
   "sources": [
     {
@@ -245,6 +245,34 @@
       "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/ai/inbox/browser/introduction-to-llm-rag-retrieval-augmented-generation-explained.md",
       "status": "raw",
       "archive_path": "raw/domains/ai/archive/introduction-to-llm-rag-retrieval-augmented-generation-explained--archived-20260723-202552.md"
+    },
+    {
+      "source_id": "SRC-20260820-0001",
+      "title": "Are We Thinking Correctly About AI Intelligence?",
+      "filename": "are-we-thinking-correctly-about-ai-intelligence.md",
+      "path": "raw/domains/ai/articles/are-we-thinking-correctly-about-ai-intelligence.md",
+      "source_type": "article",
+      "origin": "web",
+      "date_ingested": "2026-08-20",
+      "domain": "ai",
+      "canonical_url": "https://www.quantamagazine.org/are-we-thinking-correctly-about-ai-intelligence-20260820/?print=1",
+      "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/ai/inbox/browser/are-we-thinking-correctly-about-ai-intelligence.md",
+      "status": "raw",
+      "archive_path": "raw/domains/ai/archive/are-we-thinking-correctly-about-ai-intelligence--archived-20260820-095513.md"
+    },
+    {
+      "source_id": "SRC-20260820-0002",
+      "title": "What Are Claude Skills?The Complete Guide (2026)",
+      "filename": "what-are-claude-skills-the-complete-guide-2026.md",
+      "path": "raw/domains/ai/articles/what-are-claude-skills-the-complete-guide-2026.md",
+      "source_type": "blog",
+      "origin": "web",
+      "date_ingested": "2026-08-20",
+      "domain": "ai",
+      "canonical_url": "https://agenticskills.io/learn/what-are-claude-skills",
+      "input_path": "/Users/erickperales/Projects/knowledge_base/raw/domains/ai/inbox/browser/what-are-claude-skills-the-complete-guide-2026.md",
+      "status": "raw",
+      "archive_path": "raw/domains/ai/archive/what-are-claude-skills-the-complete-guide-2026--archived-20260820-212502.md"
     }
   ]
 }

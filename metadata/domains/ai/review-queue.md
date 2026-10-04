@@ -1,6 +1,6 @@
 # Review Queue
 
-_Generated on 2026-07-23_
+_Generated on 2026-08-20_
 
 | Title | Source Note | Adapter | Validation | Confidence | Review |
 |---|---|---|---|---|---|
@@ -13,3 +13,5 @@ _Generated on 2026-07-23_
 | Build Your AI Powered Morning Brief | `raw/domains/ai/pdfs/build-your-ai-powered-morning-brief.md` | browser | validated | — | approved |
 | Building a hill-climbing machine: Launching seven new MAI models | `raw/domains/ai/articles/building-a-hill-climbing-machine-launching-seven-new-mai-models.md` | browser | validated | — | approved |
 | Introduction to LLM RAG - Retrieval Augmented Generation Explained | `raw/domains/ai/articles/introduction-to-llm-rag-retrieval-augmented-generation-explained.md` | browser | validated | high 0.92 | approved |
+| Are We Thinking Correctly About AI Intelligence? | `raw/domains/ai/articles/are-we-thinking-correctly-about-ai-intelligence.md` | browser | validated | — | approved |
+| What Are Claude Skills?The Complete Guide (2026) | `raw/domains/ai/articles/what-are-claude-skills-the-complete-guide-2026.md` | browser | validated | — | approved |

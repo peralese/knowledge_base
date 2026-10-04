@@ -13,7 +13,7 @@ tags:
 confidence: "medium"
 confidence_score: null
 generation_method: "ollama_local"
-approved: false
+approved: true
 ---
 
 ### Summary of Key Points from the Podcast Discussion
