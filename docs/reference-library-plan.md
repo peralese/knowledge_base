@@ -73,7 +73,7 @@ The same library supports reading a book with Claude as a reading partner, with 
 **Build alongside it, don't tear it down.**
 - New code goes in its own top-level `library/` folder with its own index. It doesn't import from the compile and synthesis pipeline. Copy anything useful rather than linking to it.
 - Reuse the full-text articles in `raw/domains/ai/articles/` and the local Ollama setup. Don't reuse `vector_index.py`.
-- Pause the weekly lint jobs now.
+- Pause the weekly lint jobs now. **Done 2026-10-03:** the whole pipeline is mothballed (see below).
 - **If the pilot works:** tag the repo `pre-library`, then delete the compile pipeline, compiled notes, topic registry and lint jobs.
 - **If it doesn't:** delete `library/` and freeze everything else.
 
@@ -100,7 +100,7 @@ The same library supports reading a book with Claude as a reading partner, with 
 
 - [x] Decide where the books live: NAS, `~/Books/library` → `~/Network/peralese/Books/Technical Books` (category folders created 2026-10-02).
 - [x] Copied the 4 pilot EPUBs into their category folders (AI Engineering → 4, Hands-On Machine Learning → 4, Fundamentals of Enterprise Architecture → 1, Learning Git → 7).
-- [ ] Pause the weekly lint jobs.
+- [x] Mothballed the knowledge base (2026-10-03), ahead of the trial's end: committed the leftover work, tagged `pre-library`, unloaded all five `com.kb.*` launchd jobs (plists kept in `~/Library/LaunchAgents/`), and added a note to the README. Nothing deleted; deciding whether to delete the pipeline waits for the trial (2026-10-17).
 - [ ] Commit or discard the leftover changes from the last compile run.
 - [x] Built the pilot (2026-10-02): passage splitting, index, MCP server, standing instruction and `add_url.py`. See `library/README.md`. 4 books plus *Building Effective Agents* make 1,892 passages and a 17 MB index, indexed in ~90 s. Test questions returned the right book and chapter for both meaning and exact-word queries.
 - [ ] **Start the two-week trial (2026-10-03 → 2026-10-17).** Restart Claude Code so it picks up the server, then just work normally. Each time a library citation actually helped (or got in the way), jot down one line.

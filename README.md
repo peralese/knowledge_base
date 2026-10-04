@@ -1,5 +1,7 @@
 # Knowledge Base
 
+> **Mothballed 2026-10-03.** The ingest → compile → review pipeline is frozen. Its launchd jobs (`com.kb.pipeline`, `feed-poller`, `inbox-watcher`, `lint-weekly`, `dashboard`) are unloaded, and the last working state is tagged `pre-library`. Active work is the reference library in [`library/`](library/README.md); see [docs/reference-library-plan.md](docs/reference-library-plan.md). To restart a job: `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.kb.<job>.plist`.
+
 ## Domain-Aware KBs
 
 The dashboard and pipeline now support multiple local domains, such as `ai` and `civil-war-history`, without mixing them into one reasoning space. New domain-aware flows write to `raw/domains/<slug>/`, `metadata/domains/<slug>/`, `compiled/domains/<slug>/`, `outputs/domains/<slug>/`, and `indexes/domains/<slug>/`.
