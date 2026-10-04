@@ -4,7 +4,7 @@ Full-text, citable search over my books and reference articles, served to Claude
 
 ## Layout
 
-- **Books and articles:** `~/Books/library/` links to the NAS folder `~/Network/peralese/Books/Technical Books/`. Each source goes in a numbered category folder (`1 - Enterprise & Software` … `7 - Developer & Systems Reference`), and **that folder sets its category**. Articles go in `<category>/articles/`.
+- **Books and articles:** `~/Books/library/` links to the NAS folder `~/Network/peralese/Books/Technical Books/`. Each source goes in a numbered category folder (`1 - Enterprise & Software` … `7 - Developer & Systems Reference`), and **that folder sets its category**. Articles go in `<category>/articles/`. Notes (short snippets) go in one Markdown file per topic in the category folder, e.g. `7 - Developer & Systems Reference/Claude Code Tips.md`; each `## ` heading becomes a citable section.
 - **Index:** `library/data/library.db` holds SQLite with FTS5 plus sqlite-vec and the full passage text. It's local only, gitignored and rebuildable. Search never touches the NAS.
 - **Embeddings:** local Ollama `nomic-embed-text` (Ollama must be running for indexing *and* search).
 

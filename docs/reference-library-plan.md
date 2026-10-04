@@ -1,6 +1,6 @@
 # Reference Library — Plan & Session Handoff
 
-_Last updated: 2026-10-02_
+_Last updated: 2026-10-03_
 
 ## How we got here
 
@@ -13,6 +13,8 @@ _Last updated: 2026-10-02_
 ## What goes in the library
 
 **Reference material only.** That means books, papers and lasting engineering write-ups, all stored as full text split into passages with citations. Timely or news-style articles stay in the current pipeline or get skipped.
+
+- **Notes (added 2026-10-03):** short snippets worth keeping, such as command switches, setup tricks and how-tos. They go in one Markdown file per topic inside the category folders (e.g. `7 - Developer & Systems Reference/Claude Code Tips.md`), with a heading, source and saved date for each entry. Say "save this as a note" in any Claude Code session. The steps are in `~/.claude/CLAUDE.md`. This replaces the old pipeline for snippets; nothing new was built (the indexer already reads `.md`). **Watch during the trial:** if notes crowd out book results, add a separate `note` source type then, not before.
 
 - **Books:** 83 unique O'Reilly titles, each in both EPUB and PDF. Use the **EPUBs**, which have cleaner chapter structure. File sizes run 3.8–21 MB.
 - **Articles:** reference-quality pieces, for example Anthropic's "Building Effective Agents" (https://www.anthropic.com/engineering/building-effective-agents). The ~20 articles already saved in `raw/domains/ai/articles/` keep their full text and can be indexed directly once I've sorted reference pieces from timely ones.
@@ -103,6 +105,7 @@ The same library supports reading a book with Claude as a reading partner, with 
 - [x] Built the pilot (2026-10-02): passage splitting, index, MCP server, standing instruction and `add_url.py`. See `library/README.md`. 4 books plus *Building Effective Agents* make 1,892 passages and a 17 MB index, indexed in ~90 s. Test questions returned the right book and chapter for both meaning and exact-word queries.
 - [ ] **Start the two-week trial (2026-10-03 → 2026-10-17).** Restart Claude Code so it picks up the server, then just work normally. Each time a library citation actually helped (or got in the way), jot down one line.
 - [ ] Sort the existing saved articles into reference and timely.
+- [x] Notes path set up (2026-10-03): standing instruction in `~/.claude/CLAUDE.md`, first file `Claude Code Tips.md` indexed and returned as the top search hit.
 - [ ] Two-week trial, then decide: add the remaining books, or freeze the knowledge base.
 - **Paused until the pilot proves useful:** the Concepts/Entities Browser, hybrid retrieval over compiled notes, and the Docling spike (the items in `context.md`).
 

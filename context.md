@@ -27,3 +27,12 @@ Build Phase 2A-4 Concepts/Entities Browser in the dashboard with stub/orphan/sou
 
 ## Suggested Resume Prompt
 "Continue developing the Concepts/Entities Browser dashboard with graph-health visualization"
+
+## status
+maintain
+
+## status_rationale
+Sophisticated pipeline, small corpus; unauthenticated write endpoint + public research data are open risks
+
+## status_updated
+2026-09-20
