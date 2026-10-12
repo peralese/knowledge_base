@@ -52,7 +52,7 @@ NAS: ~/Books/library -> ~/Network/peralese/Books/Technical Books/<n - Category>/
 
 ## v2
 
-The library runs on a **Mac mini** (always on, so it can serve other machines). The NAS is plain SMB storage and can't run anything.
+The library runs on a **Mac mini** that never sleeps; I reach it over SSH from other machines. The NAS is plain SMB storage and can't run anything.
 
 ### 1. Automatic indexing — done 2026-10-11
 
@@ -66,16 +66,12 @@ A launchd job, `com.library.indexer`, runs `indexer.py --auto` hourly and at log
 
 **macOS gotcha:** a launchd job can't read a network volume until the "access files on a network volume" prompt is allowed on the Mac mini's own screen. Before that, the read hangs for minutes and then fails with `EINTR`.
 
-### 2. Use from another computer at home (next)
+### 2. Use from another computer at home — not needed
 
-**Serve the library over the LAN from the Mac mini.** The MCP server already supports streamable HTTP, so it would run as a second launchd job on a fixed port. The other computer just registers `http://<mac-mini>.local:<port>/mcp` in Claude Code.
+I SSH into the Mac mini from other machines and run Claude Code there. The MCP server, the index, Ollama and the hourly job all live on the Mac mini, so no network serving or index syncing is required.
 
-- The other machine needs no index copy, no Ollama and no syncing. It always sees the latest index.
-- **To decide:**
-  - LAN-only binding plus a simple shared token, versus no auth on a trusted home network.
-  - Whether the stdio registration on the Mac mini stays as it is (simplest) or also moves to HTTP.
-  - Waking the Mac mini if it sleeps (Energy settings: "Prevent automatic sleeping", or wake on network access).
-- **Fallback, if the Mac mini can't stay on:** publish a read-only snapshot to `Technical Books/.index/` after each changing run, and keep a local server plus Ollama on the other machine.
+- Over SSH, the job's macOS notifications and any permission prompts appear on the Mac mini's own screen. Check with `indexer.py --status`.
+- If Claude Code ever has to run on another machine directly, serve MCP over streamable HTTP from the Mac mini (LAN only) rather than copying the index.
 
 ### Not planned
 
