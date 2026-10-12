@@ -15,10 +15,10 @@ Run from the repo root with `.venv/bin/python` (Python 3.12; sqlite-vec needs it
 | Do | Command |
 |---|---|
 | Index new/changed books (skips unchanged) | `.venv/bin/python indexer.py` |
-| Show counts, recent runs and failed files | `.venv/bin/python indexer.py --status` |
+| Show counts, recent runs, failed files and usage | `.venv/bin/python indexer.py --status` |
 | Remove many deleted books at once (see below) | `.venv/bin/python indexer.py --allow-removals` |
 | Rebuild from scratch (after a parser change) | `.venv/bin/python indexer.py --rebuild` |
-| Add a web article | `.venv/bin/python add_url.py <url> <category 1-7>` |
+| Add a web article (or ask Claude: `add_article`) | `.venv/bin/python add_url.py <url> <category 1-7>` |
 | Tests | `.venv/bin/python -m pytest tests -q` |
 
 To add a book, drop the EPUB in its category folder. The hourly job indexes it, or run `indexer.py` to do it now. Use EPUBs, not PDFs.
@@ -40,7 +40,31 @@ Run it now with `launchctl kickstart gui/$(id -u)/com.library.indexer`. Stop it 
 
 ## MCP
 
-Registered at user scope as `reference-library` (`claude mcp list`). Tools: `search(query, category?, source?, limit?)`, `read_section(section_id)` and `list_sources(category?)`. The standing instruction to use it lives in `~/.claude/CLAUDE.md` and in the server's own `instructions`.
+Registered at user scope as `reference-library` (`claude mcp list`). Its tools:
+
+| Tool | Does |
+|---|---|
+| `search(query, category?, source?, limit?)` | hybrid search; passages with citations |
+| `read_section(section_id)` | a whole section, with previous/next ids |
+| `list_sources(category?)` | books and articles by category |
+| `outline(source, chapter?)` | a book's chapters, or one chapter's sections, for reading with Claude |
+| `save_note(topic, heading, body, source, category)` | appends a note entry to `<category>/<topic>.md` on the NAS and indexes it at once |
+| `add_article(url, category)` | fetches a web page into `<category>/articles/` and indexes it at once |
+
+The standing instruction to use it lives in `~/.claude/CLAUDE.md` and in the server's own `instructions`.
+
+**Usage log:** every tool call is recorded in `data/usage.db`, kept apart from the index so `--rebuild` doesn't wipe it, with the Claude Code session's directory. `indexer.py --status` summarises the last 7 days. This shows whether the library is actually used.
+
+**Health at session start:** a user-level SessionStart hook in `~/.claude/settings.json` runs `indexer.py --health`. It prints one line only when indexing needs attention: failed books, held-back removals, or no run for 3+ hours. Over SSH, the job's macOS notifications are never seen, so this is how problems surface.
+
+## Skills
+
+`skills/` holds two Claude Code skills, symlinked into `~/.claude/skills/` so they work in every project:
+
+- **`/ask-books <question>`:** a cross-book answer covering what the books say, where they agree or disagree, and what they don't cover, with every claim cited.
+- **`/design-review [path|diff|doc]`:** reviews a design or codebase against the books. It gives findings ranked by impact, each with a citation and a suggestion, and can write an ADR.
+
+To install on a fresh machine: `ln -s "$PWD/skills/ask-books" "$PWD/skills/design-review" ~/.claude/skills/`.
 
 ## How it works
 

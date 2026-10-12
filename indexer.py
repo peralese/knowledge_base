@@ -7,7 +7,8 @@ so many look gone that the share is probably half-mounted.
 
   python indexer.py            index new/changed files (prints progress)
   python indexer.py --rebuild  drop the index and re-index everything
-  python indexer.py --status   counts, last runs and files that failed
+  python indexer.py --status   counts, last runs, failed files, library usage
+  python indexer.py --health   one line if indexing needs attention, else silent
   python indexer.py --auto     unattended run for launchd: exits quietly when
                                the NAS or Ollama is unavailable, logs to
                                logs/indexer.log, notifies on changes
@@ -23,7 +24,7 @@ import sqlite3
 import subprocess
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -31,6 +32,7 @@ import sqlite_vec
 
 from embed import OLLAMA_URL, embed_documents
 from parse import parse, split_passages
+import usage
 from store import DB_PATH, LIBRARY_ROOT, connect, delete_source
 
 SUFFIXES = {".epub", ".html", ".htm", ".md"}
@@ -103,6 +105,59 @@ def index_file(db: sqlite3.Connection, path: Path, rel: Path, category: int,
 
 
 
+def _process(db: sqlite3.Connection, root: Path, path: Path, log=print) -> tuple[str, str]:
+    """Bring one file's index entry up to date.
+
+    Returns (outcome, detail): outcome is skipped | unchanged | known-failure |
+    failed | added | updated; detail is the title, or the error for failures.
+    """
+    rel = path.relative_to(root)
+    category = _category(rel)
+    if category is None:
+        log(f"  skip (not in a numbered category folder): {rel}")
+        return "skipped", str(rel)
+    st = path.stat()
+    row = db.execute("SELECT id, sha256, category, size, mtime FROM sources "
+                     "WHERE rel_path = ?", (str(rel),)).fetchone()
+    if (row and row["category"] == category
+            and row["size"] == st.st_size and row["mtime"] == st.st_mtime):
+        return "unchanged", str(rel)
+    known_fail = db.execute("SELECT error FROM failures WHERE rel_path = ? AND size = ? "
+                            "AND mtime = ?", (str(rel), st.st_size, st.st_mtime)).fetchone()
+    if known_fail:
+        return "known-failure", known_fail["error"]
+    sha = _sha256(path)
+    if row and row["sha256"] == sha and row["category"] == category:
+        # Same content, new mtime (or size/mtime not recorded yet).
+        db.execute("UPDATE sources SET size = ?, mtime = ? WHERE id = ?",
+                   (st.st_size, st.st_mtime, row["id"]))
+        db.commit()
+        return "unchanged", str(rel)
+    if row:
+        delete_source(db, row["id"])
+    log(f"{'re-indexing' if row else 'indexing'} {rel}")
+    try:
+        index_file(db, path, rel, category, sha, log)
+    except httpx.HTTPError:
+        db.rollback()
+        raise  # Ollama trouble: stop, every file would fail
+    except Exception as e:  # a book that won't parse shouldn't stop the rest
+        db.rollback()
+        err = f"{type(e).__name__}: {e}"
+        log(f"  FAILED {rel}: {err}")
+        db.execute("INSERT OR REPLACE INTO failures (rel_path, size, mtime, error) "
+                   "VALUES (?, ?, ?, ?)", (str(rel), st.st_size, st.st_mtime, err))
+        db.commit()
+        return "failed", err
+    db.execute("UPDATE sources SET size = ?, mtime = ? WHERE rel_path = ?",
+               (st.st_size, st.st_mtime, str(rel)))
+    db.execute("DELETE FROM failures WHERE rel_path = ?", (str(rel),))
+    db.commit()
+    title = db.execute("SELECT title FROM sources WHERE rel_path = ?",
+                       (str(rel),)).fetchone()["title"]
+    return ("updated" if row else "added"), title
+
+
 def run(root: Path = LIBRARY_ROOT, log=print, db: sqlite3.Connection | None = None,
         allow_removals: bool = False) -> dict:
     if not root.exists():
@@ -116,58 +171,14 @@ def run(root: Path = LIBRARY_ROOT, log=print, db: sqlite3.Connection | None = No
     failed: list[str] = []    # files that failed this run (not previously known)
     note = None
     for path in discover(root):
-        rel = path.relative_to(root)
-        category = _category(rel)
-        if category is None:
-            log(f"  skip (not in a numbered category folder): {rel}")
-            stats["skipped"] += 1
-            continue
-        seen.add(str(rel))
-        st = path.stat()
-        row = db.execute("SELECT id, sha256, category, size, mtime FROM sources "
-                         "WHERE rel_path = ?", (str(rel),)).fetchone()
-        if (row and row["category"] == category
-                and row["size"] == st.st_size and row["mtime"] == st.st_mtime):
-            stats["unchanged"] += 1
-            continue
-        known_fail = db.execute("SELECT 1 FROM failures WHERE rel_path = ? AND size = ? "
-                                "AND mtime = ?", (str(rel), st.st_size, st.st_mtime)).fetchone()
-        if known_fail:
-            stats["failed"] += 1
-            continue
-        sha = _sha256(path)
-        if row and row["sha256"] == sha and row["category"] == category:
-            # Same content, new mtime (or size/mtime not recorded yet).
-            db.execute("UPDATE sources SET size = ?, mtime = ? WHERE id = ?",
-                       (st.st_size, st.st_mtime, row["id"]))
-            db.commit()
-            stats["unchanged"] += 1
-            continue
-        if row:
-            delete_source(db, row["id"])
-        log(f"{'re-indexing' if row else 'indexing'} {rel}")
-        try:
-            index_file(db, path, rel, category, sha, log)
-        except httpx.HTTPError:
-            db.rollback()
-            raise  # Ollama trouble: stop the run, every file would fail
-        except Exception as e:  # a book that won't parse shouldn't stop the rest
-            db.rollback()
-            err = f"{type(e).__name__}: {e}"
-            log(f"  FAILED {rel}: {err}")
-            db.execute("INSERT OR REPLACE INTO failures (rel_path, size, mtime, error) "
-                       "VALUES (?, ?, ?, ?)", (str(rel), st.st_size, st.st_mtime, err))
-            db.commit()
-            stats["failed"] += 1
-            failed.append(rel.name)
-            continue
-        db.execute("UPDATE sources SET size = ?, mtime = ? WHERE rel_path = ?",
-                   (st.st_size, st.st_mtime, str(rel)))
-        db.execute("DELETE FROM failures WHERE rel_path = ?", (str(rel),))
-        db.commit()
-        stats["updated" if row else "added"] += 1
-        changed.append(db.execute("SELECT title FROM sources WHERE rel_path = ?",
-                                  (str(rel),)).fetchone()["title"])
+        outcome, detail = _process(db, root, path, log)
+        if outcome != "skipped":
+            seen.add(str(path.relative_to(root)))
+        stats[{"known-failure": "failed"}.get(outcome, outcome)] += 1
+        if outcome in ("added", "updated"):
+            changed.append(detail)
+        elif outcome == "failed":
+            failed.append(path.name)
 
     gone = [r for r in db.execute("SELECT id, rel_path FROM sources").fetchall()
             if r["rel_path"] not in seen]
@@ -200,16 +211,33 @@ class Locked(Exception):
     pass
 
 
-def lock(path: Path = DB_PATH.parent / ".indexer.lock"):
-    """Hold an exclusive lock so a manual and a scheduled run never overlap."""
+def lock(path: Path = DB_PATH.parent / ".indexer.lock", wait: float = 0):
+    """Hold an exclusive lock so indexer runs never overlap.
+
+    Waits up to `wait` seconds for another run to finish.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     f = path.open("w")
+    deadline = time.monotonic() + wait
+    while True:
+        try:
+            fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return f  # keep it open; the lock lasts until it's closed
+        except BlockingIOError:
+            if time.monotonic() >= deadline:
+                f.close()
+                raise Locked(f"another indexer run holds {path}")
+            time.sleep(0.5)
+
+
+def index_path(path: Path, root: Path = LIBRARY_ROOT, db: sqlite3.Connection | None = None,
+               log=print, wait: float = 60, lock_path: Path | None = None) -> tuple[str, str]:
+    """Index one file now (for save_note/add_article), without a full run."""
+    held = lock(lock_path or DB_PATH.parent / ".indexer.lock", wait=wait)
     try:
-        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BlockingIOError:
-        f.close()
-        raise Locked(f"another indexer run holds {path}")
-    return f  # keep it open; the lock lasts until the process exits
+        return _process(db or connect(), root, path, log)
+    finally:
+        held.close()
 
 
 def ollama_up() -> bool:
@@ -255,7 +283,29 @@ def status(db: sqlite3.Connection | None = None) -> str:
     if fails:
         lines.append("Failed (retried when the file changes):")
         lines += [f"  {f['rel_path']}: {f['error']}" for f in fails]
+    lines += usage.summary()
     return "\n".join(lines)
+
+
+def health(db: sqlite3.Connection | None = None, stale_hours: float = 3) -> str | None:
+    """One line when indexing needs attention, else None (SessionStart hook)."""
+    db = db or connect()
+    problems = []
+    n_fail = db.execute("SELECT count(*) FROM failures").fetchone()[0]
+    if n_fail:
+        problems.append(f"{n_fail} file(s) failed to index")
+    last = db.execute("SELECT finished_at, note FROM runs ORDER BY id DESC LIMIT 1").fetchone()
+    if last and last["note"]:
+        problems.append(last["note"])
+    if not last:
+        problems.append("no indexer run recorded yet")
+    elif datetime.now() - datetime.fromisoformat(last["finished_at"]) > timedelta(hours=stale_hours):
+        problems.append(f"no index run since {last['finished_at']} "
+                        f"(NAS unreadable or Ollama down? see logs/indexer.log)")
+    if not problems:
+        return None
+    return ("Reference library needs attention: " + "; ".join(problems)
+            + ". Details: cd ~/Projects/knowledge_base && .venv/bin/python indexer.py --status")
 
 
 def auto() -> int:
@@ -308,6 +358,10 @@ if __name__ == "__main__":
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     if "--status" in flags:
         print(status())
+        sys.exit(0)
+    if "--health" in flags:
+        if msg := health():
+            print(msg)
         sys.exit(0)
     if "--auto" in flags:
         sys.exit(auto())

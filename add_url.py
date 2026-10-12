@@ -16,22 +16,17 @@ from pathlib import Path
 import httpx
 
 import indexer
+from notes import category_dir
 from parse import parse_article
 from store import CATEGORIES, LIBRARY_ROOT
 
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Safari/605.1.15"
 
 
-def category_dir(category: int) -> Path:
-    for d in LIBRARY_ROOT.iterdir():
-        if d.is_dir() and re.match(rf"^\s*{category}\b", d.name):
-            return d
-    raise SystemExit(f"No folder for category {category} under {LIBRARY_ROOT}")
-
-
-def add(url: str, category: int) -> Path:
+def add(url: str, category: int) -> tuple[Path, str]:
+    """Fetch and save the page; returns (saved file, one-line summary)."""
     if category not in CATEGORIES:
-        raise SystemExit(f"category must be 1-7, got {category}")
+        raise ValueError(f"category must be 1-7, got {category}")
     r = httpx.get(url, headers={"User-Agent": UA}, follow_redirects=True, timeout=60)
     r.raise_for_status()
     slug = re.sub(r"[^a-z0-9]+", "-", url.rstrip("/").split("/")[-1].lower()).strip("-") or "article"
@@ -44,16 +39,17 @@ def add(url: str, category: int) -> Path:
 
     doc = parse_article(dest)
     words = sum(len(s.text.split()) for s in doc.sections)
-    print(f"saved {dest.relative_to(LIBRARY_ROOT)}: {doc.title!r}, "
-          f"{len(doc.sections)} sections, {words} words")
+    msg = (f"saved {dest.relative_to(LIBRARY_ROOT)}: {doc.title!r}, "
+           f"{len(doc.sections)} sections, {words} words")
     if words < 200:
-        print("warning: very little text extracted — the page may need JavaScript "
-              "or be behind a login. Check before relying on it.")
-    return dest
+        msg += ("\nwarning: very little text extracted — the page may need JavaScript "
+                "or be behind a login. Check before relying on it.")
+    return dest, msg
 
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         raise SystemExit(__doc__)
-    add(sys.argv[1], int(sys.argv[2]))
-    print(indexer.run())
+    dest, msg = add(sys.argv[1], int(sys.argv[2]))
+    print(msg)
+    print(indexer.index_path(dest))

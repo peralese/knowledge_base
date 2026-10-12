@@ -73,6 +73,19 @@ I SSH into the Mac mini from other machines and run Claude Code there. The MCP s
 - Over SSH, the job's macOS notifications and any permission prompts appear on the Mac mini's own screen. Check with `indexer.py --status`.
 - If Claude Code ever has to run on another machine directly, serve MCP over streamable HTTP from the Mac mini (LAN only) rather than copying the index.
 
+### 3. Getting it used — built 2026-10-11
+
+Session transcripts showed that the library's first 17 searches (2026-10-02 to 10-11) all came from this repo, mostly tests. My real uses are day-job architecture work, ad-hoc technical questions and reading the books. So:
+
+- **Usage log** (`data/usage.db`, summarised by `--status`): whether it's used, from which projects, and which books answer.
+- **Sharper standing instruction**, in `~/.claude/CLAUDE.md` and the server's instructions: search at concrete *moments* (design choices, architecture write-ups, technical questions, reading), not by topic.
+- **Health line** at session start (SessionStart hook → `indexer.py --health`), silent when fine.
+- **Skills:** `/ask-books` (a cross-book answer) and `/design-review` (a design checked against the books, with an optional ADR).
+- **Reading support:** the `outline` tool. No progress tracking, by design.
+- **Save from any project:** `save_note` and `add_article`, both indexed at once via `indexer.index_path()`. That takes the indexer lock, waiting for an hourly run if one is in progress.
+
+**Next decision (after 2026-10-17):** review `--status` usage. If real use shows up, carry on. If it doesn't, the trigger isn't the problem and the library's value should be questioned before anything more is built.
+
 ### Not planned
 
 PDF or video ingestion, retrieval tuning, a browse UI and study tools. Revisit only if real use shows a need.
