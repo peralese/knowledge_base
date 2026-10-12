@@ -2,7 +2,7 @@
 
 Register once, at user level:
   claude mcp add --scope user reference-library -- \\
-      <repo>/library/.venv/bin/python <repo>/library/server.py
+      <repo>/.venv/bin/python <repo>/server.py
 """
 from __future__ import annotations
 
