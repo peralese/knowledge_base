@@ -36,7 +36,23 @@ CREATE TABLE IF NOT EXISTS sources (
     authors TEXT NOT NULL,
     category INTEGER NOT NULL,
     url TEXT,
-    indexed_at TEXT NOT NULL DEFAULT (datetime('now'))
+    indexed_at TEXT NOT NULL DEFAULT (datetime('now')),
+    size INTEGER,                    -- file size and mtime at indexing time:
+    mtime REAL                       -- unchanged ones skip re-hashing over SMB
+);
+CREATE TABLE IF NOT EXISTS failures (
+    rel_path TEXT PRIMARY KEY,       -- files that failed to parse/index; retried
+    size INTEGER NOT NULL,           -- only once they change on disk
+    mtime REAL NOT NULL,
+    error TEXT NOT NULL,
+    failed_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS runs (
+    id INTEGER PRIMARY KEY,
+    started_at TEXT NOT NULL,
+    finished_at TEXT NOT NULL DEFAULT (datetime('now')),
+    stats TEXT NOT NULL,             -- JSON counts from indexer.run()
+    note TEXT                        -- e.g. why removals were held back
 );
 CREATE TABLE IF NOT EXISTS sections (
     id INTEGER PRIMARY KEY,
@@ -76,6 +92,12 @@ def connect(path: Path = DB_PATH) -> sqlite3.Connection:
     db.execute("PRAGMA foreign_keys = ON")
     db.execute("PRAGMA journal_mode = WAL")
     db.executescript(SCHEMA)
+    # Indexes built before size/mtime existed get the columns added in place;
+    # the next indexer run fills them in.
+    cols = {r["name"] for r in db.execute("PRAGMA table_info(sources)")}
+    for col, typ in (("size", "INTEGER"), ("mtime", "REAL")):
+        if col not in cols:
+            db.execute(f"ALTER TABLE sources ADD COLUMN {col} {typ}")
     return db
 
 

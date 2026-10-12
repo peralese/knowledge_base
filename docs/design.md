@@ -50,29 +50,32 @@ NAS: ~/Books/library -> ~/Network/peralese/Books/Technical Books/<n - Category>/
 - **No LLM summarizing.** The full passage is what's worth citing.
 - **Prefer EPUBs to PDFs.**
 
-## Next: v2
+## v2
 
-The NAS is plain SMB storage and can't run anything, and this Mac is a laptop that sleeps. Both shape the design.
+The library runs on a **Mac mini** (always on, so it can serve other machines). The NAS is plain SMB storage and can't run anything.
 
-### 1. Automatic indexing (this Mac)
+### 1. Automatic indexing — done 2026-10-11
 
-Books and notes dropped on the NAS should get indexed without anyone running a command.
+A launchd job, `com.library.indexer`, runs `indexer.py --auto` hourly and at login. Details are in the README under *Automatic indexing*. In brief:
 
-- **Trigger:** a launchd agent, `com.library.indexer`, with `StartInterval` 3600 and `RunAtLoad`. `WatchPaths` doesn't fire reliably on SMB mounts. It exits quietly when the NAS isn't mounted or Ollama is down.
-- **Cheap change detection:** store `size` and `mtime` per source and hash only files where either changed. Today every run reads about 1 GB over SMB to hash every file.
-- **Removal guard:** if more than ~20% of sources (or more than 5) look gone, skip removals and log it. This stops a half-mounted share from wiping the index.
-- **Lock:** an `fcntl` lock on `data/.indexer.lock`, so manual and scheduled runs can't overlap.
-- **Feedback:** write to `logs/indexer.log`, send a macOS notification when books are added or a parse fails, and add an `indexer.py --status` flag.
+- It records each file's size and modified time, so a run with nothing new takes ~0.1 s instead of re-reading ~1 GB over SMB.
+- A removal guard holds back removals when more than 5 files look gone.
+- Files that fail to parse are recorded and retried only once they change.
+- An `fcntl` lock prevents overlapping runs.
+- Each run is logged, notifications go out on changes, and there's an `indexer.py --status` flag.
 
-### 2. Use from another computer at home
+**macOS gotcha:** a launchd job can't read a network volume until the "access files on a network volume" prompt is allowed on the Mac mini's own screen. Before that, the read hangs for minutes and then fails with `EINTR`.
 
-**Publish a read-only index snapshot to the NAS, and run a local MCP server on each machine.**
+### 2. Use from another computer at home (next)
 
-- After a run that changed something, write a consistent copy using SQLite's backup API to `Technical Books/.index/library.db`, plus a `manifest.json` (timestamp, counts, embed model). `discover()` already skips dotfiles.
-- **The other computer** gets a clone of the repo, the venv, Ollama with `nomic-embed-text` (queries need embeddings) and the MCP server registered. A `sync_index.py` copies the snapshot locally when the manifest is newer. The database is never opened live over SMB.
-- This works while the laptop sleeps, and needs no networking or auth. It costs ~190 MB copied per change.
-- **Later, only if needed:** MCP over streamable HTTP from an always-on box.
-- **Open question:** the other computer's OS, which decides the sync trigger.
+**Serve the library over the LAN from the Mac mini.** The MCP server already supports streamable HTTP, so it would run as a second launchd job on a fixed port. The other computer just registers `http://<mac-mini>.local:<port>/mcp` in Claude Code.
+
+- The other machine needs no index copy, no Ollama and no syncing. It always sees the latest index.
+- **To decide:**
+  - LAN-only binding plus a simple shared token, versus no auth on a trusted home network.
+  - Whether the stdio registration on the Mac mini stays as it is (simplest) or also moves to HTTP.
+  - Waking the Mac mini if it sleeps (Energy settings: "Prevent automatic sleeping", or wake on network access).
+- **Fallback, if the Mac mini can't stay on:** publish a read-only snapshot to `Technical Books/.index/` after each changing run, and keep a local server plus Ollama on the other machine.
 
 ### Not planned
 

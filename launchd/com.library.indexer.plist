@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Hourly unattended index run (indexer.py --auto). Install:
+    cp launchd/com.library.indexer.plist ~/Library/LaunchAgents/
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.library.indexer.plist
+  Run now:  launchctl kickstart gui/$(id -u)/com.library.indexer
+  Remove:   launchctl bootout gui/$(id -u)/com.library.indexer
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.library.indexer</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/erickperales/Projects/knowledge_base/.venv/bin/python</string>
+        <string>/Users/erickperales/Projects/knowledge_base/indexer.py</string>
+        <string>--auto</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/erickperales/Projects/knowledge_base</string>
+    <key>StartInterval</key>
+    <integer>3600</integer>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>LowPriorityIO</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/Users/erickperales/Projects/knowledge_base/logs/indexer.launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/erickperales/Projects/knowledge_base/logs/indexer.launchd.log</string>
+</dict>
+</plist>
